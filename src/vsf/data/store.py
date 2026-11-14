@@ -38,6 +38,9 @@ class Store:
         )
         self._db.commit()
 
+    def close(self) -> None:
+        self._db.close()
+
     def _put(self, key: str, body: bytes, is_json: int) -> None:
         self._db.execute(
             "INSERT OR REPLACE INTO api_cache VALUES(?,?,?,?)",

@@ -54,6 +54,12 @@ class Assembled:
     latest_year: int
 
 
+def _receipt(rcept_no: str | None) -> str:
+    """출처 글에 붙이는 ", 접수번호 …". 접수번호가 없으면 빈 글자예요 (스펙 6.6)."""
+    number = str(rcept_no or "").strip()
+    return f", 접수번호 {number}" if number else ""
+
+
 # ---- 배당 보고서 ----
 
 def _dps_row(rows: list[dict]) -> dict | None:
@@ -67,29 +73,34 @@ def _dps_row(rows: list[dict]) -> dict | None:
     return None
 
 
-def dps_from_report(rows: list[dict], year: int) -> dict[int, float | None]:
-    """배당 보고서 하나 → {year: 당기, year−1: 전기, year−2: 전전기}. "-"는 0.0, 값이 없으면 None."""
-    row = _dps_row(rows or []) or {}
+def _dps_values(row: dict | None, year: int) -> dict[int, float | None]:
     out: dict[int, float | None] = {}
     for back, column in enumerate(_DPS_COLUMNS):
-        text = row.get(column) or ""
+        text = (row or {}).get(column) or ""
         out[year - back] = 0.0 if text.strip() == "-" else parse_amount(text)
     return out
 
 
+def dps_from_report(rows: list[dict], year: int) -> dict[int, float | None]:
+    """배당 보고서 하나 → {year: 당기, year−1: 전기, year−2: 전전기}. "-"는 0.0, 값이 없으면 None."""
+    return _dps_values(_dps_row(rows or []), year)
+
+
 def _merge_dps(div_reports: dict[int, list[dict]]
-               ) -> tuple[dict[int, float | None], dict[int, int], list[str]]:
-    """해마다 DPS, 그 값을 준 보고서 연도, 플래그. 겹치는 해는 더 최근 보고서 값이 먼저예요."""
+               ) -> tuple[dict[int, float | None], dict[int, str], list[str]]:
+    """해마다 DPS, 그 값의 출처 글, 플래그. 겹치는 해는 더 최근 보고서 값이 먼저예요."""
     values: dict[int, float | None] = {}
-    origin: dict[int, int] = {}
+    origin: dict[int, str] = {}
     flags: list[str] = []
     for report_year in sorted(div_reports, reverse=True):
-        for y, v in dps_from_report(div_reports[report_year], report_year).items():
+        row = _dps_row(div_reports[report_year] or [])
+        receipt = _receipt((row or {}).get("rcept_no"))
+        for y, v in _dps_values(row, report_year).items():
             kept = values.get(y)
             if kept is None:            # 처음 보는 해이거나, 더 최근 보고서에 값이 없던 해
                 values[y] = v
                 if v is not None:
-                    origin[y] = report_year
+                    origin[y] = f"{report_year} 사업보고서 배당에 관한 사항(보통주{receipt})"
             elif v is not None and abs(v - kept) > DPS_TOLERANCE * abs(kept):
                 flag = DPS_FLAG.format(y=y)
                 if flag not in flags:
@@ -117,6 +128,7 @@ class _Period:
 
     report_year: int
     fs: str
+    rcept_no: str
     acc: dict[str, Sourced]
 
 
@@ -142,7 +154,7 @@ def _periods(fin: FinRows | None, report_year: int) -> dict[int, _Period]:
     """보고서 → {해: 그해 계정}. 당기·전기·전전기가 report_year, −1, −2예요."""
     if fin is None:
         return {}
-    return {report_year - back: _Period(report_year, fin.fs, extract(fin, period))
+    return {report_year - back: _Period(report_year, fin.fs, fin.rcept_no, extract(fin, period))
             for back, period in enumerate(PERIODS)}
 
 
@@ -158,11 +170,10 @@ def _equity(p: _Period) -> Sourced:
 
 
 def _label(*periods: _Period) -> str:
-    """"2025 사업보고서(연결)". 두 보고서를 함께 쓰면 "2025·2023 사업보고서(연결)"."""
+    """"2025 사업보고서(연결, 접수번호 …)". 두 보고서를 함께 쓰면 최근 것부터 쉼표로 이어요."""
     ordered = sorted(periods, key=lambda p: -p.report_year)
-    years = dict.fromkeys(str(p.report_year) for p in ordered)
-    kinds = dict.fromkeys(_FS_NAME.get(p.fs, p.fs) for p in ordered)
-    return f"{'·'.join(years)} 사업보고서({'·'.join(kinds)})"
+    names = (f"{p.report_year} 사업보고서({_FS_NAME.get(p.fs, p.fs)}{_receipt(p.rcept_no)})" for p in ordered)
+    return ", ".join(dict.fromkeys(names))
 
 
 def _account(s: Sourced) -> str:
@@ -223,7 +234,7 @@ def _dps(div_reports: dict[int, list[dict]], latest: int, years: range, out: _Ou
     for y in years:
         if values.get(y) is not None:
             addr = _cell(y, latest, 29) if y > latest - 5 else f"{_COLS[y - latest + 9]}42"
-            out.sources[addr] = f"{origin[y]} 사업보고서 배당에 관한 사항(보통주)"
+            out.sources[addr] = origin[y]
     return {y: values.get(y) for y in years}
 
 

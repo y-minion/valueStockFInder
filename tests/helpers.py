@@ -320,8 +320,9 @@ def synthetic_company(*, interest_expense=_KEEP, interest_paid=_KEEP, eps=_KEEP,
         for account_id in _SYN_PARENT_ONLY:
             table_a.pop(account_id)
             table_b.pop(account_id)
-    fin_a = _syn_fin(2025, table_a, fs, currency, "20260310000001")
-    fin_b = _syn_fin(2023, table_b, fs, currency, "20240311000002")
+    # 사업보고서 하나는 접수번호 하나예요: 재무제표와 배당에 관한 사항(div_rows)이 같은 번호를 써요.
+    fin_a = _syn_fin(2025, table_a, fs, currency, "20260310000123")
+    fin_b = _syn_fin(2023, table_b, fs, currency, "20240310000123")
 
     divs = {y: div_rows(*v, year=y) for y, v in _SYN_DPS.items()}
     if dps is None:

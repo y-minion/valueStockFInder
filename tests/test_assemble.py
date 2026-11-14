@@ -20,6 +20,9 @@ YEARS = [2021, 2022, 2023, 2024, 2025]
 FIN_FIELDS = ("eps", "per", "roe", "debt_ratio", "interest_coverage", "net_income", "ocf", "capex",
               "dividends_paid")
 EQUITY_PARENT = "ifrs-full_EquityAttributableToOwnersOfParent"
+# 합성 회사의 두 사업보고서 (출처 글 앞부분)
+A_REPORT = "2025 사업보고서(연결, 접수번호 20260310000123)"
+B_REPORT = "2023 사업보고서(연결, 접수번호 20240310000123)"
 
 
 def _set_amount(fin, account_id: str, period: str, text: str):
@@ -158,7 +161,7 @@ def test_roe_year_end_equity_a_first_then_b():
 def test_pbr_estimate(base):
     # 97,000 ÷ (58조 ÷ (7,560,983,456,789 ÷ 19,382)) = 0.652…
     assert base.inputs.pbr == 0.65 and "PBR은 추정값이에요" in base.notes
-    assert base.sources["B22"] == "2026-11-13 종가 ÷ 추정 BPS(2025 사업보고서(연결) · 자본 ÷ (순이익 ÷ EPS))"
+    assert base.sources["B22"] == f"2026-11-13 종가 ÷ 추정 BPS({A_REPORT} · 자본 ÷ (순이익 ÷ EPS))"
 
 
 def test_pbr_and_per_need_positive_eps():
@@ -169,21 +172,32 @@ def test_pbr_and_per_need_positive_eps():
 
 def test_sources_examples(base):
     s = base.sources
-    assert s["F27"] == "2025 사업보고서(연결) · ifrs-full_BasicEarningsLossPerShare"
-    assert s["B27"] == "2023 사업보고서(연결) · ifrs-full_BasicEarningsLossPerShare"
-    assert s["B28"] == "2021-12-30 종가 ÷ EPS"
-    assert s["F29"] == "2025 사업보고서 배당에 관한 사항(보통주)"
-    assert s["D29"] == "2025 사업보고서 배당에 관한 사항(보통주)"    # 2023년은 두 보고서에 있고 최근 것이 먼저
-    assert s["C29"] == "2023 사업보고서 배당에 관한 사항(보통주)"
-    assert s["F42"] == "2021 사업보고서 배당에 관한 사항(보통주)"
-    assert s["D30"] == "2025·2023 사업보고서(연결) · 순이익 ÷ 2022·2023년 말 평균 자본"
-    assert s["B30"] == "2023 사업보고서(연결) · 순이익 ÷ 2021년 말 자본"
-    assert s["F31"] == "2025 사업보고서(연결) · 부채총계 ÷ 자본총계"
-    assert s["F32"] == "2025 사업보고서(연결) · 영업이익 ÷ 이자비용"
-    assert s["F33"] == "2025 사업보고서(연결) · ifrs-full_ProfitLossAttributableToOwnersOfParent"
-    assert s["B35"] == ("2023 사업보고서(연결) · "
+    assert s["F27"] == "2025 사업보고서(연결, 접수번호 20260310000123) · ifrs-full_BasicEarningsLossPerShare"
+    assert s["B27"] == f"{B_REPORT} · ifrs-full_BasicEarningsLossPerShare"
+    assert s["B28"] == "2021-12-30 종가 ÷ EPS"                         # KRX 종가에는 접수번호가 없어요
+    assert s["F29"] == "2025 사업보고서 배당에 관한 사항(보통주, 접수번호 20260310000123)"
+    # 2023년 DPS는 두 배당 보고서에 있고 최근 것이 먼저예요
+    assert s["D29"] == "2025 사업보고서 배당에 관한 사항(보통주, 접수번호 20260310000123)"
+    assert s["C29"] == "2023 사업보고서 배당에 관한 사항(보통주, 접수번호 20240310000123)"
+    assert s["F42"] == "2021 사업보고서 배당에 관한 사항(보통주, 접수번호 20220310000123)"
+    assert s["D30"] == f"{A_REPORT}, {B_REPORT} · 순이익 ÷ 2022·2023년 말 평균 자본"
+    assert s["B30"] == f"{B_REPORT} · 순이익 ÷ 2021년 말 자본"
+    assert s["F31"] == f"{A_REPORT} · 부채총계 ÷ 자본총계"
+    assert s["F32"] == f"{A_REPORT} · 영업이익 ÷ 이자비용"
+    assert s["F33"] == f"{A_REPORT} · ifrs-full_ProfitLossAttributableToOwnersOfParent"
+    assert s["B35"] == (f"{B_REPORT} · "
                        "ifrs-full_PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities")
     assert s["B20"] == "KRX 2026-11-13 종가" and s["B18"] == "KRX 종목 목록 · DART 고유번호 99000270"
+
+
+def test_receipt_number_left_out_when_missing():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    divs = {**divs, 2025: [{k: v for k, v in r.items() if k != "rcept_no"} for r in divs[2025]]}
+    a = assemble(co, L, replace(fin_a, rcept_no=""), fin_b, divs, ye, price, d)
+    assert a.sources["F27"] == "2025 사업보고서(연결) · ifrs-full_BasicEarningsLossPerShare"
+    assert a.sources["D30"] == f"2025 사업보고서(연결), {B_REPORT} · 순이익 ÷ 2022·2023년 말 평균 자본"
+    assert a.sources["F29"] == a.sources["D29"] == "2025 사업보고서 배당에 관한 사항(보통주)"
+    assert a.sources["C29"] == "2023 사업보고서 배당에 관한 사항(보통주, 접수번호 20240310000123)"
 
 
 def test_every_filled_input_cell_has_a_source(base):
@@ -240,7 +254,7 @@ def test_interest_paid_proxy_values_and_notes():
     assert [r.interest_coverage for r in a.inputs.years] == [30.7, 31.45, 64.49, 126.67, 999]
     assert [n for n in a.notes if "이자의 지급" in n] == [
         f"{y}년 이자보상배율은 '이자의 지급'으로 계산했어요" for y in YEARS]
-    assert a.sources["F32"] == "2025 사업보고서(연결) · 영업이익 ÷ 이자의 지급(0이라 999)"
+    assert a.sources["F32"] == f"{A_REPORT} · 영업이익 ÷ 이자의 지급(0이라 999)"
 
 
 def test_interest_expense_zero_and_missing_parts():
@@ -262,7 +276,7 @@ def test_ofs_uses_separate_statement_accounts():
     assert [r.roe for r in y] == [14.76, 15.45, 21.22, 19.89, 13.62]           # ÷ 연말 자본총계 평균
     assert a.inputs.pbr == 0.66 and a.flags == ()
     assert a.notes == ("별도 재무제표 기준이에요", "2021년 ROE는 기말 자본 기준이에요", "PBR은 추정값이에요")
-    assert a.sources["F33"] == "2025 사업보고서(별도) · ifrs-full_ProfitLoss"
+    assert a.sources["F33"] == "2025 사업보고서(별도, 접수번호 20260310000123) · ifrs-full_ProfitLoss"
 
 
 def test_currency_flag_text_and_memo():
@@ -281,7 +295,7 @@ def test_split_puts_old_eps_and_closes_on_one_basis(base):
     assert [r.eps for r in a.inputs.years] == [5937, 6747.5, 11084, 12446.5, 9691]
     assert [r.per for r in a.inputs.years] == [r.per for r in base.inputs.years]   # 종가도 같은 기준으로 바꿔요
     assert a.flags == (SPLIT_FLAG,) and a.inputs.pbr == base.inputs.pbr
-    assert a.sources["B27"] == "2023 사업보고서(연결) · ifrs-full_BasicEarningsLossPerShare ÷ 2(액면분할 조정)"
+    assert a.sources["B27"] == f"{B_REPORT} · ifrs-full_BasicEarningsLossPerShare ÷ 2(액면분할 조정)"
     assert a.sources["B28"] == "2021-12-30 종가 × 0.5(주식 수 변화 반영) ÷ EPS"
     assert a.inputs.memo.endswith(f"종가. {SPLIT_FLAG}")
 
@@ -322,7 +336,7 @@ def test_name_matched_account_is_marked_in_source():
             for r in fin_a.rows]
     a = assemble(co, L, replace(fin_a, rows=rows), fin_b, divs, ye, price, d)
     assert a.inputs.years[4].capex == 30333
-    assert a.sources["F35"] == "2025 사업보고서(연결) · 유형자산의 취득(이름으로 찾음)"
+    assert a.sources["F35"] == f"{A_REPORT} · 유형자산의 취득(이름으로 찾음)"
 
 
 # ---- 배당 보고서 ----
@@ -375,4 +389,4 @@ def test_quick_fail_fills_only_basics():
     assert i.memo == "" and i.pbr is None and i.prior_dps == (None,) * 5
     assert a.notes == ("최근 3년 중 배당을 안 준 해가 있어 관문 ②에서 탈락이라, 나머지 숫자는 받지 않았어요.",)
     assert a.flags == () and a.latest_year == 2025 and set(a.sources) == _filled(i)
-    assert a.sources["E29"] == "2025 사업보고서 배당에 관한 사항(보통주)"
+    assert a.sources["E29"] == "2025 사업보고서 배당에 관한 사항(보통주, 접수번호 20260310000123)"

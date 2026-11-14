@@ -25,6 +25,25 @@ from vsf.data.dart import BASE as DART_BASE  # noqa: E402
 COMPANIES = {"기아": "000270", "제일기획": "030000"}
 
 
+class RecorderError(Exception):
+    """요청 실패. 메시지에는 엔드포인트 이름과 상태 코드만 담아요 (URL·키 없음)."""
+
+
+def fetch(http: httpx.Client, endpoint: str, key: str, **params) -> httpx.Response:
+    """GET 한 번. 실패해도 예외·출력에 URL(=API 키)이 남지 않게 해요."""
+    failure: str | None = None
+    resp = None
+    try:
+        resp = http.get(DART_BASE + endpoint, params={"crtfc_key": key, **params})
+        if resp.status_code >= 400:
+            failure = f"HTTP {resp.status_code}"
+    except httpx.HTTPError as e:
+        failure = f"연결 오류 ({type(e).__name__})"
+    if failure is not None:  # except 블록 밖에서 던져서 원본 예외가 연결되지 않아요
+        raise RecorderError(f"{endpoint} 요청이 실패했어요: {failure}")
+    return resp
+
+
 def _scrub(text: str, key: str) -> str:
     return re.sub(r"crtfc_key=[^&\"'\s]*", "crtfc_key=REMOVED", text.replace(key, "REMOVED"))
 
@@ -35,9 +54,7 @@ def record_dart(key: str, out: Path) -> int:
     written: list[str] = []
 
     def get(endpoint: str, **params) -> httpx.Response:
-        r = http.get(DART_BASE + endpoint, params={"crtfc_key": key, **params})
-        r.raise_for_status()
-        return r
+        return fetch(http, endpoint, key, **params)
 
     def save_json(name: str, resp: httpx.Response, truncate: int | None = None) -> None:
         data = resp.json()
@@ -98,7 +115,11 @@ def main(argv: list[str] | None = None) -> int:
         print("keys.toml이 준비되면 다시 실행해 주세요.", file=sys.stderr)
         return 2
     if args.cmd == "dart":
-        return record_dart(keys.dart, ROOT / "tests" / "fixtures" / "dart" / "recorded")
+        try:
+            return record_dart(keys.dart, ROOT / "tests" / "fixtures" / "dart" / "recorded")
+        except RecorderError as e:
+            print(f"녹화를 멈췄어요. {e}", file=sys.stderr)
+            return 1
     return 2
 
 

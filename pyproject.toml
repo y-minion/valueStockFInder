@@ -1,0 +1,24 @@
+[project]
+name = "vsf"
+version = "0.1.0"
+description = "주간 배당주 스크리너"
+requires-python = ">=3.12"
+dependencies = ["httpx>=0.27", "lxml>=5.2"]
+
+[dependency-groups]
+dev = ["pytest>=8.2", "formulas>=1.2", "openpyxl>=3.1.5"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vsf"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]   # tests에서 `import tools.dump_formulas`, `from helpers import …`
+markers = [
+  "template: 원본 계산기 파일이 있어야 도는 테스트 (없으면 건너뜀)",
+  "slow: formulas로 엑셀 파일을 다시 계산하는 느린 테스트",
+]

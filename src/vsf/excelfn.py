@@ -26,7 +26,8 @@ def excel_text(x: float | date, fmt: str) -> str:
             raise ValueError("날짜 형식에는 날짜가 필요해요")
         return x.strftime("%Y-%m-%d")
     if fmt == "0%":
-        return f"{_quant(float(Decimal(repr(x)) * 100), 0):f}%"
+        # TEXT의 퍼센트는 이진수 실제 값(0.605 → 0.60499…)으로 반올림해요.
+        return f"{(Decimal(x) * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP):f}%"
     if fmt not in _NUMBER_FORMATS:
         raise ValueError(f"지원하지 않는 형식이에요: {fmt}")
     digits, comma = _NUMBER_FORMATS[fmt]

@@ -445,3 +445,83 @@ def run_only(code: str, kia_price: float, **kwargs):
 
 
 RUN_1114 = run(kia_price=60000.0)
+
+
+# ---- Task 18: 엑셀 내보내기 ----
+
+import hashlib  # noqa: E402
+import posixpath  # noqa: E402
+import shutil  # noqa: E402
+import tempfile  # noqa: E402
+import zipfile  # noqa: E402
+
+from lxml import etree  # noqa: E402
+
+OTHER_SHEETS = {"사용법", "예시_제일기획", "예시_기아", "비교표", "기준값", "용어사전"}
+D = date(2026, 11, 14)
+_NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+_R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _target(base: str, target: str) -> str:
+    return target.lstrip("/") if target.startswith("/") else posixpath.normpath(posixpath.join(posixpath.dirname(base), target))
+
+
+class XlsxReader:
+    """내보낸 xlsx를 zip+lxml로 읽어요 (openpyxl 없이, 캐시된 값 그대로)."""
+
+    def __init__(self, path: Path):
+        self.z = zipfile.ZipFile(path)
+        wb = etree.fromstring(self.z.read("xl/workbook.xml"))
+        rels = etree.fromstring(self.z.read("xl/_rels/workbook.xml.rels"))
+        targets = {r.get("Id"): _target("xl/workbook.xml", r.get("Target")) for r in rels}
+        self._paths = {s.get("name"): targets[s.get(_R)] for s in wb.iterfind(".//m:sheet", _NS)}
+        self.sheet_names = list(self._paths)
+
+    def cell(self, sheet: str, addr: str) -> tuple[str | None, str | None]:
+        root = etree.fromstring(self.z.read(self._paths[sheet]))
+        for c in root.iterfind(".//m:c", _NS):
+            if c.get("r") == addr:
+                v = c.find("m:v", _NS)
+                if v is not None:
+                    return c.get("t"), v.text or ""
+                t = c.find("m:is/m:t", _NS)
+                return c.get("t"), (t.text or "") if t is not None else None
+        return None, None
+
+    def chart_xml_for(self, sheet: str) -> str:
+        path = self._paths[sheet]
+        rels = etree.fromstring(self.z.read(posixpath.join(posixpath.dirname(path), "_rels", posixpath.basename(path) + ".rels")))
+        out = []
+        for r in rels:
+            if r.get("Type").endswith("/drawing"):
+                dpath = _target(path, r.get("Target"))
+                drels = etree.fromstring(self.z.read(posixpath.join(posixpath.dirname(dpath), "_rels", posixpath.basename(dpath) + ".rels")))
+                out += [self.z.read(_target(dpath, d.get("Target"))).decode("utf-8")
+                        for d in drels if d.get("Type").endswith("/chart")]
+        return "\n".join(out)
+
+
+def formulas_eval(path: Path, sheet: str) -> SheetValues:
+    """내보낸 파일을 formulas로 다시 계산해서 FORMULA_CELLS 값을 정답 자료와 같은 모양으로 돌려줘요."""
+    import formulas
+
+    with tempfile.TemporaryDirectory() as tmp:
+        copy = Path(tmp) / "calc.xlsx"
+        shutil.copyfile(path, copy)
+        wb = openpyxl.load_workbook(copy)
+        del wb["비교표"]   # INDIRECT 잡음을 피해요
+        wb.save(copy)
+        result = formulas.ExcelModel().loads(str(copy)).finish().calculate()
+    by_key = {str(k).upper(): v for k, v in result.items()}
+    suffix = f"]{sheet}'!".upper()
+    out: SheetValues = {}
+    for addr in FORMULA_CELLS:
+        hits = [v for k, v in by_key.items() if k.endswith(suffix + addr)]
+        assert len(hits) == 1, f"{addr} 계산 결과를 찾을 수 없어요 ({len(hits)}개)"
+        out[addr] = _normalize(hits[0].value[0][0])
+    return out

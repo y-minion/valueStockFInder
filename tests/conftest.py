@@ -18,10 +18,15 @@ def template_path() -> Path:
 RECORDED_SKIP = "실제 API 녹화 자료가 아직 없어요 (keys.toml 준비 후 tools/record_fixtures.py 실행)"
 
 
+# 테스트 파일 이름과 녹화 폴더 이름이 다른 경우 (test_accounts.py -> fixtures/dart/recorded)
+RECORDED_FOLDER = {"accounts": "dart"}
+
+
 def pytest_collection_modifyitems(config, items):
     """@pytest.mark.recorded 테스트는 녹화 폴더가 비어 있으면 건너뛰어요."""
     def has_recorded(item) -> bool:
         source = Path(str(item.fspath)).stem.removeprefix("test_")  # test_dart.py -> dart
+        source = RECORDED_FOLDER.get(source, source)
         folder = ROOT / "tests" / "fixtures" / source / "recorded"
         return folder.is_dir() and any(folder.iterdir())
 

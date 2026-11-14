@@ -91,3 +91,66 @@ def approx_cells(cells: dict, exclude: Iterable[str] = ()) -> dict:
     return {a: (pytest.approx(float(v), rel=1e-9, abs=1e-9)
                 if isinstance(v, (int, float)) and not isinstance(v, bool) else v)
             for a, v in cells.items() if a not in skip}
+
+
+RECORDED_DART = ROOT / "tests" / "fixtures" / "dart" / "recorded"
+_RECORDED_FIN = {"kia": "000270", "cheil": "030000"}
+_NO_ID = "-표준계정코드 미사용-"
+
+
+def load_fin(name: str):
+    """녹화한 재무제표 응답을 읽어요. 이름 예: "kia_2025_cfs" → fin_000270_2025_cfs.json."""
+    from vsf.data.dart import FinRows
+
+    company, year, fs = name.split("_")
+    doc = json.loads((RECORDED_DART / f"fin_{_RECORDED_FIN[company]}_{year}_{fs}.json")
+                     .read_text(encoding="utf-8"))
+    rows = doc["list"]
+    return FinRows(rows=rows, fs=fs.upper(), rcept_no=rows[0]["rcept_no"])
+
+
+def fin_row(sj_div: str, account_id: str, account_nm: str, thstrm="", frmtrm="", bfefrmtrm="",
+            ord: int = 1) -> dict:
+    """fnlttSinglAcntAll 목록 한 줄을 문서화된 모양 그대로 만들어요 (금액은 글자)."""
+    return {"rcept_no": "20260310000001", "reprt_code": "11011", "bsns_year": "2025",
+            "corp_code": "99000270", "sj_div": sj_div, "account_id": account_id,
+            "account_nm": account_nm, "thstrm_amount": str(thstrm), "frmtrm_amount": str(frmtrm),
+            "bfefrmtrm_amount": str(bfefrmtrm), "ord": str(ord), "currency": "KRW"}
+
+
+def synthetic(capex_name: str | None = None, eps_rows: list[tuple[str, float]] | None = None,
+              extra: list[dict] | None = None, defaults: bool = True):
+    """합성 재무제표 (FinRows). 이자비용 줄은 일부러 없어요.
+
+    capex_name: 주면 유형자산 취득 줄이 표준계정코드 없이 이 이름으로만 들어가요.
+    eps_rows: [(이름, 값), …]이면 기본 EPS 줄 대신 이 줄들을 넣어요 (모두 EPS 표준계정코드).
+    extra: 덧붙일 줄. defaults=False면 기본 줄 없이 extra만 써요.
+    """
+    from vsf.data.dart import FinRows
+
+    rows: list[dict] = []
+    if defaults:
+        rows += [
+            fin_row("BS", "ifrs-full_CurrentAssets", "유동자산", "5,000,000", "4,000,000", "3,000,000", 1),
+            fin_row("BS", "ifrs-full_Liabilities", "부채총계", "8,000,000", "7,000,000", "6,000,000", 2),
+            fin_row("BS", "ifrs-full_Equity", "자본총계", "20,000,000", "18,000,000", "16,000,000", 3),
+            fin_row("IS", "ifrs-full_ProfitLoss", "당기순이익(손실)", "7,600,000", "6,000,000", "5,000,000", 4),
+            fin_row("IS", "ifrs-full_ProfitLossAttributableToOwnersOfParent",
+                    "지배기업의 소유주에게 귀속되는 당기순이익(손실)", "7,560,983", "5,900,000", "4,900,000", 5),
+            fin_row("IS", "dart_OperatingIncomeLoss", "영업이익", "9,000,000", "7,000,000", "6,000,000", 6),
+            fin_row("CF", "ifrs-full_CashFlowsFromUsedInOperatingActivities", "영업활동현금흐름",
+                    "10,000,000", "9,000,000", "8,000,000", 7),
+            fin_row("CF", _NO_ID if capex_name else
+                    "ifrs-full_PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",
+                    capex_name or "유형자산의 취득", "-3,000,000", "-2,500,000", "-2,000,000", 8),
+            fin_row("CF", "ifrs-full_DividendsPaidClassifiedAsFinancingActivities", "배당금의 지급",
+                    "-1,500,000", "-1,200,000", "-1,000,000", 9),
+        ]
+        if eps_rows is None:
+            rows.append(fin_row("IS", "ifrs-full_BasicEarningsLossPerShare", "기본주당이익(손실)",
+                                "19,382", "15,000", "12,000", 10))
+    for i, (name, value) in enumerate(eps_rows or []):
+        rows.append(fin_row("IS", "ifrs-full_BasicEarningsLossPerShare", name, f"{value:,}",
+                            ord=20 + i))
+    rows += extra or []
+    return FinRows(rows=rows, fs="CFS", rcept_no="20260310000001")

@@ -390,3 +390,106 @@ def test_quick_fail_fills_only_basics():
     assert a.notes == ("최근 3년 중 배당을 안 준 해가 있어 관문 ②에서 탈락이라, 나머지 숫자는 받지 않았어요.",)
     assert a.flags == () and a.latest_year == 2025 and set(a.sources) == _filled(i)
     assert a.sources["E29"] == "2025 사업보고서 배당에 관한 사항(보통주, 접수번호 20260310000123)"
+
+
+# ---- 스펙 6.6 자동 숫자 확인 ----
+
+NI_PARENT = "ifrs-full_ProfitLossAttributableToOwnersOfParent"
+OCF = "ifrs-full_CashFlowsFromUsedInOperatingActivities"
+EPS_ID = "ifrs-full_BasicEarningsLossPerShare"
+
+
+def _with_2025_close(close: float):
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    ye = {**ye, 2025: replace(ye[2025], close=close)}
+    return assemble(co, L, fin_a, fin_b, divs, ye, price, d)
+
+
+def test_sign_mismatch_flag_text_and_clean_case(base):
+    assert base.flags == ()
+    a = assemble(*synthetic_company(eps=-100))
+    assert a.flags == ("2025년 EPS와 순이익의 부호가 달라요. 숫자를 확인해 주세요.",)
+    assert a.inputs.years[4].eps == -100 and a.inputs.years[4].per is None
+
+
+def test_sign_mismatch_uses_row_33_income_and_skips_zero():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    a = assemble(co, L, _set_amount(fin_a, NI_PARENT, "frmtrm", "-5,000,000,000"), fin_b, divs, ye, price, d)
+    assert a.flags == ("2024년 EPS와 순이익의 부호가 달라요. 숫자를 확인해 주세요.",)
+    assert assemble(*synthetic_company(eps=0)).flags == ()      # 0은 부호가 없어요
+
+
+def test_ofs_sign_check_uses_profit_loss():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company(fs="OFS")
+    a = assemble(co, L, _set_amount(fin_a, "ifrs-full_ProfitLoss", "thstrm", "-1,000,000,000"),
+                 fin_b, divs, ye, price, d)
+    assert a.flags == ("2025년 EPS와 순이익의 부호가 달라요. 숫자를 확인해 주세요.",)
+
+
+@pytest.mark.parametrize("close,flag", [
+    (1500 * 19382, "2025년 연말 PER이 1500배로 비정상적이에요(단위 오류 가능성). 숫자를 확인해 주세요."),
+    (999 * 19382, None),
+    (0.4 * 19382, "2025년 연말 PER이 0.4배로 비정상적이에요(단위 오류 가능성). 숫자를 확인해 주세요."),
+])
+def test_unit_error_per_flag(close, flag):
+    a = _with_2025_close(close)
+    assert a.flags == (() if flag is None else (flag,))
+    assert a.inputs.years[4].per == round(close / 19382, 2)      # PER은 그대로 둬요
+
+
+def test_overlap_net_income_and_ocf_mismatch_flags():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    ni_3pct = _set_amount(fin_b, NI_PARENT, "thstrm", "9,040,279,100,000")    # A 8,776,970,000,000의 3%↑
+    a = assemble(co, L, fin_a, ni_3pct, divs, ye, price, d)
+    assert a.flags == ("2023년 순이익이(가) 보고서마다 달라요(정정·재작성 가능성). 확인해 주세요.",)
+    ocf_3pct = _set_amount(fin_b, OCF, "thstrm", "11,639,000,000,000")        # A 11,300,000,000,000의 3%↑
+    a = assemble(co, L, fin_a, ocf_3pct, divs, ye, price, d)
+    assert a.flags == ("2023년 영업활동현금흐름이(가) 보고서마다 달라요(정정·재작성 가능성). 확인해 주세요.",)
+    assert a.inputs.years[2].ocf == 113000                                     # A 값을 써요
+
+
+def test_overlap_small_difference_and_missing_values_do_not_flag():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    fin_b = _set_amount(fin_b, NI_PARENT, "thstrm", "8,864,739,700,000")      # 1%↑
+    fin_b = _set_amount(fin_b, OCF, "thstrm", "11,413,000,000,000")           # 1%↑
+    assert assemble(co, L, fin_a, fin_b, divs, ye, price, d).flags == ()
+    fin_b = _set_amount(fin_b, NI_PARENT, "thstrm", "")
+    fin_b = _set_amount(fin_b, OCF, "thstrm", "0")
+    assert assemble(co, L, fin_a, fin_b, divs, ye, price, d).flags == ()
+
+
+def test_overlap_year_uses_a_report_values_everywhere():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    base_years = assemble(co, L, fin_a, fin_b, divs, ye, price, d).inputs.years
+    for account_id, text in ((EPS_ID, "23,500"), (NI_PARENT, "9,040,279,100,000"),
+                             ("ifrs-full_Liabilities", "40,000,000,000,000"),
+                             ("ifrs-full_Equity", "50,000,000,000,000"),
+                             (OCF, "11,639,000,000,000")):
+        fin_b = _set_amount(fin_b, account_id, "thstrm", text)
+    a = assemble(co, L, fin_a, fin_b, divs, ye, price, d)
+    assert a.inputs.years[2] == base_years[2]                                  # D열은 A 값 그대로
+    assert (a.inputs.years[2].eps, a.inputs.years[2].net_income, a.inputs.years[2].ocf,
+            a.inputs.years[2].debt_ratio) == (22168, 87769.7, 113000, 73.19)
+    assert a.sources["D27"].startswith(A_REPORT) and a.sources["D33"].startswith(A_REPORT)
+    assert a.sources["D31"].startswith(A_REPORT) and a.sources["D34"].startswith(A_REPORT)
+    assert B_REPORT not in a.sources["D27"] + a.sources["D33"]
+    assert set(a.flags) == {RESTATE_FLAG,
+                            "2023년 순이익이(가) 보고서마다 달라요(정정·재작성 가능성). 확인해 주세요.",
+                            "2023년 영업활동현금흐름이(가) 보고서마다 달라요(정정·재작성 가능성). 확인해 주세요."}
+
+
+def test_split_after_latest_year_keeps_per_on_base_share_basis(base):
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    a = assemble(co, L, fin_a, fin_b, divs, ye, replace(price, close=19_400.0, shares=SYN_SHARES * 5.0), d)
+    assert [r.per for r in a.inputs.years] == [r.per for r in base.inputs.years]
+    assert [r.per for r in a.inputs.years] == [6.96, 4.39, 4.51, 4.05, 6.28]
+    assert a.flags == (SPLIT_FLAG,)
+
+
+def test_cfs_without_parent_net_income_does_not_fall_back_to_profit_loss():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    fin_a = replace(fin_a, rows=[r for r in fin_a.rows if r["account_id"] != NI_PARENT])
+    a = assemble(co, L, fin_a, fin_b, divs, ye, price, d)
+    assert [r.net_income for r in a.inputs.years] == [47604.5, 54094.29, None, None, None]
+    assert not {"D33", "E33", "F33"} & a.sources.keys() and "C33" in a.sources
+    assert [r.roe for r in a.inputs.years[2:]] == [None, None, None]

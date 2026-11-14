@@ -24,9 +24,14 @@ SPECIAL_DIVIDEND_NOTE = "{y}년 배당성향이 100%를 넘어요(특별배당 �
 DPS_FLAG = "{y}년 DPS가 보고서마다 달라요. 확인해 주세요."
 CURRENCY_FLAG = "원화가 아닌 재무제표예요(통화: {currency}). 숫자를 확인해 주세요."
 EQUITY_FLAG = "{y}년 자본이 0 이하예요. ROE·부채비율을 확인해 주세요."
+SIGN_FLAG = "{y}년 EPS와 순이익의 부호가 달라요. 숫자를 확인해 주세요."
+PER_UNIT_FLAG = "{y}년 연말 PER이 {per:g}배로 비정상적이에요(단위 오류 가능성). 숫자를 확인해 주세요."
+OVERLAP_FLAG = "{y}년 {name}이(가) 보고서마다 달라요(정정·재작성 가능성). 확인해 주세요."
 
 NO_INTEREST_COVERAGE = 999.0   # 엑셀 규칙: 이자비용이 0이면 999
 DPS_TOLERANCE = 0.02           # 보고서끼리 같은 해 DPS가 이보다 많이 다르면 확인 표시
+OVERLAP_TOLERANCE = 0.02       # 겹치는 해 순이익·영업현금흐름도 마찬가지
+PER_MAX, PER_MIN = 1000, 0.5   # 연말 PER이 이 범위 밖이면 단위 오류를 의심해요
 
 _COLS = "BCDEF"
 _FS_NAME = {"CFS": "연결", "OFS": "별도"}
@@ -348,6 +353,25 @@ def _pbr(a: dict[int, _Period], eps: dict[int, float | None], latest: int, price
     return excel_round(close / (equity / (income / e)), 2)
 
 
+def _number_checks(a: dict[int, _Period], b: dict[int, _Period], main: dict[int, _Period],
+                   eps: dict[int, float | None], per: dict[int, float | None], latest: int, out: _Out) -> None:
+    """스펙 6.6: 의심스러운 숫자에 '숫자 확인 필요'를 달아요. 값은 그대로 두고 표시만 해요."""
+    for y in range(latest - 4, latest + 1):
+        p, e = main.get(y), eps.get(y)
+        income = _net_income(p).value if p is not None else None
+        if e and income and (e > 0) != (income > 0):       # 0은 부호가 없어서 건너뛰어요
+            out.flag(SIGN_FLAG.format(y=y))
+        v = per.get(y)
+        if v is not None and (v > PER_MAX or 0 < v < PER_MIN):
+            out.flag(PER_UNIT_FLAG.format(y=y, per=v))
+    y = latest - 2                                          # A·B 보고서가 함께 적은 해
+    if y in a and y in b:
+        for name, value in (("순이익", _net_income), ("영업활동현금흐름", lambda p: p.acc["ocf"])):
+            kept, other = value(a[y]).value, value(b[y]).value
+            if kept and other and abs(other - kept) > OVERLAP_TOLERANCE * abs(kept):
+                out.flag(OVERLAP_FLAG.format(y=y, name=name))
+
+
 def _special_dividends(eps: dict[int, float | None], dps: dict[int, float | None], out: _Out) -> None:
     for y, e in eps.items():
         d = dps.get(y)
@@ -402,6 +426,7 @@ def assemble(company: CompanyInfo, latest_year: int, fin_a: FinRows | None, fin_
     cov = _coverage(main, L, out)
     amounts = _amounts(main, L, out)
     pbr = _pbr(a, eps, L, price, price_date, out)
+    _number_checks(a, b, main, eps, per, L, out)
     _special_dividends(eps, dps, out)
     years = tuple(YearRow(year=y, eps=eps[y], per=per[y], dps=dps[y], roe=roe[y], debt_ratio=debt[y],
                           interest_coverage=cov[y], **{field: amounts[field][y] for field, _ in _AMOUNT_ROWS})

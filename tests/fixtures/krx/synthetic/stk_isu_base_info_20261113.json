@@ -1,0 +1,61 @@
+{
+  "_synthetic": "hand-written from the documented format",
+  "OutBlock_1": [
+    {
+      "ISU_CD": "KR7000270009",
+      "ISU_SRT_CD": "000270",
+      "ISU_NM": "기아",
+      "ISU_ABBRV": "기아",
+      "ISU_ENG_NM": "",
+      "LIST_DD": "19990101",
+      "MKT_TP_NM": "KOSPI",
+      "SECUGRP_NM": "주권",
+      "SECT_TP_NM": "",
+      "KIND_STKCERT_TP_NM": "보통주",
+      "PARVAL": "5,000",
+      "LIST_SHRS": "405,363,347"
+    },
+    {
+      "ISU_CD": "KR7030000004",
+      "ISU_SRT_CD": "030000",
+      "ISU_NM": "제일기획",
+      "ISU_ABBRV": "제일기획",
+      "ISU_ENG_NM": "",
+      "LIST_DD": "19990101",
+      "MKT_TP_NM": "KOSPI",
+      "SECUGRP_NM": "주권",
+      "SECT_TP_NM": "",
+      "KIND_STKCERT_TP_NM": "보통주",
+      "PARVAL": "5,000",
+      "LIST_SHRS": "115,296,000"
+    },
+    {
+      "ISU_CD": "KR7005935001",
+      "ISU_SRT_CD": "005935",
+      "ISU_NM": "삼성전자우",
+      "ISU_ABBRV": "삼성전자우",
+      "ISU_ENG_NM": "",
+      "LIST_DD": "19990101",
+      "MKT_TP_NM": "KOSPI",
+      "SECUGRP_NM": "주권",
+      "SECT_TP_NM": "",
+      "KIND_STKCERT_TP_NM": "우선주",
+      "PARVAL": "5,000",
+      "LIST_SHRS": "815,974,664"
+    },
+    {
+      "ISU_CD": "KR7088980008",
+      "ISU_SRT_CD": "088980",
+      "ISU_NM": "맥쿼리인프라",
+      "ISU_ABBRV": "맥쿼리인프라",
+      "ISU_ENG_NM": "",
+      "LIST_DD": "19990101",
+      "MKT_TP_NM": "KOSPI",
+      "SECUGRP_NM": "부동산투자회사",
+      "SECT_TP_NM": "",
+      "KIND_STKCERT_TP_NM": "보통주",
+      "PARVAL": "5,000",
+      "LIST_SHRS": ""
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "_synthetic": "hand-written from the documented format",
+  "OutBlock_1": [
+    {
+      "BAS_DD": "20261113",
+      "ISU_CD": "000270",
+      "ISU_NM": "기아",
+      "MKT_NM": "KOSPI",
+      "SECT_TP_NM": "",
+      "TDD_CLSPRC": "128,500",
+      "CMPPREVDD_PRC": "0",
+      "FLUC_RT": "0.00",
+      "TDD_OPNPRC": "128,500",
+      "TDD_HGPRC": "128,500",
+      "TDD_LWPRC": "128,500",
+      "ACC_TRDVOL": "1,000",
+      "ACC_TRDVAL": "1,000,000",
+      "MKTCAP": "1,000,000,000",
+      "LIST_SHRS": "405,363,347"
+    },
+    {
+      "BAS_DD": "20261113",
+      "ISU_CD": "030000",
+      "ISU_NM": "제일기획",
+      "MKT_NM": "KOSPI",
+      "SECT_TP_NM": "",
+      "TDD_CLSPRC": "29,850",
+      "CMPPREVDD_PRC": "0",
+      "FLUC_RT": "0.00",
+      "TDD_OPNPRC": "29,850",
+      "TDD_HGPRC": "29,850",
+      "TDD_LWPRC": "29,850",
+      "ACC_TRDVOL": "1,000",
+      "ACC_TRDVAL": "1,000,000",
+      "MKTCAP": "1,000,000,000",
+      "LIST_SHRS": "115,296,000"
+    },
+    {
+      "BAS_DD": "20261113",
+      "ISU_CD": "005935",
+      "ISU_NM": "삼성전자우",
+      "MKT_NM": "KOSPI",
+      "SECT_TP_NM": "",
+      "TDD_CLSPRC": "55,000",
+      "CMPPREVDD_PRC": "0",
+      "FLUC_RT": "0.00",
+      "TDD_OPNPRC": "55,000",
+      "TDD_HGPRC": "55,000",
+      "TDD_LWPRC": "55,000",
+      "ACC_TRDVOL": "1,000",
+      "ACC_TRDVAL": "1,000,000",
+      "MKTCAP": "1,000,000,000",
+      "LIST_SHRS": "815,974,664"
+    },
+    {
+      "BAS_DD": "20261113",
+      "ISU_CD": "088980",
+      "ISU_NM": "맥쿼리인프라",
+      "MKT_NM": "KOSPI",
+      "SECT_TP_NM": "",
+      "TDD_CLSPRC": "12,000",
+      "CMPPREVDD_PRC": "0",
+      "FLUC_RT": "0.00",
+      "TDD_OPNPRC": "12,000",
+      "TDD_HGPRC": "12,000",
+      "TDD_LWPRC": "12,000",
+      "ACC_TRDVOL": "1,000",
+      "ACC_TRDVAL": "1,000,000",
+      "MKTCAP": "1,000,000,000",
+      "LIST_SHRS": "-"
+    }
+  ]
+}

@@ -21,3 +21,12 @@ def test_fetch_error_never_contains_key(handler, capsys):
     out = capsys.readouterr()
     assert KEY not in str(exc) and KEY not in repr(exc) and KEY not in out.out + out.err
     assert "500" in str(exc) or "ConnectError" in str(exc)
+
+
+def test_fetch_krx_error_never_contains_key():
+    from tools.record_fixtures import fetch_krx
+    http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(403)))
+    with pytest.raises(RecorderError) as e:
+        fetch_krx(http, "stk_bydd_trd", KEY, "20251230")
+    assert KEY not in str(e.value) and "stk_bydd_trd" in str(e.value) and "403" in str(e.value)
+    assert e.value.__cause__ is None and e.value.__context__ is None

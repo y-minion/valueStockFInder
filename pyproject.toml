@@ -20,5 +20,6 @@ testpaths = ["tests"]
 pythonpath = [".", "tests"]   # tests에서 `import tools.dump_formulas`, `from helpers import …`
 markers = [
   "template: 원본 계산기 파일이 있어야 도는 테스트 (없으면 건너뜀)",
+  "recorded: 실제 API 녹화 자료(tests/fixtures/*/recorded)가 있어야 도는 테스트 (없으면 건너뜀)",
   "slow: formulas로 엑셀 파일을 다시 계산하는 느린 테스트",
 ]

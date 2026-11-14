@@ -1,0 +1,79 @@
+{
+  "_synthetic": "hand-written from the documented format",
+  "status": "000",
+  "message": "정상",
+  "list": [
+    {
+      "rcept_no": "20260310000123",
+      "corp_cls": "Y",
+      "corp_code": "99000270",
+      "corp_name": "기아",
+      "se": "주당액면가액(원)",
+      "stock_knd": "",
+      "thstrm": "5,000",
+      "frmtrm": "5,000",
+      "lwfr": "5,000",
+      "stlm_dt": "2025-12-31"
+    },
+    {
+      "rcept_no": "20260310000123",
+      "corp_cls": "Y",
+      "corp_code": "99000270",
+      "corp_name": "기아",
+      "se": "현금배당금총액(백만원)",
+      "stock_knd": "",
+      "thstrm": "2,700,000",
+      "frmtrm": "2,300,000",
+      "lwfr": "1,600,000",
+      "stlm_dt": "2025-12-31"
+    },
+    {
+      "rcept_no": "20260310000123",
+      "corp_cls": "Y",
+      "corp_code": "99000270",
+      "corp_name": "기아",
+      "se": "현금배당성향(%)",
+      "stock_knd": "",
+      "thstrm": "25.1",
+      "frmtrm": "24.8",
+      "lwfr": "20.5",
+      "stlm_dt": "2025-12-31"
+    },
+    {
+      "rcept_no": "20260310000123",
+      "corp_cls": "Y",
+      "corp_code": "99000270",
+      "corp_name": "기아",
+      "se": "주당 현금배당금(원)",
+      "stock_knd": "보통주",
+      "thstrm": "6,800",
+      "frmtrm": "5,600",
+      "lwfr": "3,400",
+      "stlm_dt": "2025-12-31"
+    },
+    {
+      "rcept_no": "20260310000123",
+      "corp_cls": "Y",
+      "corp_code": "99000270",
+      "corp_name": "기아",
+      "se": "주당 현금배당금(원)",
+      "stock_knd": "우선주",
+      "thstrm": "6,850",
+      "frmtrm": "-",
+      "lwfr": "-",
+      "stlm_dt": "2025-12-31"
+    },
+    {
+      "rcept_no": "20260310000123",
+      "corp_cls": "Y",
+      "corp_code": "99000270",
+      "corp_name": "기아",
+      "se": "현금배당수익률(%)",
+      "stock_knd": "보통주",
+      "thstrm": "6.1",
+      "frmtrm": "5.4",
+      "lwfr": "3.9",
+      "stlm_dt": "2025-12-31"
+    }
+  ]
+}

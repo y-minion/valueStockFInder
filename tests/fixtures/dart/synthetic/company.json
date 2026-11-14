@@ -1,0 +1,22 @@
+{
+  "_synthetic": "hand-written from the documented format",
+  "status": "000",
+  "message": "정상",
+  "corp_code": "99000270",
+  "corp_name": "기아",
+  "corp_name_eng": "KIA CORPORATION",
+  "stock_name": "기아",
+  "stock_code": "000270",
+  "ceo_nm": "홍길동",
+  "corp_cls": "Y",
+  "jurir_no": "1101110000000",
+  "bizr_no": "1198100000",
+  "adres": "서울특별시",
+  "hm_url": "www.example.com",
+  "ir_url": "",
+  "phn_no": "02-0000-0000",
+  "fax_no": "02-0000-0001",
+  "induty_code": "30121",
+  "est_dt": "19440220",
+  "acc_mt": "12"
+}

@@ -1,0 +1,33 @@
+{
+  "_synthetic": "hand-written from the documented format",
+  "status": "000",
+  "message": "정상",
+  "page_no": 1,
+  "page_count": 100,
+  "total_count": 2,
+  "total_page": 1,
+  "list": [
+    {
+      "corp_cls": "Y",
+      "corp_name": "기아",
+      "corp_code": "99000270",
+      "stock_code": "000270",
+      "report_nm": "사업보고서 (2025.12)",
+      "rcept_no": "20260310000123",
+      "flr_nm": "기아",
+      "rcept_dt": "20260310",
+      "rm": "유"
+    },
+    {
+      "corp_cls": "Y",
+      "corp_name": "제일기획",
+      "corp_code": "99030000",
+      "stock_code": "030000",
+      "report_nm": "[기재정정]사업보고서 (2025.12)",
+      "rcept_no": "20260320000456",
+      "flr_nm": "제일기획",
+      "rcept_dt": "20260320",
+      "rm": "유"
+    }
+  ]
+}

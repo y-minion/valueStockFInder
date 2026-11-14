@@ -113,3 +113,8 @@ test('lists of excluded, failed, pending', () => {
   const h = r.renderIndex(data);
   for (const s of ['삼성전자우', '실패회사', '사유', '대기회사', '<details']) assert.ok(h.includes(s), s);
 });
+test('gate tables show static criteria and a gate 3 verdict row', () => {
+  const h = r.renderStock(data, 'A');
+  for (const s of ['0번 (아니면 이유 확인)', '>0번<', '관문 ③ 결과', '주가 ≤ 매수선', 'pill ok">통과']) assert.ok(h.includes(s), s);
+  assert.ok(h.includes('통과 기준: 0.75배 이하'));
+});

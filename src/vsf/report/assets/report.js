@@ -29,6 +29,8 @@ var LABELS = {
   132: "질문 3. 그동안 배당이 유지될까", 135: "관문 ④ 결과"
 };
 var KIND_LABEL = { new_buy: "새로 매수선 이하", new_watch: "새로 관심 목록", above_buy: "매수선 위로", left: "관심 목록에서 빠짐" };
+// 엑셀 C열에 수식이 아니라 글자로 적혀 있어서 payload의 cells에 없는 기준 글
+var STATIC_CRIT = { C86: "0번", C87: "0번 (아니면 이유 확인)", C110: "주가 ≤ 매수선" };
 var COLS = ["B", "C", "D", "E", "F"];
 var NO_FIGURES = "이 종목은 이번 실행에서 분석되지 않았어요";
 
@@ -310,9 +312,10 @@ function priceBox(s) {
     ") · 매수선 <b>" + fmt(m.buy_line, "won") + "원</b>" + (isNum(m.drop) ? " · 매수선까지 " + Math.round(m.drop * 100) + "%" : "") + bar +
     '<p class="next">' + fmt(c.B15) + "</p></div>";
 }
+function crit(c, row) { var k = "C" + row; return fmt(c[k] != null && c[k] !== "" ? c[k] : STATIC_CRIT[k]); }
 function gate1Table(s, data) {
   var c = s.cells, body = [[78, "raw"], [79, "raw"], [80, "d2"], [81, "d2"]].map(function (g) {
-    return tr([esc(LABELS[g[0]]), fmt(c["B" + g[0]], g[1]), fmt(c["C" + g[0]]), verdictCell(c["D" + g[0]])]);
+    return tr([esc(LABELS[g[0]]), fmt(c["B" + g[0]], g[1]), crit(c, g[0]), verdictCell(c["D" + g[0]])]);
   });
   if (s.extra_gate1) {
     var ind = s.industry, pct = ((data.run.criteria || {}).industry || {}).roe_top_percent;
@@ -324,10 +327,15 @@ function gate1Table(s, data) {
 }
 function gate2Table(s) {
   var c = s.cells, body = [[86, "raw"], [87, "raw"], [88, "pct"], [89, "d2"]].map(function (g) {
-    return tr([esc(LABELS[g[0]]), fmt(c["B" + g[0]], g[1]), fmt(c["C" + g[0]]), verdictCell(c["D" + g[0]])]);
+    return tr([esc(LABELS[g[0]]), fmt(c["B" + g[0]], g[1]), crit(c, g[0]), verdictCell(c["D" + g[0]])]);
   });
   body.push(tr(["<b>" + esc(LABELS[90]) + "</b>", "", "", verdictCell(c.D90)]));
   return rowsTable(["항목", "이 회사", "기준", "판정"], body);
+}
+function gate3Table(c) {
+  return rowsTable(["항목", "이 회사", "기준", "판정"], [
+    tr([esc(LABELS[108]), fmt(c.B108, "d2"), crit(c, 108), verdictCell(c.D110)]),
+    tr(["<b>" + esc(LABELS[110]) + "</b>", "", crit(c, 110), verdictCell(c.D110)])]);
 }
 function kvTable(c, rows) {
   return rowsTable(["항목", "값"], rows.map(function (r) { return tr([esc(LABELS[r[0]]), fmt(c["B" + r[0]], r[1])]); }));
@@ -391,7 +399,7 @@ function renderStock(data, code) {
     "<h3>적정가 A·B·C</h3>" + fairTable(c) +
     "<h3>관문 ① 좋은 회사인가</h3>" + gate1Table(s, data) +
     "<h3>관문 ② 배당이 오래 갈까</h3>" + gate2Table(s) +
-    "<h3>관문 ③ 지금 싼가</h3><h4>5-1. 계산에 쓰는 평균값</h4>" + kvTable(c, [[94, "won"], [96, "won"], [97, "d2"], [98, "pct"], [99, "pct"], [100, "won"]]) +
+    "<h3>관문 ③ 지금 싼가</h3>" + gate3Table(c) + "<h4>5-1. 계산에 쓰는 평균값</h4>" + kvTable(c, [[94, "won"], [96, "won"], [97, "d2"], [98, "pct"], [99, "pct"], [100, "won"]]) +
     "<h4>5-3. 지금 주가가 예상하는 것</h4>" + kvTable(c, [[112, "won"], [113, "d2"], [114, "d2"], [115, "pct"], [116, "pct"], [117, "pct"], [118, "d2"]]) +
     table54(c) +
     "<h3>5년 입력 숫자</h3>" + inputTable(s) +

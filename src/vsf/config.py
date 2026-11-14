@@ -27,6 +27,7 @@ CRITERIA_LABELS: dict[str, str] = {
     "use_in_verdict": "업종 비교를 판정에 넣기",
     "roe_top_percent": "업종 ROE 상위 비율",
     "min_group_size": "업종 최소 묶음 크기",
+    "overrides": "업종별 기준 덮어쓰기",
 }
 
 _RATE_KEYS = {

@@ -341,3 +341,107 @@ def synthetic_company(*, interest_expense=_KEEP, interest_paid=_KEEP, eps=_KEEP,
     company = CompanyInfo(corp_code="99000270", code="000270", name="기아", market="KOSPI",
                           induty_code="30121", acc_mt="12")
     return company, 2025, fin_a, fin_b, divs, year_end, price, SYN_PRICE_DATE
+
+
+# ---- Task 14: 계산·스냅샷·변화 ----
+
+RUN_DATE_1114 = date(2026, 11, 14)
+
+
+def _kia_inputs(price: float, latest_eps: float | None = None):
+    from dataclasses import replace
+
+    inputs, _, _ = load_oracle("kia_full_pass")
+    inputs = replace(inputs, price=price)
+    if latest_eps is not None:
+        years = list(inputs.years)
+        years[-1] = replace(years[-1], eps=latest_eps)
+        inputs = replace(inputs, years=tuple(years))
+    return inputs
+
+
+def _cheil_inputs():
+    from engine_cases import CHEIL
+    return CHEIL
+
+
+def fp(required_return: float) -> dict:
+    """settings_fingerprint 모양의 dict. 요구수익률만 바꿔요."""
+    from dataclasses import asdict
+
+    from vsf.config import IndustrySettings, ReportSettings
+    return {"criteria": asdict(Criteria(required_return=required_return)),
+            "report": asdict(ReportSettings()), "industry": asdict(IndustrySettings())}
+
+
+def settings_with(overrides: dict | None = None, use_in_verdict: bool = False):
+    from vsf.config import IndustrySettings, ReportSettings, Settings
+    return Settings(criteria=Criteria(), report=ReportSettings(),
+                    industry=IndustrySettings(use_in_verdict=use_in_verdict, overrides=overrides or {}),
+                    calculator_path=Path("calc.xlsx"), dart_daily_budget=19000,
+                    data_dir=Path("data"), reports_dir=Path("reports"), exports_dir=Path("exports"))
+
+
+def _kia_assembled(inputs):
+    from vsf.data.assemble import Assembled, CompanyInfo
+    company = CompanyInfo(corp_code="00164742", code="000270", name="기아", market="KOSPI",
+                          induty_code="30121", acc_mt="12")
+    return company, Assembled(inputs=inputs, flags=(), notes=(), sources={}, quick_fail=False,
+                              latest_year=2025)
+
+
+def collected_with_kia(price: float = 60000.0, latest_eps: float | None = None):
+    from vsf.collect import Collected
+    company, assembled = _kia_assembled(_kia_inputs(price, latest_eps))
+    return Collected(today=RUN_DATE_1114, price_date=date(2026, 11, 13),
+                     records={"000270": (company, assembled)}, total_listed=1)
+
+
+def snap_only(code: str, state: str = "buy", name: str | None = None, near: bool = False):
+    """종목 하나짜리 지난 스냅샷. 입력은 030000이면 제일기획, 아니면 기아예요."""
+    from vsf.snapshot import Snapshot, SnapStock
+    inputs = _cheil_inputs() if code == "030000" else _kia_inputs(97000.0)
+    stock = SnapStock(name=name or inputs.name, inputs=inputs, criteria=Criteria(),
+                      extra_gate1=None, state=state, near=near)
+    return Snapshot(date=date(2026, 11, 7), settings_fp=fp(0.10), counts={}, stocks={code: stock})
+
+
+def snap(kia_price: float, criteria: Criteria | None = None, latest_eps: float | None = None,
+         extra: str | None = None):
+    """기아 한 종목의 지난 스냅샷. 상태는 그 기준으로 계산해요."""
+    from vsf.config import ReportSettings
+    from vsf.evaluate import state_of
+    from vsf.snapshot import Snapshot, SnapStock
+    criteria = criteria or Criteria()
+    inputs = _kia_inputs(kia_price, latest_eps)
+    state = state_of(inputs, criteria, extra, ReportSettings())
+    return Snapshot(date=date(2026, 11, 7), settings_fp=fp(criteria.required_return), counts={},
+                    stocks={"000270": SnapStock(name="기아", inputs=inputs, criteria=criteria,
+                                                extra_gate1=extra, state=state, near=False)})
+
+
+def run(kia_price: float, criteria: Criteria | None = None, latest_eps: float | None = None,
+        extra: str | None = None):
+    """기아 한 종목의 이번 실행 결과. 기준을 직접 줄 수 있어요."""
+    from vsf.config import ReportSettings
+    from vsf.engine import compute, is_near, summarize, watch_state
+    from vsf.evaluate import RunResult, StockResult
+    criteria = criteria or Criteria()
+    collected = collected_with_kia(kia_price, latest_eps)
+    company, assembled = collected.records["000270"]
+    cells = compute(assembled.inputs, criteria, extra)
+    summary = summarize(cells)
+    state = watch_state(summary, ReportSettings())
+    result = StockResult(company=company, assembled=assembled, criteria=criteria, extra_gate1=extra,
+                         cells=cells, summary=summary, industry=None, state=state,
+                         near=state != "out" and is_near(summary, ReportSettings()))
+    return RunResult(collected=collected, settings_fp=fp(criteria.required_return),
+                     results={"000270": result})
+
+
+def run_only(code: str, kia_price: float, **kwargs):
+    assert code == "000270"
+    return run(kia_price, **kwargs)
+
+
+RUN_1114 = run(kia_price=60000.0)

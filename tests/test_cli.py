@@ -156,6 +156,52 @@ def test_excel_without_snapshot_leaves_the_industry_verdict_to_the_memo(tmp_path
     assert x.cell("기아", "B23")[1].endswith("업종 비교 항목(엑셀에는 없음): 업종 안 ROE 순위 판정: 입력 필요")
 
 
+FLAG_TEXT = "적정가 세 방법 중 B·C를 계산하지 못했어요"
+
+
+def _x(tmp_path):
+    from helpers import XlsxReader
+    return XlsxReader(next((tmp_path / "exports").glob("*000270*.xlsx")))
+
+
+@pytest.mark.template
+def test_excel_from_snapshot_writes_evaluation_flags_into_the_memo(tmp_path, template_path):
+    from helpers import settings_with
+    from test_evaluate import _kia
+    from vsf.evaluate import evaluate
+    from vsf.snapshot import save_snapshot
+    save_snapshot(evaluate(_kia(97000.0, per=None), settings_with()), tmp_path / "data" / "runs")
+    assert run(tmp_path, fake_deps(tmp_path), "--excel", "000270") == 0
+    memo = _x(tmp_path).cell("기아", "B23")[1]
+    assert FLAG_TEXT in memo and memo.index(FLAG_TEXT) < memo.index("Numbers에서는")
+
+
+@pytest.mark.template
+def test_excel_from_snapshot_clean_case_has_no_flag(tmp_path, template_path):
+    d = fake_deps(tmp_path)
+    assert run(tmp_path, d) == 0
+    assert run(tmp_path, d, "--excel", "000270") == 0
+    assert FLAG_TEXT not in _x(tmp_path).cell("기아", "B23")[1]
+
+
+@pytest.mark.template
+def test_excel_collect_one_writes_evaluation_flags_into_the_memo(tmp_path, template_path):
+    d = fake_deps(tmp_path)
+    krx = FakeKrx.default()
+    real = krx.daily
+    price_date = krx.latest_trading_day(D)
+    krx.daily = lambda day: real(day) if day == price_date else {}      # 연말 시세 없음 → 연말 PER 빈칸
+    d.make_krx = lambda keys, store: krx
+    assert run(tmp_path, d, "--excel", "000270") == 0
+    assert FLAG_TEXT in _x(tmp_path).cell("기아", "B23")[1]
+
+
+@pytest.mark.template
+def test_excel_collect_one_clean_case_has_no_flag(tmp_path, template_path):
+    assert run(tmp_path, fake_deps(tmp_path), "--excel", "000270") == 0
+    assert FLAG_TEXT not in _x(tmp_path).cell("기아", "B23")[1]
+
+
 def test_excel_unknown_code(tmp_path, capsys):
     assert run(tmp_path, fake_deps(tmp_path), "--excel", "999999") == 1
     assert "999999" in capsys.readouterr().out
@@ -245,6 +291,16 @@ def test_same_day_rerun_at_quota_keeps_report_and_snapshot(tmp_path, capsys):
     assert report_data(tmp_path)["run"]["analyzed"] == 2
     assert d.opened == [INDEX(tmp_path)]                              # 있던 리포트를 열어요
     assert len(load_previous(tmp_path / "data" / "runs", D + timedelta(days=7)).stocks) == 2
+
+
+def test_same_day_folder_without_index_is_not_a_report(tmp_path, capsys):
+    d = fake_deps(tmp_path)
+    d.dart = FakeDart.default(raise_in=QUOTA_AT_START)               # 한 종목도 못 받는 실행
+    INDEX(tmp_path).parent.mkdir(parents=True)                       # 폴더만 있고 index.html은 없어요
+    assert run(tmp_path, d, no_open=False) == 0
+    assert "오늘 리포트가 이미 있어서" not in capsys.readouterr().out
+    assert INDEX(tmp_path).is_file()
+    assert all(Path(p).is_file() for p in d.opened)
 
 
 def test_same_day_rerun_at_quota_no_open(tmp_path):

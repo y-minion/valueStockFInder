@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
+from vsf.engine import compute, summarize
 from vsf.evaluate import RunResult
 from vsf.model import Criteria, StockInputs, inputs_from_dict, inputs_to_dict
 
@@ -41,6 +42,16 @@ def run_counts(run: RunResult) -> dict[str, int]:
     }
 
 
+def _carried_counts(held: list[SnapStock]) -> dict[str, int]:
+    """지난 스냅샷에서 옮겨 온 종목의 요약 숫자. run_counts와 같은 뜻이에요."""
+    gate12 = 0
+    for h in held:
+        s = summarize(compute(h.inputs, h.criteria, h.extra_gate1))
+        gate12 += s.gate1 != "탈락" and s.gate2 != "탈락"
+    return {"buy": sum(h.state == "buy" for h in held), "near": sum(h.near for h in held),
+            "watch": sum(h.state in ("buy", "watch") for h in held), "gate12_ok": gate12}
+
+
 NOTHING_TO_SAVE = "분석한 종목이 없어 이번 결과는 저장하지 않았어요."
 KEPT_BIGGER = "오늘 이미 저장한 결과가 더 많아서 그대로 두었어요."
 
@@ -69,6 +80,7 @@ def save_snapshot(run: RunResult, runs_dir: Path, carry_from: Snapshot | None = 
 
     - 하루 한도로 못 받은 종목(pending)은 carry_from(지난 스냅샷)에 있으면 그 값을 그대로 옮겨요.
       그래야 한도에 걸린 주에도 다음 주 비교 기준이 남아요.
+    - 저장하는 counts는 옮겨 온 종목까지 센 값이에요 (run_counts는 이번 실행만).
     - 종목이 하나도 없으면 쓰지 않아요.
     - 같은 날 스냅샷이 이미 있고 종목이 더 많으면 덮어쓰지 않아요.
     쓰지 않으면 SnapshotNotSaved(한국어 이유)를 던져요.
@@ -76,18 +88,23 @@ def save_snapshot(run: RunResult, runs_dir: Path, carry_from: Snapshot | None = 
     runs_dir = Path(runs_dir)
     stocks = {code: _stock_doc(r.company.name, r.assembled.inputs, r.criteria, r.extra_gate1, r.state, r.near)
               for code, r in run.results.items()}
+    carried: list[SnapStock] = []
     if carry_from is not None:
         for code, _name in run.collected.pending:
             held = carry_from.stocks.get(code)
             if code not in stocks and held is not None:
                 stocks[code] = _stock_doc(held.name, held.inputs, held.criteria, held.extra_gate1,
                                           held.state, held.near)
+                carried.append(held)
     if not stocks:
         raise SnapshotNotSaved(NOTHING_TO_SAVE)
     path = runs_dir / f"{run.collected.today.isoformat()}{SUFFIX}"
     if path.exists() and _stock_count(path) > len(stocks):
         raise SnapshotNotSaved(KEPT_BIGGER)
-    doc = {"settings_fp": run.settings_fp, "counts": run_counts(run), "stocks": stocks}
+    counts = run_counts(run)
+    for key, n in _carried_counts(carried).items():
+        counts[key] += n
+    doc = {"settings_fp": run.settings_fp, "counts": counts, "stocks": stocks}
     runs_dir.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     with gzip.open(tmp, "wt", encoding="utf-8") as f:

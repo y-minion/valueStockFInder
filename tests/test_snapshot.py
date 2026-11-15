@@ -66,7 +66,22 @@ def test_partial_run_carries_pending_stocks_from_previous(tmp_path):
     assert set(got.stocks) == {"000270", "030000"}                 # 999999는 pending이 아니라서 안 옮겨요
     assert got.stocks["030000"] == prev.stocks["030000"]           # 지난 값 그대로
     assert got.stocks["000270"].state == "buy"                     # 이번에 분석한 종목은 이번 결과
-    assert got.counts == run_counts(_partial([]))                   # 요약 숫자는 이번 결과만
+    assert got.counts["watch"] == run_counts(_partial([]))["watch"] + 1   # 옮겨 온 종목도 센다 (제일기획: watch)
+
+
+def test_saved_counts_include_carried_stocks_but_run_counts_does_not(tmp_path):
+    from vsf.engine import compute, summarize
+    prev = snap_only("030000", state="buy", name="제일기획")
+    held = prev.stocks["030000"]
+    s = summarize(compute(held.inputs, held.criteria, held.extra_gate1))
+    assert s.gate1 != "탈락" and s.gate2 != "탈락"                   # 옮겨 온 종목은 ①②를 통과해요
+    run_ = _partial([("030000", "제일기획")])
+    base = run_counts(run_)
+    save_snapshot(run_, tmp_path, carry_from=prev)
+    saved = load_previous(tmp_path, date(2026, 11, 15)).counts
+    assert saved["buy"] == base["buy"] + 1 and saved["gate12_ok"] == base["gate12_ok"] + 1
+    assert saved["watch"] == base["watch"] + 1 and saved["near"] == base["near"]
+    assert run_counts(run_) == base                                  # 이번 주 타일은 이번 실행만
 
 
 def test_zero_stock_run_writes_no_snapshot(tmp_path):

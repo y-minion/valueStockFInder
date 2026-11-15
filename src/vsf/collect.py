@@ -55,10 +55,15 @@ class _Context:
     year_ends: dict[int, dict[str, PriceRow]]
 
 
+PER_BANNER_YEARS = 6
+
+
 def _year_ends(krx, today: date) -> tuple[dict[int, dict[str, PriceRow]], list[int]]:
     """해마다 마지막 거래일의 전체 시장 시세와, 못 받은 해 목록.
 
     못 받은 해는 건너뛰고 실행은 계속해요. 그해 PER이 비어 적정가 B·C가 빠질 수 있어서 리포트에 알려요.
+    PER에는 최근 5년(마지막 사업연도가 올해−1 또는 올해−2)만 쓰여서, 알림에는 올해−6년부터만 넣어요.
+    더 오래된 해도 주식 수·분할 확인에 쓰니 모두 받아 봐요.
     """
     out: dict[int, dict[str, PriceRow]] = {}
     missing: list[int] = []
@@ -69,7 +74,7 @@ def _year_ends(krx, today: date) -> tuple[dict[int, dict[str, PriceRow]], list[i
             rows = {}
         if rows:
             out[y] = rows
-        else:
+        elif y >= today.year - PER_BANNER_YEARS:
             missing.append(y)
     return out, missing
 

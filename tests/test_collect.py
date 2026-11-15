@@ -153,11 +153,28 @@ def test_year_end_missing_records_failed_and_absent_years():
 
     krx.daily = daily
     c = run(FakeDart.default(), krx)
-    # 2016–2020은 가짜 KRX에 자료가 없어요. 실패한 해도 실행을 멈추지 않고 기록만 해요.
-    assert c.year_end_missing == [2016, 2017, 2018, 2019, 2020, 2023, 2024]
+    # 2016–2020은 가짜 KRX에 자료가 없어요. PER에 쓰일 수 있는 해(올해−6부터)만 알려요.
+    assert c.year_end_missing == [2020, 2023, 2024]
     assert set(c.records) == {"000270", "030000"}
     years = c.records["000270"][1].inputs.years
     assert [y.per is None for y in years] == [False, False, True, True, False]
+
+
+def test_year_end_banner_skips_years_too_old_for_per():
+    krx = FakeKrx.default()
+    old, recent = D.year - 8, D.year - 2
+    real, seen = krx.daily, []
+
+    def daily(day):
+        seen.append(day.year)
+        if day.year in (old, recent) and day.month == 12:
+            raise KrxError("없어요")
+        return real(day) or (real(date(2025, 12, 30)) if day.month == 12 else {})
+
+    krx.daily = daily
+    c = run(FakeDart.default(), krx)
+    assert c.year_end_missing == [recent]
+    assert old in seen and recent in seen             # 둘 다 시도했어요
 
 
 def test_year_end_missing_empty_when_every_year_is_there():

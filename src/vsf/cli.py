@@ -21,8 +21,8 @@ from vsf.data.http import NetworkError
 from vsf.data.krx import KrxClient, KrxError
 from vsf.data.naver import NaverNews
 from vsf.data.store import Store
-from vsf.engine import compute
-from vsf.evaluate import evaluate, evaluate_one
+from vsf.engine import compute, summarize, watch_state
+from vsf.evaluate import evaluate, evaluate_one, evaluation_flags
 from vsf.export_xlsx import export_xlsx
 from vsf.extras import gather_extras
 from vsf.report.payload import build_payload, write_report
@@ -98,10 +98,9 @@ def _weekly_run(settings: Settings, keys: Keys, store: Store, deps: Deps, today:
     collected = collect(dart, krx, store, today)
     run = evaluate(collected, settings)
     prev = load_previous(runs_dir, today)
-    same_day = settings.reports_dir / collected.today.isoformat()
-    if not run.results and same_day.exists():
+    index = settings.reports_dir / collected.today.isoformat() / "index.html"
+    if not run.results and index.is_file():
         # 같은 날 다시 실행했는데 한 종목도 못 받았어요 (예: 한도). 오늘 받아 둔 리포트·스냅샷을 지켜요.
-        index = same_day / "index.html"
         print(f"오늘 리포트가 이미 있어서 그대로 두었어요: {index}")
         _print_pending(collected)
         if not no_open:
@@ -150,8 +149,10 @@ def _excel(code: str, settings: Settings, keys: Keys, store: Store, deps: Deps, 
     # 엑셀에는 업종 비교 항목이 없어요. 캐시 값도 엑셀(Numbers)이 다시 계산하는 값과 같게, 업종 판정 없이 계산해요.
     # 업종 판정은 B23 메모에만 적어요.
     cells = compute(inputs, criteria, None)
+    full = compute(inputs, criteria, extra)                       # 주간 실행과 같은 판정으로 '숫자 확인 필요' 사유를 달아요
+    flags = evaluation_flags(full, watch_state(summarize(full), settings.report))
     note = f"업종 안 ROE 순위 판정: {extra}" if extra is not None else ""
-    path = export_xlsx(settings.calculator_path, settings.exports_dir, inputs, cells, criteria, today, note)
+    path = export_xlsx(settings.calculator_path, settings.exports_dir, inputs, cells, criteria, today, note, flags)
     if made_from:
         print(made_from)
     print(f"엑셀 파일: {path}")

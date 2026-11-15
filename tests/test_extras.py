@@ -10,7 +10,7 @@ from helpers import RUN_1114, fin_row
 from vsf.data.dart import DartError, DartQuotaExceeded, FinRows
 from vsf.data.http import NetworkError
 from vsf.data.krx import KrxError
-from vsf.data.naver import NaverNews
+from vsf.data.naver import NaverAuthError, NaverNews
 from vsf.extras import gather_extras, quarterly_summary
 
 # 가짜 DART는 회사 번호를 99+종목코드로 보므로 실행 결과의 회사 번호도 맞춰요.
@@ -111,11 +111,41 @@ def test_news_failure_note_and_no_secret_leak():
     with pytest.raises(NetworkError) as err:
         naver.search("기아")
     assert "my-id" not in str(err.value) and "my-secret" not in str(err.value)
-    e = go(naver=NaverNews("my-id", "my-secret", http=news_http(status=401)))[KIA]
+    e = go(naver=NaverNews("my-id", "my-secret", http=news_http(status=404)))[KIA]
     assert e.news == [] and e.notes == ("뉴스를 가져오지 못했어요",)
     with pytest.raises(ValueError) as err:
-        NaverNews("my-id", "my-secret", http=news_http(status=401)).search("기아")
+        NaverNews("my-id", "my-secret", http=news_http(status=404)).search("기아")
     assert "my-id" not in str(err.value) and "my-secret" not in str(err.value)
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_naver_bad_key_raises_auth_error_without_the_key(status):
+    with pytest.raises(NaverAuthError) as err:
+        NaverNews("my-id", "my-secret", http=news_http(status=status)).search("기아")
+    assert str(err.value) == f"네이버 검색 키가 맞지 않아요 (HTTP {status})"
+    assert "my-id" not in str(err.value) and "my-secret" not in str(err.value)
+
+
+BAD_KEY_NOTE = "네이버 검색 키가 맞지 않아 뉴스를 가져오지 못했어요. keys.toml의 [naver] 값을 확인해 주세요."
+
+
+def test_naver_bad_key_is_tried_once_and_every_card_says_so():
+    class BadKey:
+        calls = 0
+
+        def search(self, query, n=5):
+            self.calls += 1
+            raise NaverAuthError("네이버 검색 키가 맞지 않아요 (HTTP 401)")
+
+    codes = ("000270", "000271", "000272")
+    run = replace(RUN, results={c: RUN.results[KIA] for c in codes})
+    naver = BadKey()
+    got = go(naver=naver, codes=codes, run=run)
+    assert naver.calls == 1
+    for c in codes:
+        assert got[c].news == [] and BAD_KEY_NOTE in got[c].notes
+        assert got[c].news_link.startswith("https://search.naver.com/search.naver?where=news&query=")
+    assert "뉴스를 가져오지 못했어요" not in got[KIA].notes
 
 
 def test_news_success_goes_on_extras():

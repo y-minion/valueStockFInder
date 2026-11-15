@@ -7,7 +7,7 @@ from vsf.data.accounts import extract
 from vsf.data.dart import DartError, DartQuotaExceeded, FinRows
 from vsf.data.http import NetworkError
 from vsf.data.krx import KrxError
-from vsf.data.naver import NaverNews
+from vsf.data.naver import NaverAuthError, NaverNews
 from vsf.evaluate import RunResult
 from vsf.excelfn import excel_round
 
@@ -15,6 +15,7 @@ _CAUGHT = (NetworkError, DartError, KrxError, ValueError)
 _DISCLOSURE_URL = "https://dart.fss.or.kr/dsaf001/main.do?rcpNo={}"
 _NEWS_LINK = "https://search.naver.com/search.naver?where=news&query={}"
 _QUOTA_NOTE = "오늘 DART 호출 한도에 닿아 일부 자료를 받지 못했어요"
+_NAVER_KEY_NOTE = "네이버 검색 키가 맞지 않아 뉴스를 가져오지 못했어요. keys.toml의 [naver] 값을 확인해 주세요."
 _NO_QUARTER = "올해 분기 실적이 아직 없어요"
 _REPORTS = ("11014", "11012", "11013")  # 3분기 누적, 반기 누적, 1분기
 _LABELS = {"11014": "3분기 누적", "11012": "반기 누적", "11013": "1분기"}
@@ -76,6 +77,7 @@ def gather_extras(codes, run: RunResult, dart, krx, naver: NaverNews | None,
     price_date = run.collected.price_date
     closes_by_day: dict[date, dict] | None = None
     closes_error = False
+    naver_key_bad = False
     out: dict[str, Extras] = {}
     for code in codes:
         result = run.results.get(code)
@@ -120,9 +122,14 @@ def gather_extras(codes, run: RunResult, dart, krx, naver: NaverNews | None,
                     closes.append((d.isoformat(), row.close))
 
         news: list[dict] = []
-        if naver is not None:
+        if naver is not None and naver_key_bad:
+            note(_NAVER_KEY_NOTE)
+        elif naver is not None:
             try:
                 news = naver.search(company.name)
+            except NaverAuthError:                # ValueError의 하위라서 _CAUGHT보다 먼저 잡아요
+                naver_key_bad = True              # 남은 종목은 네이버를 부르지 않아요
+                note(_NAVER_KEY_NOTE)
             except _CAUGHT:
                 note("뉴스를 가져오지 못했어요")
 

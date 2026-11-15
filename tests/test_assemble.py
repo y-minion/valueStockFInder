@@ -743,3 +743,14 @@ def test_consolidated_without_minority_uses_total_net_income():
     for kw in ({"nci": True}, {"same_equity": False}):
         b = assemble(co, L, _no_minority(fin_a, **kw), _no_minority(fin_b, **kw), divs, ye, price, d)
         assert all(y.net_income is None for y in b.inputs.years), kw
+
+
+def test_financial_company_leaves_sector_mismatched_numbers_blank():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    a = assemble(replace(co, financial_kind="은행"), L, fin_a, fin_b, divs, ye, price, d)
+    for y in a.inputs.years:
+        assert (y.debt_ratio, y.interest_coverage, y.ocf, y.capex) == (None, None, None, None)
+        assert None not in (y.eps, y.roe, y.net_income, y.dividends_paid)
+    assert not any(cell[1:] in ("31", "32", "34", "35") for cell in a.sources)
+    assert not any("이자보상배율" in n for n in a.notes)
+    assert assemble(co, L, fin_a, fin_b, divs, ye, price, d).inputs.years[0].debt_ratio is not None

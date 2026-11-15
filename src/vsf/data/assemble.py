@@ -444,12 +444,14 @@ def _coverage(main: dict[int, _Period], b: dict[int, _Period], latest: int,
     return cov
 
 
-def _amounts(main: dict[int, _Period], b: dict[int, _Period], latest: int,
-             out: _Out) -> dict[str, dict[int, float | None]]:
+def _amounts(main: dict[int, _Period], b: dict[int, _Period], latest: int, out: _Out,
+             only: tuple[str, ...] | None = None) -> dict[str, dict[int, float | None]]:
     """순이익·영업현금흐름·설비투자·배당금 지급 총액을 억 원으로."""
     got: dict[str, dict[int, float | None]] = {field: {} for field, _ in _AMOUNT_ROWS}
     for y in range(latest - 4, latest + 1):
         for field, row in _AMOUNT_ROWS:
+            if only is not None and field not in only:
+                continue
             p, s = _field(main, b, y, latest, _net_income if field == "net_income" else _acc(field))
             value = None if s is None or s.value is None else excel_round(s.value / 1e8, 2)
             got[field][y] = value
@@ -541,9 +543,16 @@ def assemble(company: CompanyInfo, latest_year: int, fin_a: FinRows | None, fin_
     dps = _dps(div_reports, L, range(L - 9, L + 1), out)
     per = _per(eps, year_end, L, out)
     roe = _roe(a, b, main, L, out)
-    debt = _debt_ratio(main, b, L, out)
-    cov = _coverage(main, b, L, out)
-    amounts = _amounts(main, b, L, out)
+    years_range = range(L - 4, L + 1)
+    if company.financial_kind is None:
+        debt = _debt_ratio(main, b, L, out)
+        cov = _coverage(main, b, L, out)
+        amounts = _amounts(main, b, L, out)
+    else:      # 금융회사는 부채비율·이자보상배율·영업현금흐름·설비투자가 업종과 맞지 않아 비워요 (계산 자체를 건너뛰어 메모도 안 남겨요).
+        debt = cov = dict.fromkeys(years_range)
+        amounts = {field: dict.fromkeys(years_range) for field, _ in _AMOUNT_ROWS}
+        for field in ("net_income", "dividends_paid"):
+            amounts[field] = _amounts(main, b, L, out, only=(field,))[field]
     pbr = _pbr(a, eps, L, price, price_date, out)
     _number_checks(a, b, main, eps, per, L, out)
     _special_dividends(eps, dps, out)

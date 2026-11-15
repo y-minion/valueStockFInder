@@ -64,3 +64,26 @@ def test_record_krx_saves_raw_first_rows(tmp_path):
                         "ksq_bydd_trd_20251230", "stk_bydd_trd_20261113", "ksq_bydd_trd_20261113"}
     assert raw["ksq_bydd_trd_20251230"] == {"ISU_CD": "ksq20251230", "ODD_FIELD": "?"}    # 고른 종목이 아니어도
     assert RAW_FIRST_ROWS == "_raw_first_rows.json"
+
+
+def _keys_root(tmp_path, monkeypatch):
+    from tools import record_fixtures
+    (tmp_path / "keys.toml").write_text(f'[dart]\napi_key = "{"d" * 40}"\n[krx]\nauth_key = ""\n',
+                                        encoding="utf-8")
+    monkeypatch.setattr(record_fixtures, "ROOT", tmp_path)
+    return record_fixtures
+
+
+def test_main_dart_runs_without_krx_key(tmp_path, monkeypatch):
+    rf = _keys_root(tmp_path, monkeypatch)
+    got = []
+    monkeypatch.setattr(rf, "record_dart", lambda key, folder: got.append(key) or 0)
+    assert rf.main(["dart"]) == 0
+    assert got == ["d" * 40]
+
+
+def test_main_krx_still_needs_krx_key(tmp_path, monkeypatch, capsys):
+    rf = _keys_root(tmp_path, monkeypatch)
+    monkeypatch.setattr(rf, "record_krx", lambda key, folder: 0)
+    assert rf.main(["krx"]) == 2
+    assert "KRX 인증키가 없어요" in capsys.readouterr().err

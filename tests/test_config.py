@@ -58,6 +58,18 @@ def test_missing_dart_key(tmp_path):
         load_keys(tmp_path / "keys.toml")
 
 
+def test_krx_key_optional_for_dart_only_use(tmp_path):
+    (tmp_path / "keys.toml").write_text('[dart]\napi_key = "d"\n[krx]\nauth_key = "  "\n')
+    keys = load_keys(tmp_path / "keys.toml", require_krx=False)
+    assert keys.krx is None and keys.dart == "d"
+
+
+def test_blank_krx_key_still_required_by_default(tmp_path):
+    (tmp_path / "keys.toml").write_text('[dart]\napi_key = "d"\n[krx]\nauth_key = ""\n')
+    with pytest.raises(ConfigError, match="KRX 인증키가 없어요"):
+        load_keys(tmp_path / "keys.toml")
+
+
 def test_fingerprint_is_json_roundtrip():
     s = load_settings(ROOT / "settings.toml")
     assert json.loads(json.dumps(settings_fingerprint(s)))["criteria"]["required_return"] == 0.10

@@ -68,7 +68,7 @@ class Settings:
 @dataclass(frozen=True)
 class Keys:
     dart: str
-    krx: str
+    krx: str | None
     naver_id: str | None
     naver_secret: str | None
 
@@ -193,7 +193,7 @@ def load_settings(path: Path) -> Settings:
     )
 
 
-def load_keys(path: Path) -> Keys:
+def load_keys(path: Path, *, require_krx: bool = True) -> Keys:
     path = Path(path)
     try:
         raw = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -216,7 +216,7 @@ def load_keys(path: Path) -> Keys:
     if not dart:
         raise ConfigError("keys.toml에 DART 인증키가 없어요. [dart] api_key에 OpenDART 인증키를 넣어 주세요.")
     krx = get("krx", "auth_key")
-    if not krx:
+    if not krx and require_krx:
         raise ConfigError("keys.toml에 KRX 인증키가 없어요. [krx] auth_key에 KRX OPEN API 인증키를 넣어 주세요.")
     return Keys(dart=dart, krx=krx, naver_id=get("naver", "client_id"), naver_secret=get("naver", "client_secret"))
 

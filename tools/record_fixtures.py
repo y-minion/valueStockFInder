@@ -195,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("krx", help="KRX OPEN API 응답 녹화")
     args = ap.parse_args(argv)
     try:
-        keys = load_keys(ROOT / "keys.toml")
+        keys = load_keys(ROOT / "keys.toml", require_krx=args.cmd == "krx")
     except ConfigError as e:
         print(e, file=sys.stderr)
         print("keys.toml이 준비되면 다시 실행해 주세요.", file=sys.stderr)
@@ -208,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
     if args.cmd == "krx":
         try:
-            return record_krx(keys.krx, ROOT / "tests" / "fixtures" / "krx" / "recorded")
+            return record_krx(keys.krx or "", ROOT / "tests" / "fixtures" / "krx" / "recorded")
         except RecorderError as e:
             print(f"녹화를 멈췄어요. {e}", file=sys.stderr)
             return 1

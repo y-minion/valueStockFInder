@@ -4,7 +4,7 @@ from datetime import date
 
 from fakes import D, KIA_CORP, FakeDart, FakeKrx, mem_store, noop
 from helpers import div_rows, synthetic
-from vsf.collect import collect, collect_one
+from vsf.collect import NO_FIN, collect, collect_one
 from vsf.data.dart import DartError, DartQuotaExceeded
 from vsf.data.http import NetworkError
 from vsf.data.krx import KrxError
@@ -64,17 +64,39 @@ def test_first_run_skips_filings_check_and_records_date():
 
 def test_exclusions_bucketed():
     c = collect(FakeDart.exclusion_mix(), FakeKrx.exclusion_mix(), mem_store(), D, progress=noop)
-    assert set(c.excluded) == {"우선주", "스팩", "금융회사", "결산월 12월 아님"} and len(c.records) == 1
+    assert set(c.excluded) == {"우선주", "스팩", "금융회사(그 밖)", "결산월 12월 아님"} and len(c.records) == 1
     assert c.excluded["스팩"] == [("123450", "하나30호스팩")]
 
 
-def test_holding_company_without_current_assets_is_financial_holding():
+def test_financial_companies_are_analyzed_with_their_kind():
+    c = run(FakeDart({"000270": FakeDart.entry(induty_code="64121")}))
+    assert c.records["000270"][0].financial_kind == "은행"
+
+
+def test_financial_holding_is_analyzed_as_its_kind():
     bank_holding = synthetic(defaults=False)
-    dart = FakeDart.with_company("000270", induty_code="64992", fin={2025: bank_holding, 2023: bank_holding})
-    c = run(dart)
-    assert c.excluded == {"금융지주": [("000270", "기아")]} and "000270" not in c.records
-    keeps = run(FakeDart.with_company("000270", induty_code="64992"))
+    c = run(FakeDart.with_company("000270", induty_code="64992", fin={2025: bank_holding, 2023: bank_holding}))
+    assert c.records["000270"][0].financial_kind == "금융지주" and c.excluded == {}
+
+
+def test_include_false_keeps_old_exclusions():
+    c = collect(FakeDart.exclusion_mix(), FakeKrx.exclusion_mix(), mem_store(), D, progress=noop,
+                include_financial=False)
+    assert set(c.excluded) == {"우선주", "스팩", "금융회사", "결산월 12월 아님"}
+    bank_holding = synthetic(defaults=False)
+    held = collect(FakeDart.with_company("000270", induty_code="64992", fin={2025: bank_holding, 2023: bank_holding}),
+                   FakeKrx.default(), mem_store(), D, progress=noop, include_financial=False)
+    assert held.excluded == {"금융지주": [("000270", "기아")]}
+    keeps = collect(FakeDart.with_company("000270", induty_code="64992"), FakeKrx.default(), mem_store(), D,
+                    progress=noop, include_financial=False)
     assert "000270" in keeps.records
+
+
+def test_holding_without_statements_fails_instead_of_general_verdict():
+    c = run(FakeDart.with_company("000270", induty_code="64992", fin={}))
+    # 030000 is in the fake KRX list but not in this one-company fake DART, so it fails too
+    assert [f for f in c.failed if f[0] == "000270"] == [("000270", "기아", NO_FIN.format(year=2025))]
+    assert "000270" not in c.records
 
 
 def test_quick_fail_skips_statements():

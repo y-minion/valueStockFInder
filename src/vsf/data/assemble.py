@@ -51,6 +51,7 @@ class CompanyInfo:
     market: str
     induty_code: str
     acc_mt: str
+    financial_kind: str | None = None
 
 
 @dataclass(frozen=True)

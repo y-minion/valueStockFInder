@@ -7,6 +7,9 @@ from vsf.data.krx import Listed
 
 HOLDING_PREFIX = "64992"
 FINANCIAL_DIVISIONS = ("64", "65", "66")
+FINANCIAL_KINDS = ("금융지주", "은행", "보험", "증권", "카드·캐피탈")
+OTHER_FINANCIAL = "그 밖"
+_KIND_BY_PREFIX = (("6412", "은행"), ("651", "보험"), ("652", "보험"), ("6612", "증권"), ("6491", "카드·캐피탈"))
 
 
 def listing_exclusion(item: Listed) -> str | None:
@@ -33,21 +36,30 @@ def is_holding(company: dict) -> bool:
     return str(company.get("induty_code") or "").startswith(HOLDING_PREFIX)
 
 
-def company_exclusion(company: dict) -> str | None:
+def financial_kind(company: dict) -> str | None:
+    """지주회사가 아닌 금융회사의 종류. 금융회사가 아니면 None, 기준이 없는 종류는 "그 밖"이에요."""
+    code = str(company.get("induty_code") or "")
+    if code[:2] not in FINANCIAL_DIVISIONS or is_holding(company):
+        return None
+    for prefix, kind in _KIND_BY_PREFIX:
+        if code.startswith(prefix):
+            return kind
+    return OTHER_FINANCIAL
+
+
+def company_exclusion(company: dict, include_financial: bool = True) -> str | None:
     """DART 기업개황으로 제외 사유를 찾아요. 값이 없으면 그 항목으로는 제외하지 않아요."""
     acc_mt = company.get("acc_mt")
     if acc_mt and acc_mt != "12":
         return "결산월 12월 아님"
-    code = str(company.get("induty_code") or "")
-    if code[:2] in FINANCIAL_DIVISIONS and not is_holding(company):
-        return "금융회사"
-    return None
-
-
-def holding_exclusion(fin: FinRows | None) -> str | None:
-    """지주회사인데 최신 재무상태표에 유동자산이 없으면 금융지주예요. 재무제표가 없으면 판단하지 않아요."""
-    if fin is None:
+    kind = financial_kind(company)
+    if kind is None:
         return None
-    if extract(fin, "thstrm")["current_assets"].value is None:
-        return "금융지주"
-    return None
+    if not include_financial:
+        return "금융회사"
+    return f"금융회사({OTHER_FINANCIAL})" if kind == OTHER_FINANCIAL else None
+
+
+def is_financial_holding(fin: FinRows | None) -> bool:
+    """최신 재무상태표에 유동자산이 없으면 금융지주예요. 재무제표가 없으면 판단하지 않아요."""
+    return fin is not None and extract(fin, "thstrm")["current_assets"].value is None

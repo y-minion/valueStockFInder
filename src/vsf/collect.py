@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 
 from vsf.data.assemble import (Assembled, CompanyInfo, assemble, assemble_quick_fail,
@@ -12,7 +12,8 @@ from vsf.data.dart import DartError, DartQuotaExceeded
 from vsf.data.http import NetworkError
 from vsf.data.krx import KrxError, Listed
 from vsf.data.store import PriceRow, Store
-from vsf.data.universe import company_exclusion, holding_exclusion, is_holding, listing_exclusion
+from vsf.data.universe import (company_exclusion, financial_kind, is_financial_holding, is_holding,
+                               listing_exclusion)
 
 FIRST_DIV_YEAR = 2015
 PROGRESS_EVERY = 50
@@ -53,6 +54,7 @@ class _Context:
     prices: dict[str, PriceRow]
     corp: dict[str, str]
     year_ends: dict[int, dict[str, PriceRow]]
+    include_financial: bool = True
 
 
 PER_BANNER_YEARS = 6
@@ -94,11 +96,12 @@ def _process(ctx: _Context, item: Listed) -> tuple[CompanyInfo, Assembled]:
     raw = dart.company(corp)
     if raw is None:
         raise _Failed(NO_CORP)
-    reason = company_exclusion(raw)
+    reason = company_exclusion(raw, ctx.include_financial)
     if reason:
         raise _Excluded(reason)
     info = CompanyInfo(corp_code=corp, code=code, name=item.name, market=item.market,
-                       induty_code=str(raw.get("induty_code") or ""), acc_mt=str(raw.get("acc_mt") or ""))
+                       induty_code=str(raw.get("induty_code") or ""), acc_mt=str(raw.get("acc_mt") or ""),
+                       financial_kind=financial_kind(raw) if ctx.include_financial else None)
 
     latest = today.year - 1
     div_reports: dict[int, list[dict]] = {}
@@ -116,9 +119,10 @@ def _process(ctx: _Context, item: Listed) -> tuple[CompanyInfo, Assembled]:
     if fin_a is None:
         raise _Failed(NO_FIN.format(year=latest))
     if is_holding(raw):
-        reason = holding_exclusion(fin_a)
-        if reason:
-            raise _Excluded(reason)
+        if is_financial_holding(fin_a):
+            if not ctx.include_financial:
+                raise _Excluded("금융지주")
+            info = replace(info, financial_kind="금융지주")
     fin_b = dart.financials(corp, latest - 2)
     for y in range(latest - 2, latest - 9, -2):
         if y >= FIRST_DIV_YEAR:
@@ -150,7 +154,8 @@ def _check_filings(dart, store: Store, today: date) -> None:
     store.set_meta("filings_checked", today.isoformat())
 
 
-def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None] = print) -> Collected:
+def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None] = print,
+            *, include_financial: bool = True) -> Collected:
     price_date = krx.latest_trading_day(today)
     prices = krx.daily(price_date)
     listed = krx.listed(price_date)
@@ -163,7 +168,7 @@ def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None
         progress(f"0/{len(listed)} 종목 처리 중 (오늘 DART 호출 {dart.calls_today:,}회)")
         return result
     year_ends, result.year_end_missing = _year_ends(krx, today)
-    ctx = _Context(dart, today, price_date, prices, corp, year_ends)
+    ctx = _Context(dart, today, price_date, prices, corp, year_ends, include_financial)
 
     def report(done: int) -> None:
         progress(f"{done}/{len(listed)} 종목 처리 중 (오늘 DART 호출 {dart.calls_today:,}회)")
@@ -192,7 +197,8 @@ def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None
     return result
 
 
-def collect_one(dart, krx, store: Store, today: date, code: str) -> tuple[CompanyInfo, Assembled] | str:
+def collect_one(dart, krx, store: Store, today: date, code: str, *,
+                include_financial: bool = True) -> tuple[CompanyInfo, Assembled] | str:
     """종목 하나만 받아요 (엑셀 내보내기용). 못 받으면 한국어 사유 글을 돌려줘요."""
     price_date = krx.latest_trading_day(today)
     prices = krx.daily(price_date)
@@ -200,7 +206,8 @@ def collect_one(dart, krx, store: Store, today: date, code: str) -> tuple[Compan
     if item is None:
         return f"{code} 종목을 찾지 못했어요"
     try:
-        ctx = _Context(dart, today, price_date, prices, dart.corp_codes(), _year_ends(krx, today)[0])
+        ctx = _Context(dart, today, price_date, prices, dart.corp_codes(), _year_ends(krx, today)[0],
+                       include_financial)
         return _process(ctx, item)
     except _Excluded as e:
         return f"{code}은(는) 분석 대상이 아니에요: {e}"

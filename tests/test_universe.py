@@ -2,7 +2,8 @@ import pytest
 
 from tests.helpers import fin_row, synthetic
 from vsf.data.krx import Listed
-from vsf.data.universe import company_exclusion, holding_exclusion, is_holding, listing_exclusion
+from vsf.data.universe import (company_exclusion, financial_kind, is_financial_holding, is_holding,
+                               listing_exclusion)
 
 
 def L(**kw) -> Listed:
@@ -41,7 +42,7 @@ def test_listing_exclusion(item, want):
     ({"acc_mt": None, "induty_code": None}, None), ({"acc_mt": "", "induty_code": ""}, None),
     ({"induty_code": "6419"}, "금융회사")])
 def test_company_exclusion(co, want):
-    assert company_exclusion(co) == want
+    assert company_exclusion(co, include_financial=False) == want
 
 
 def test_is_holding():
@@ -50,12 +51,26 @@ def test_is_holding():
 
 
 def test_holding_with_current_assets_kept():
-    assert holding_exclusion(fin_with(current_assets=1)) is None
+    assert not is_financial_holding(fin_with(current_assets=1))
 
 
 def test_financial_holding_excluded():
-    assert holding_exclusion(fin_with()) == "금융지주"
+    assert is_financial_holding(fin_with())
 
 
 def test_holding_without_statement_is_not_judged():
-    assert holding_exclusion(None) is None
+    assert not is_financial_holding(None)
+
+
+@pytest.mark.parametrize("code,kind", [
+    ("64121", "은행"), ("65110", "보험"), ("65121", "보험"), ("65200", "보험"), ("66121", "증권"),
+    ("64911", "카드·캐피탈"), ("64201", "그 밖"), ("6419", "그 밖"), ("66", "그 밖"),
+    ("64992", None), ("30121", None), ("", None)])
+def test_financial_kind(code, kind):
+    assert financial_kind({"induty_code": code}) == kind
+
+
+def test_company_exclusion_includes_supported_financials():
+    assert company_exclusion({"acc_mt": "12", "induty_code": "64121"}) is None
+    assert company_exclusion({"acc_mt": "12", "induty_code": "64201"}) == "금융회사(그 밖)"
+    assert company_exclusion({"acc_mt": "12", "induty_code": "64121"}, include_financial=False) == "금융회사"

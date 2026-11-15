@@ -95,7 +95,7 @@ def _print_pending(collected: Collected) -> None:
 def _weekly_run(settings: Settings, keys: Keys, store: Store, deps: Deps, today: date,
                 runs_dir: Path, no_open: bool) -> int:
     dart, krx, naver = deps.make_dart(keys, store, settings), deps.make_krx(keys, store), deps.make_naver(keys)
-    collected = collect(dart, krx, store, today)
+    collected = collect(dart, krx, store, today, include_financial=settings.financial.include)
     run = evaluate(collected, settings)
     prev = load_previous(runs_dir, today)
     index = settings.reports_dir / collected.today.isoformat() / "index.html"
@@ -140,7 +140,8 @@ def _excel(code: str, settings: Settings, keys: Keys, store: Store, deps: Deps, 
         price_date = held.inputs.price_date.isoformat() if held.inputs.price_date else "알 수 없음"
         made_from = f"{snap.date.isoformat()} 실행 결과(주가 {price_date} 기준)로 만들었어요."
     else:
-        got = collect_one(deps.make_dart(keys, store, settings), deps.make_krx(keys, store), store, today, code)
+        got = collect_one(deps.make_dart(keys, store, settings), deps.make_krx(keys, store), store, today, code,
+                          include_financial=settings.financial.include)
         if isinstance(got, str):
             print(got)
             return 1

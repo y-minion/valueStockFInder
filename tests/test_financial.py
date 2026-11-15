@@ -4,7 +4,7 @@ from dataclasses import replace
 from helpers import _kia_inputs
 from vsf.config import FinancialSettings
 from vsf.engine import compute
-from vsf.financial import (CAPITAL_HELP, FIN_CELLS, CapitalRatio, FinancialGate, financial_gate,
+from vsf.financial import (financial_memo, CAPITAL_HELP, FIN_CELLS, CapitalRatio, FinancialGate, financial_gate,
                            gate_from_dict, gate_to_dict)
 from vsf.model import Criteria
 
@@ -90,3 +90,10 @@ def test_gate4_hints_for_financials():
     ok = replace(BANK, capital=CapitalRatio(13.2, "2026-09", "x"))
     v = compute(_kia_inputs(60000.0), Criteria(), financial=ok)
     assert v["C131"].endswith("(보통주자본비율 13.2%, 2026-09 기준)")
+
+
+def test_financial_memo_text():
+    m = financial_memo(BANK, compute(_kia_inputs(60000.0), Criteria(), financial=BANK))
+    assert m.startswith("금융회사(은행)라 금융업 기준으로 판정했어요: 관문 ① 확인 필요 (ROE 5년 평균 ")
+    assert "%, 최근 5년 적자 없음, 보통주자본비율 직접 확인), 관문 ② " in m
+    assert m.endswith("부채비율·이자보상배율·현금흐름은 금융회사에 맞지 않아 비워 뒀어요.")

@@ -150,8 +150,9 @@ def _sheet_paths(z: dict[str, bytes]) -> dict[str, str]:
     return {s.get("name"): targets[s.get("{%s}id" % _RNS)] for s in wb.iter(_M + "sheet")}
 
 
-def _memo(inputs: StockInputs, extra_note: str, flags: tuple[str, ...] = ()) -> str:
-    text = inputs.memo + "".join(f" {f}" for f in flags) + f" {NUMBERS_GUIDE}"
+def _memo(inputs: StockInputs, extra_note: str, flags: tuple[str, ...] = (), financial_note: str = "") -> str:
+    text = (inputs.memo + "".join(f" {f}" for f in flags) + (f" {financial_note}" if financial_note else "")
+            + f" {NUMBERS_GUIDE}")
     if extra_note:
         text += f" 업종 비교 항목(엑셀에는 없음): {extra_note}"
     return text.lstrip(" ")
@@ -170,7 +171,7 @@ def _free_path(out_dir: Path, stem: str, template: Path) -> Path:
 
 def export_xlsx(template: Path, out_dir: Path, inputs: StockInputs, cells: SheetValues,
                 criteria: Criteria, today: date, extra_note: str = "",
-                flags: tuple[str, ...] = ()) -> Path:
+                flags: tuple[str, ...] = (), financial_note: str = "") -> Path:
     template, out_dir = Path(template), Path(out_dir)
     stem = f"{today.isoformat()}_{safe_file_stem(inputs.name)}_{inputs.code}"
     _free_path(out_dir, stem, template)   # 원본과 같은 경로면 바로 거절해요
@@ -187,7 +188,7 @@ def export_xlsx(template: Path, out_dir: Path, inputs: StockInputs, cells: Sheet
     root = _parse(members[sheet_path])
     index = _index(root)
     values = to_cells(inputs)
-    values["B23"] = _memo(inputs, extra_note, flags)
+    values["B23"] = _memo(inputs, extra_note, flags, financial_note)
     for addr, v in values.items():
         _set_value(_cell(root, addr, index), v)
     for addr in FORMULA_CELLS:

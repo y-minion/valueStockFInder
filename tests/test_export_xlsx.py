@@ -114,6 +114,16 @@ def test_flags_follow_the_memo_before_the_guide(template_path, tmp_path):
         f"내 메모 표시 하나 표시 둘 {NUMBERS_GUIDE} 업종 비교 항목(엑셀에는 없음): 업종 PER 낮음")
 
 
+@pytest.mark.template
+def test_memo_order_with_financial_note(template_path, tmp_path):
+    inputs = replace(KIA, memo="내 메모")
+    c = Criteria()
+    p = export_xlsx(template_path, tmp_path, inputs, compute(inputs, c), c, D, extra_note="업종 PER 낮음",
+                    flags=("표시 하나",), financial_note="금융 메모")
+    assert XlsxReader(p).cell("기아", "B23")[1] == (
+        f"내 메모 표시 하나 금융 메모 {NUMBERS_GUIDE} 업종 비교 항목(엑셀에는 없음): 업종 PER 낮음")
+
+
 def test_refuses_template_path(tmp_path):
     fake = tmp_path / "2026-11-14_기아_000270.xlsx"
     fake.write_bytes(b"not a real workbook")

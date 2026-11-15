@@ -202,6 +202,51 @@ def test_excel_collect_one_clean_case_has_no_flag(tmp_path, template_path):
     assert FLAG_TEXT not in _x(tmp_path).cell("기아", "B23")[1]
 
 
+BANK_NOTE = "금융회사(은행)라 금융업 기준으로 판정했어요"
+
+
+def _bank_deps(tmp_path):
+    d = fake_deps(tmp_path)
+    d.dart = FakeDart({"000270": FakeDart.entry(induty_code="64121"), "030000": FakeDart.entry()})
+    return d
+
+
+def _assert_bank_export(tmp_path):
+    from helpers import XlsxReader
+    from vsf.engine import compute
+    from vsf.collect import collect_one
+    from fakes import mem_store
+    from vsf.model import Criteria
+    inputs = collect_one(_bank_deps(tmp_path).dart, FakeKrx.default(), mem_store(), D, "000270")[1].inputs
+    x = XlsxReader(next((tmp_path / "exports").glob("*000270*.xlsx")))
+    memo = x.cell("기아", "B23")[1]
+    assert BANK_NOTE in memo and memo.index(BANK_NOTE) < memo.index("Numbers에서는")
+    want = compute(inputs, Criteria(), None)["D79"]          # 엑셀은 빈칸이라 '입력 필요'
+    assert want == "입력 필요" and x.cell("기아", "D79")[1] == want
+
+
+@pytest.mark.template
+def test_excel_collect_one_notes_sector_verdict(tmp_path, template_path):
+    d = _bank_deps(tmp_path)
+    assert run(tmp_path, d, "--excel", "000270") == 0
+    _assert_bank_export(tmp_path)
+
+
+@pytest.mark.template
+def test_excel_from_snapshot_notes_sector_verdict(tmp_path, template_path):
+    d = _bank_deps(tmp_path)
+    assert run(tmp_path, d) == 0
+    assert load_previous(tmp_path / "data" / "runs", D + timedelta(days=1)).stocks["000270"].financial is not None
+    assert run(tmp_path, d, "--excel", "000270") == 0
+    _assert_bank_export(tmp_path)
+
+
+@pytest.mark.template
+def test_excel_general_stock_has_no_sector_note(tmp_path, template_path):
+    assert run(tmp_path, fake_deps(tmp_path), "--excel", "000270") == 0
+    assert "금융업 기준" not in _x(tmp_path).cell("기아", "B23")[1]
+
+
 def test_excel_unknown_code(tmp_path, capsys):
     assert run(tmp_path, fake_deps(tmp_path), "--excel", "999999") == 1
     assert "999999" in capsys.readouterr().out

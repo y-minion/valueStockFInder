@@ -25,6 +25,7 @@ from vsf.engine import compute, summarize, watch_state
 from vsf.evaluate import evaluate, evaluate_one, evaluation_flags
 from vsf.export_xlsx import export_xlsx
 from vsf.extras import gather_extras
+from vsf.financial import financial_memo
 from vsf.report.payload import build_payload, write_report
 from vsf.snapshot import SnapshotNotSaved, load_previous, save_snapshot
 
@@ -137,6 +138,7 @@ def _excel(code: str, settings: Settings, keys: Keys, store: Store, deps: Deps, 
     made_from = None
     if held is not None:
         inputs, criteria, extra = held.inputs, held.criteria, held.extra_gate1
+        gate = held.financial
         price_date = held.inputs.price_date.isoformat() if held.inputs.price_date else "알 수 없음"
         made_from = f"{snap.date.isoformat()} 실행 결과(주가 {price_date} 기준)로 만들었어요."
     else:
@@ -147,13 +149,16 @@ def _excel(code: str, settings: Settings, keys: Keys, store: Store, deps: Deps, 
             return 1
         result = evaluate_one(got[0], got[1], settings, None)
         inputs, criteria, extra = got[1].inputs, result.criteria, result.extra_gate1
+        gate = result.financial
     # 엑셀에는 업종 비교 항목이 없어요. 캐시 값도 엑셀(Numbers)이 다시 계산하는 값과 같게, 업종 판정 없이 계산해요.
     # 업종 판정은 B23 메모에만 적어요.
     cells = compute(inputs, criteria, None)
-    full = compute(inputs, criteria, extra)                       # 주간 실행과 같은 판정으로 '숫자 확인 필요' 사유를 달아요
+    full = compute(inputs, criteria, extra, financial=gate)                     # 주간 실행과 같은 판정으로 '숫자 확인 필요' 사유를 달아요
     flags = evaluation_flags(full, watch_state(summarize(full), settings.report))
     note = f"업종 안 ROE 순위 판정: {extra}" if extra is not None else ""
-    path = export_xlsx(settings.calculator_path, settings.exports_dir, inputs, cells, criteria, today, note, flags)
+    fin_note = financial_memo(gate, full) if gate else ""
+    path = export_xlsx(settings.calculator_path, settings.exports_dir, inputs, cells, criteria, today, note, flags,
+                       fin_note)
     if made_from:
         print(made_from)
     print(f"엑셀 파일: {path}")

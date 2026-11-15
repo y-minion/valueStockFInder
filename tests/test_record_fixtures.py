@@ -4,6 +4,7 @@ import json
 import httpx
 import pytest
 
+from tools import record_fixtures
 from tools.record_fixtures import RecorderError, fetch
 
 KEY = "SECRETKEY" + "0" * 31
@@ -67,7 +68,6 @@ def test_record_krx_saves_raw_first_rows(tmp_path):
 
 
 def _keys_root(tmp_path, monkeypatch):
-    from tools import record_fixtures
     (tmp_path / "keys.toml").write_text(f'[dart]\napi_key = "{"d" * 40}"\n[krx]\nauth_key = ""\n',
                                         encoding="utf-8")
     monkeypatch.setattr(record_fixtures, "ROOT", tmp_path)

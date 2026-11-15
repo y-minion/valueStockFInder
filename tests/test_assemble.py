@@ -7,9 +7,8 @@ import pytest
 
 from helpers import (ORIGINAL_OLD_EPS, SYN_SHARES, div_rows, fin_row, load_company, load_divs, load_fin,
                      load_oracle, load_price, load_year_end, synthetic_company)
-from vsf.data.assemble import (Assembled, assemble, assemble_quick_fail, dps_by_year,
+from vsf.data.assemble import (ROE_END_NOTE, Assembled, assemble, assemble_quick_fail, dps_by_year,
                                dps_from_report, quick_fail_check)
-from vsf.data.assemble import ROE_END_NOTE
 from vsf.data.splits import RESTATE_FLAG, SPLIT_FLAG
 from vsf.data.store import PriceRow
 from vsf.engine import compute, summarize
@@ -106,6 +105,7 @@ def test_dart_inputs_match_example_sheet(name):
         bad = [(r.year, getattr(r, field), getattr(w, field)) for r, w in zip(got, want)
                if not _close(getattr(r, field), getattr(w, field), rel)]
         assert not bad, f"{field}: {bad}"
+    assert _close(got[0].roe, want[0].roe, 0.005)   # 2021년(자본변동표 기초자본을 쓰는 해)은 0.5% 안
     assert all(r.capex is not None and r.capex > 0 for r in got)
     assert all(r.dividends_paid is not None and r.dividends_paid > 0 for r in got)
     assert a.flags == ()

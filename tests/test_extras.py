@@ -98,9 +98,19 @@ def test_news_bad_date_left_blank_and_request_shape():
     got = NaverNews("my-id", "my-secret", http=news_http(news_item("a", pub="어제"), seen=seen)).search("기아", 3)
     assert got[0]["date"] == ""
     req = seen[0]
-    assert req.headers["X-Naver-Client-Id"] == "my-id" and req.headers["X-Naver-Client-Secret"] == "my-secret"
+    # 개발자센터는 2026-07-31부터 검색 API 새 키를 안 내줘요. 새 키는 NAVER API HUB용이에요.
+    assert req.headers["X-NCP-APIGW-API-KEY-ID"] == "my-id" and req.headers["X-NCP-APIGW-API-KEY"] == "my-secret"
+    assert "X-Naver-Client-Id" not in req.headers and "X-Naver-Client-Secret" not in req.headers
     assert req.url.params["display"] == "3" and req.url.params["sort"] == "date"
-    assert str(req.url).startswith("https://openapi.naver.com/v1/search/news.json?")
+    assert str(req.url).startswith("https://naverapihub.apigw.ntruss.com/search/v1/news?")
+
+
+def test_news_json_body_sent_as_text_plain_is_read():
+    # NAVER API HUB는 JSON 본문을 text/plain으로 보내요 (2026-11-15 실제 응답).
+    body = json.dumps({"items": [news_item("기아 실적")]}, ensure_ascii=False).encode()
+    http = httpx.Client(transport=httpx.MockTransport(
+        lambda req: httpx.Response(200, content=body, headers={"content-type": "text/plain;charset=UTF-8"})))
+    assert NaverNews("i", "s", http=http).search("기아")[0]["title"] == "기아 실적"
 
 
 def test_news_failure_note_and_no_secret_leak():

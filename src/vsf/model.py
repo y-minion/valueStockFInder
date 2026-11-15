@@ -22,7 +22,7 @@ class Criteria:
 
 Num = float | None
 Cell = float | str | None   # None은 엑셀의 빈칸이나 ""
-SheetValues = dict[str, Cell]   # 키는 FORMULA_CELLS
+SheetValues = dict[str, Cell]   # 키는 FORMULA_CELLS (금융회사 계산이면 FIN_CELLS 7개가 더 있어요)
 
 _COLS = "BCDEF"
 

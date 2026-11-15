@@ -99,3 +99,13 @@ def test_evaluate_one_uses_sector_verdict_for_financials():
     r = evaluate_one(bank, a, settings_with(), None)
     assert r.financial == FinancialGate("은행", None, 9.0) and r.cells["D79"] == "해당 없음"
     assert state_of(a.inputs, r.criteria, None, ReportSettings(), financial=r.financial) == r.state
+
+
+def test_state_of_follows_financial_gate():
+    from helpers import _kia_inputs
+    from vsf.model import Criteria
+    i = _kia_inputs(60000.0)
+    loss = replace(i, years=tuple(replace(y, net_income=-100.0) if y.year == 2023 else y for y in i.years))
+    bank = FinancialGate("은행", None, 9.0)
+    assert state_of(loss, Criteria(), None, ReportSettings(), financial=None) == "buy"
+    assert state_of(loss, Criteria(), None, ReportSettings(), financial=bank) == "out"

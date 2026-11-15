@@ -5,7 +5,7 @@ from typing import Literal
 
 from vsf.config import ReportSettings
 from vsf.excelfn import average, count, excel_round, excel_text, is_num
-from vsf.financial import CAPITAL_HELP, FIN_CELLS, FinancialGate
+from vsf.financial import CAPITAL_HELP, CAPITAL_LABELS, FIN_CELLS, FinancialGate
 from vsf.model import FORMULA_CELLS, Cell, Criteria, Num, SheetValues, StockInputs, to_cells
 
 COLS = "BCDEF"
@@ -333,19 +333,31 @@ def _financial_overlay(v: Cells, g: FinancialGate, extra_gate1: str | None) -> N
     v["F_LOSS_D"] = ("탈락" if any(x <= 0 for x in ni)
                      else "입력 필요" if len(ni) < 5 else "통과")
     cap, cmin = g.capital, g.capital_min
-    v["F_CAP_B"] = cap.value if cap else None
+    v["F_CAP_B"] = cap.value if cap is not None else None
     v["F_CAP_C"] = "기준 없음" if cmin is None else f"≥ {cmin:g}%"
     v["F_CAP_D"] = ("직접 확인" if cap is None or cmin is None
                     else "통과" if cap.value >= cmin else "탈락")
-    v["F_CAP_SRC"] = f"{cap.source} ({cap.base_month} 기준)" if cap else CAPITAL_HELP
+    v["F_CAP_SRC"] = f"{cap.source} ({cap.base_month} 기준)" if cap is not None else CAPITAL_HELP
     v["D82"] = _combine([v["D78"], v["F_LOSS_D"], v["F_CAP_D"]]
                         + ([extra_gate1] if extra_gate1 is not None else []))
     v["D90"] = _combine([v["D86"], v["D87"], v["D88"]])
 
 
+def _financial_hints(v: Cells, g: FinancialGate) -> None:
+    """금융회사: 관문 ④ 참고 글(131·132행)을 자본비율 기준으로 바꿔요."""
+    cap = (f"{g.capital.value:g}%, {g.capital.base_month} 기준" if g.capital is not None
+           else "직접 확인")
+    v["C131"] = f"참고: 금융회사는 부채비율·이자보상배율 대신 자본비율을 봐요 ({CAPITAL_LABELS[g.kind]} {cap})"
+    b99, b87 = v["B99"], v["B87"]
+    v["C132"] = (
+        f"참고: 배당성향 평균 {excel_text(b99, '0%') if is_num(b99) else '?'}, "
+        f"배당을 줄인 해 {_num_text(b87) + '번' if is_num(b87) else '?'} "
+        "(금융회사라 잉여현금흐름÷배당은 보지 않아요)")
+
+
 def compute(inputs: StockInputs, criteria: Criteria, extra_gate1: str | None = None,
             *, financial: FinancialGate | None = None) -> SheetValues:
-    """입력과 기준으로 수식 칸 152개를 모두 계산해요."""
+    """입력과 기준으로 수식 칸 152개를 모두 계산해요. financial이 있으면 금융회사 칸 7개(FIN_CELLS)가 더 붙어요."""
     v: Cells = {a: float(x) if is_num(x) else x for a, x in to_cells(inputs).items()}
     _averages(v)             # B94, B96 (53행이 B96을 써요)
     _yearly(v, criteria)     # 43–55행
@@ -358,6 +370,8 @@ def compute(inputs: StockInputs, criteria: Criteria, extra_gate1: str | None = N
     _reference(v, criteria)
     _scenarios(v, criteria)
     _gate4(v)
+    if financial is not None:
+        _financial_hints(v, financial)
     _glance(v, criteria)
     cells = {a: v.get(a) for a in FORMULA_CELLS}
     if financial is not None:

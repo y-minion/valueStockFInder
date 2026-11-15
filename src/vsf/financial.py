@@ -1,5 +1,5 @@
 """금융회사 전용 판정 자료: 자본비율과 업종별 기준."""
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from vsf.config import FinancialSettings
 
@@ -35,9 +35,7 @@ def financial_gate(kind: str | None, capital: CapitalRatio | None,
 def gate_to_dict(g: FinancialGate | None) -> dict | None:
     if g is None:
         return None
-    cap = None if g.capital is None else {"value": g.capital.value, "base_month": g.capital.base_month,
-                                          "source": g.capital.source}
-    return {"kind": g.kind, "capital": cap, "capital_min": g.capital_min}
+    return asdict(g)
 
 
 def gate_from_dict(d: dict | None) -> FinancialGate | None:

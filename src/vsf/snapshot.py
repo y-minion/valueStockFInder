@@ -41,19 +41,54 @@ def run_counts(run: RunResult) -> dict[str, int]:
     }
 
 
-def save_snapshot(run: RunResult, runs_dir: Path) -> Path:
+NOTHING_TO_SAVE = "분석한 종목이 없어 이번 결과는 저장하지 않았어요."
+KEPT_BIGGER = "오늘 이미 저장한 결과가 더 많아서 그대로 두었어요."
+
+
+class SnapshotNotSaved(Exception):
+    """스냅샷을 쓰지 않은 이유. 메시지는 한국어이고 그대로 보여줘요."""
+
+
+def _stock_doc(name: str, inputs: StockInputs, criteria: Criteria, extra_gate1: str | None,
+               state: str, near: bool) -> dict:
+    return {"name": name, "inputs": inputs_to_dict(inputs), "criteria": dataclasses.asdict(criteria),
+            "extra_gate1": extra_gate1, "state": state, "near": near}
+
+
+def _stock_count(path: Path) -> int:
+    """이미 있는 스냅샷의 종목 수. 읽을 수 없는 파일은 0이에요 (지켜 줄 내용이 없어요)."""
+    try:
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            return len(json.load(f)["stocks"])
+    except (OSError, EOFError, ValueError, KeyError, TypeError):
+        return 0
+
+
+def save_snapshot(run: RunResult, runs_dir: Path, carry_from: Snapshot | None = None) -> Path:
+    """이번 실행을 그날 스냅샷으로 써요. 다음 주 비교의 기준이 돼요.
+
+    - 하루 한도로 못 받은 종목(pending)은 carry_from(지난 스냅샷)에 있으면 그 값을 그대로 옮겨요.
+      그래야 한도에 걸린 주에도 다음 주 비교 기준이 남아요.
+    - 종목이 하나도 없으면 쓰지 않아요.
+    - 같은 날 스냅샷이 이미 있고 종목이 더 많으면 덮어쓰지 않아요.
+    쓰지 않으면 SnapshotNotSaved(한국어 이유)를 던져요.
+    """
     runs_dir = Path(runs_dir)
-    runs_dir.mkdir(parents=True, exist_ok=True)
-    doc = {
-        "settings_fp": run.settings_fp,
-        "counts": run_counts(run),
-        "stocks": {
-            code: {"name": r.company.name, "inputs": inputs_to_dict(r.assembled.inputs),
-                   "criteria": dataclasses.asdict(r.criteria), "extra_gate1": r.extra_gate1,
-                   "state": r.state, "near": r.near}
-            for code, r in run.results.items()},
-    }
+    stocks = {code: _stock_doc(r.company.name, r.assembled.inputs, r.criteria, r.extra_gate1, r.state, r.near)
+              for code, r in run.results.items()}
+    if carry_from is not None:
+        for code, _name in run.collected.pending:
+            held = carry_from.stocks.get(code)
+            if code not in stocks and held is not None:
+                stocks[code] = _stock_doc(held.name, held.inputs, held.criteria, held.extra_gate1,
+                                          held.state, held.near)
+    if not stocks:
+        raise SnapshotNotSaved(NOTHING_TO_SAVE)
     path = runs_dir / f"{run.collected.today.isoformat()}{SUFFIX}"
+    if path.exists() and _stock_count(path) > len(stocks):
+        raise SnapshotNotSaved(KEPT_BIGGER)
+    doc = {"settings_fp": run.settings_fp, "counts": run_counts(run), "stocks": stocks}
+    runs_dir.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     with gzip.open(tmp, "wt", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False)

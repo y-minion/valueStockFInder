@@ -1,6 +1,7 @@
 """시장 전체 자료 모으기. 한도에 걸리면 못 받은 종목을 pending에 남겨 다음 실행이 이어서 받아요."""
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
@@ -19,6 +20,9 @@ YEAR_END_YEARS = 10
 NO_CORP = "DART에서 회사 정보를 찾지 못했어요"
 NO_PRICE = "주가 자료가 없어요"
 NO_FIN = "{year}년 사업보고서 재무제표가 없어요"
+UNEXPECTED = "예상하지 못한 오류: {kind}: {error}"
+
+log = logging.getLogger("vsf.collect")
 
 
 @dataclass
@@ -80,7 +84,7 @@ def _process(ctx: _Context, item: Listed) -> tuple[CompanyInfo, Assembled]:
     if not corp:
         raise _Failed(NO_CORP)
     price = ctx.prices.get(code)
-    if price is None:
+    if price is None or price.close is None:
         raise _Failed(NO_PRICE)
     raw = dart.company(corp)
     if raw is None:
@@ -172,6 +176,9 @@ def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None
             break
         except (NetworkError, DartError, KrxError, ValueError) as e:
             result.failed.append((item.code, item.name, str(e)))
+        except Exception as e:  # noqa: BLE001 - 한 종목의 뜻밖의 오류로 몇 시간짜리 실행을 멈추지 않아요
+            log.exception("%s(%s) 종목을 처리하다 예상하지 못한 오류가 났어요", item.name, item.code)
+            result.failed.append((item.code, item.name, UNEXPECTED.format(kind=type(e).__name__, error=e)))
         done = i + 1
         if done % PROGRESS_EVERY == 0:
             report(done)

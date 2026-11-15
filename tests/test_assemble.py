@@ -11,7 +11,8 @@ from vsf.data.assemble import (Assembled, assemble, assemble_quick_fail, dps_by_
                                dps_from_report, quick_fail_check)
 from vsf.data.splits import RESTATE_FLAG, SPLIT_FLAG
 from vsf.data.store import PriceRow
-from vsf.model import to_cells
+from vsf.engine import compute, summarize
+from vsf.model import Criteria, to_cells
 
 # 합성 기아(가짜 고유번호 99000270)와 현재가 97,000원. D = 2026-11-13
 KIA_CO, _, _, _, _, _, PRICE, D = synthetic_company()
@@ -377,6 +378,62 @@ def test_dps_by_year_small_gap_and_hole_in_newer_report():
     ([], False), (None, False)])
 def test_quick_fail_check_cases(rows, want):
     assert quick_fail_check(rows, 2025) is want
+
+
+DASHES = ["-", "－", "–", "—", "‐", "−", " － ", "　—　"]
+
+
+@pytest.mark.parametrize("dash", DASHES)
+def test_dash_variants_mean_no_dividend(dash):
+    rows = div_rows("1,000", dash, "900")
+    assert dps_from_report(rows, 2025) == {2025: 1000.0, 2024: 0.0, 2023: 900.0}
+    assert quick_fail_check(rows, 2025) is True
+    assert dps_by_year({2025: rows}) == ({2025: 1000.0, 2024: 0.0, 2023: 900.0}, ())
+
+
+@pytest.mark.parametrize("dash", DASHES[1:])
+def test_dash_variant_skipped_year_fails_gate2_like_ascii_dash(dash):
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    price = replace(price, close=60000.0)
+    with_dash = assemble(co, L, fin_a, fin_b, {**divs, 2023: div_rows("5,600", dash, "3,000", year=2023)},
+                         ye, price, d)
+    ascii_dash = assemble(co, L, fin_a, fin_b, {**divs, 2023: div_rows("5,600", "-", "3,000", year=2023)},
+                          ye, price, d)
+    assert with_dash.inputs == ascii_dash.inputs and with_dash.flags == ascii_dash.flags == ()
+    assert with_dash.inputs.years[1].dps == 0.0
+    assert summarize(compute(with_dash.inputs, Criteria())).gate2 == "탈락"
+
+
+def test_unreadable_dps_text_is_blank_and_flagged():
+    flag = "2024년 주당 현금배당금 값을 읽지 못했어요('해당없음'). 확인해 주세요."
+    rows = div_rows("1,000", " 해당없음 ", "900")
+    assert dps_from_report(rows, 2025) == {2025: 1000.0, 2024: None, 2023: 900.0}
+    assert quick_fail_check(rows, 2025) is False
+    assert dps_by_year({2025: rows}) == ({2025: 1000.0, 2024: None, 2023: 900.0}, (flag,))
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    a = assemble(co, L, fin_a, fin_b, {**divs, 2025: div_rows("6,800", "해당없음", "5,600")}, ye, price, d)
+    assert a.inputs.years[3].dps is None and a.flags == (flag,) and a.inputs.memo.endswith(flag)
+    q = assemble_quick_fail(KIA_CO, 2025, {2025: div_rows("1,000", "-", "없음")}, PRICE, D)
+    assert q.flags == ("2023년 주당 현금배당금 값을 읽지 못했어요('없음'). 확인해 주세요.",)
+
+
+def test_blank_dps_stays_blank_without_flag():
+    assert dps_by_year({2025: div_rows("1,000", "", "  ")}) == ({2025: 1000.0, 2024: None, 2023: None}, ())
+
+
+def test_report_without_common_dps_row_is_flagged():
+    flag = "2025년 사업보고서 배당 표에서 보통주 주당 현금배당금을 찾지 못했어요. 확인해 주세요."
+    preferred_only = [r for r in div_rows("6,800", "6,500", "5,600") if r["stock_knd"] != "보통주"]
+    blank = {2025: None, 2024: None, 2023: None}
+    assert dps_by_year({2025: preferred_only}) == (blank, (flag,))
+    assert dps_by_year({2025: []}) == (blank, (flag,))                     # 표가 비어 있어도 마찬가지
+    two_unknown = [{"se": "주당 현금배당금(원)", "stock_knd": "", "thstrm": "1", "frmtrm": "1", "lwfr": "1"}] * 2
+    assert dps_by_year({2025: two_unknown}) == (blank, (flag,))            # 어느 줄인지 모르면
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    divs = {**divs, 2023: [r for r in divs[2023] if r["stock_knd"] != "보통주"]}
+    a = assemble(co, L, fin_a, fin_b, divs, ye, price, d)
+    assert a.flags == ("2023년 사업보고서 배당 표에서 보통주 주당 현금배당금을 찾지 못했어요. 확인해 주세요.",)
+    assert a.inputs.years[1].dps is None                                     # 2022년은 2023 보고서에만 있어요
 
 
 def test_quick_fail_fills_only_basics():

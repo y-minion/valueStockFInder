@@ -56,6 +56,12 @@ def _num(v) -> float | None:
         return None
 
 
+def _close(v) -> float | None:
+    """종가. 0 이하는 '시세 없음'(None)으로 봐요. 0원 종가로 매수선 이하 판정이 나오면 안 돼요."""
+    x = _num(v)
+    return x if x is not None and x > 0 else None
+
+
 class KrxClient:
     def __init__(
         self,
@@ -144,7 +150,7 @@ class KrxClient:
                 if code in out:
                     raise KrxError(f"종목코드 {code}가 코스피와 코스닥 응답에 모두 있어요")
                 out[code] = PriceRow(day, code, str(r.get(f["name"]) or "").strip(), market,
-                                     _num(r.get(f["close"])), _num(r.get(f["shares"])))
+                                     _close(r.get(f["close"])), _num(r.get(f["shares"])))
                 markets_with_rows.add(market)
         if cacheable and len(markets_with_rows) == len(MARKETS):
             self._store.put_prices(out.values())

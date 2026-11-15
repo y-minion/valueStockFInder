@@ -113,6 +113,32 @@ def test_day_with_one_market_empty_is_not_cached(store, empty_market):
     assert krx.daily(date(2025, 12, 30)) == rows and t.calls == n + 2   # 다음에 다시 받아요
 
 
+def _daily_row(code: str, close: str) -> dict:
+    row = dict(_load("stk_bydd_trd_20251230.json")["OutBlock_1"][0])
+    return {**row, "ISU_CD": code, "TDD_CLSPRC": close}
+
+
+def test_zero_or_negative_close_is_missing(store):
+    rows = [_daily_row("000001", "0"), _daily_row("000002", "-1,000"), _daily_row("000003", "0.0"),
+            _daily_row("000004", "1,234")]
+    t = FakeKrx(bodies={"stk_bydd_trd": {"OutBlock_1": rows}})
+    got = make(store, t).daily(date(2025, 12, 30))              # 지난날(연말 종가)도 같은 방법으로 읽어요
+    assert [got[c].close for c in ("000001", "000002", "000003", "000004")] == [None, None, None, 1234.0]
+    assert store.get_prices(date(2025, 12, 30))["000001"].close is None
+
+
+def test_zero_close_makes_collect_fail_the_stock(store):
+    # KRX가 종가를 "0"으로 주면 None으로 읽고, 수집은 그 종목을 '주가 자료가 없어요'로 실패 처리해요.
+    from fakes import FakeDart, noop
+    from vsf.collect import collect
+
+    rows = _load("stk_bydd_trd_20261113.json")["OutBlock_1"]
+    zero = [{**r, "TDD_CLSPRC": "0"} if r["ISU_CD"] == "000270" else r for r in rows]
+    t = FakeKrx(bodies={"stk_bydd_trd": {"OutBlock_1": zero}})
+    c = collect(FakeDart.with_company("000270"), make(store, t), store, TODAY, progress=noop)
+    assert ("000270", "기아", "주가 자료가 없어요") in c.failed and "000270" not in c.records
+
+
 def test_latest_trading_day_skips_empty_days(store):
     assert make(store, FakeKrx()).latest_trading_day(date(2026, 11, 15)) == date(2026, 11, 13)
 

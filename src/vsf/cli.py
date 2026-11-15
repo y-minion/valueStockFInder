@@ -1,18 +1,20 @@
 """`uv run run.py`: 주간 실행과 `--excel` 내보내기를 이어 붙여요."""
 import argparse
+import logging
 import os
 import re
 import shutil
 import subprocess
 import sys
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from vsf.changes import criteria_changes, detect_changes
-from vsf.collect import collect, collect_one
+from vsf.collect import Collected, collect, collect_one
 from vsf.config import ConfigError, Keys, Settings, load_keys, load_settings
 from vsf.data.dart import DartClient
 from vsf.data.http import NetworkError
@@ -24,7 +26,7 @@ from vsf.evaluate import evaluate, evaluate_one
 from vsf.export_xlsx import export_xlsx
 from vsf.extras import gather_extras
 from vsf.report.payload import build_payload, write_report
-from vsf.snapshot import load_previous, save_snapshot
+from vsf.snapshot import SnapshotNotSaved, load_previous, save_snapshot
 
 
 def _open(path: Path) -> None:
@@ -48,28 +50,79 @@ class Deps:
     keep_awake: Callable[[], None] = _keep_awake
 
 
+class RedactingFormatter(logging.Formatter):
+    """로그 글을 파일에 쓰기 직전에 키 글자를 지워요. 키는 로그에 남지 않아요."""
+
+    def __init__(self, secrets: tuple[str | None, ...]) -> None:
+        super().__init__("%(asctime)s %(levelname)s %(name)s: %(message)s")
+        self._secrets = [s for s in secrets if s]
+
+    def format(self, record: logging.LogRecord) -> str:
+        text = super().format(record)
+        for secret in self._secrets:
+            text = text.replace(secret, "REMOVED")
+        return text
+
+
+@contextmanager
+def _run_log(path: Path, keys: Keys) -> Iterator[None]:
+    """실행하는 동안 vsf 로거 기록(트레이스백 포함)을 path에 남겨요. 남길 기록이 없으면 파일을 만들지 않아요."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(path, encoding="utf-8", delay=True)
+    handler.setFormatter(RedactingFormatter((keys.dart, keys.krx, keys.naver_id, keys.naver_secret)))
+    logger = logging.getLogger("vsf")
+    logger.addHandler(handler)
+    try:
+        yield
+    finally:
+        logger.removeHandler(handler)
+        handler.close()
+
+
 def _weekly(settings: Settings, keys: Keys, store: Store, deps: Deps, today: date,
-            runs_dir: Path, no_open: bool) -> int:
+            runs_dir: Path, no_open: bool, run_log: Path) -> int:
     deps.keep_awake()
+    with _run_log(run_log, keys):
+        return _weekly_run(settings, keys, store, deps, today, runs_dir, no_open)
+
+
+def _print_pending(collected: Collected) -> None:
+    if collected.pending:
+        print(f"오늘 DART 호출 한도 때문에 {len(collected.pending)}개 종목을 못 받았어요. "
+              "내일 다시 실행하면 이어서 받아요.")
+
+
+def _weekly_run(settings: Settings, keys: Keys, store: Store, deps: Deps, today: date,
+                runs_dir: Path, no_open: bool) -> int:
     dart, krx, naver = deps.make_dart(keys, store, settings), deps.make_krx(keys, store), deps.make_naver(keys)
     collected = collect(dart, krx, store, today)
     run = evaluate(collected, settings)
     prev = load_previous(runs_dir, today)
+    same_day = settings.reports_dir / collected.today.isoformat()
+    if not run.results and same_day.exists():
+        # 같은 날 다시 실행했는데 한 종목도 못 받았어요 (예: 한도). 오늘 받아 둔 리포트·스냅샷을 지켜요.
+        index = same_day / "index.html"
+        print(f"오늘 리포트가 이미 있어서 그대로 두었어요: {index}")
+        _print_pending(collected)
+        if not no_open:
+            deps.open_path(index)
+        return 0
     changes = detect_changes(prev, run, settings.report)
     crit_changes = criteria_changes(prev.settings_fp, run.settings_fp) if prev else []
     codes = [c for c, r in run.results.items() if r.state in ("buy", "watch")]
     extras = gather_extras(codes, run, dart, krx, naver, today)
     payload = build_payload(run, changes, crit_changes, prev, extras, settings)
     index = write_report(payload, settings.reports_dir)
-    save_snapshot(run, runs_dir)
+    try:
+        save_snapshot(run, runs_dir, carry_from=prev)
+    except SnapshotNotSaved as e:
+        print(e)
 
     buy = sum(1 for r in run.results.values() if r.state == "buy")
     new = sum(1 for c in changes if c.kind == "new_buy")
     print(f"관심 목록 {len(codes)}개, 매수선 이하 {buy}개 (새로 {new}개)")
     print(f"리포트: {index}")
-    if collected.pending:
-        print(f"오늘 DART 호출 한도 때문에 {len(collected.pending)}개 종목을 못 받았어요. "
-              "내일 다시 실행하면 이어서 받아요.")
+    _print_pending(collected)
     if not no_open:
         deps.open_path(index)
     return 0
@@ -117,6 +170,7 @@ def main(argv: list[str] | None = None, deps: Deps | None = None) -> int:
 
     now = datetime.now()
     log = settings.data_dir / "logs" / f"{now:%Y%m%d-%H%M%S}.log"
+    run_log = settings.data_dir / "logs" / f"run-{now:%Y%m%d-%H%M%S}.log"
     runs_dir = settings.data_dir / "runs"
     store = None
     try:
@@ -124,7 +178,7 @@ def main(argv: list[str] | None = None, deps: Deps | None = None) -> int:
         today = deps.today()
         if args.excel:
             return _excel(args.excel, settings, keys, store, deps, today, runs_dir, args.no_open)
-        return _weekly(settings, keys, store, deps, today, runs_dir, args.no_open)
+        return _weekly(settings, keys, store, deps, today, runs_dir, args.no_open, run_log)
     except Exception as e:  # noqa: BLE001 - 마지막 안전망: 트레이스백은 로그에만
         log.parent.mkdir(parents=True, exist_ok=True)
         log.write_text(traceback.format_exc(), encoding="utf-8")

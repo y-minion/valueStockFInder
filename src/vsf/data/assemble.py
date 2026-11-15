@@ -22,6 +22,8 @@ ROE_END_NOTE = "{y}년 ROE는 기말 자본 기준이에요"
 INTEREST_PAID_NOTE = "{y}년 이자보상배율은 '이자의 지급'으로 계산했어요"
 SPECIAL_DIVIDEND_NOTE = "{y}년 배당성향이 100%를 넘어요(특별배당 의심)"
 DPS_FLAG = "{y}년 DPS가 보고서마다 달라요. 확인해 주세요."
+DPS_TEXT_FLAG = "{y}년 주당 현금배당금 값을 읽지 못했어요('{text}'). 확인해 주세요."
+DPS_ROW_FLAG = "{year}년 사업보고서 배당 표에서 보통주 주당 현금배당금을 찾지 못했어요. 확인해 주세요."
 CURRENCY_FLAG = "원화가 아닌 재무제표예요(통화: {currency}). 숫자를 확인해 주세요."
 EQUITY_FLAG = "{y}년 자본이 0 이하예요. ROE·부채비율을 확인해 주세요."
 SIGN_FLAG = "{y}년 EPS와 순이익의 부호가 달라요. 숫자를 확인해 주세요."
@@ -36,6 +38,7 @@ PER_MAX, PER_MIN = 1000, 0.5   # 연말 PER이 이 범위 밖이면 단위 오�
 _COLS = "BCDEF"
 _FS_NAME = {"CFS": "연결", "OFS": "별도"}
 _DPS_COLUMNS = ("thstrm", "frmtrm", "lwfr")
+_DASHES = frozenset("-－–—‐−")   # 배당 표의 대시 = 그해 배당을 안 줬다는 뜻(0원)
 _AMOUNT_ROWS = (("net_income", 33), ("ocf", 34), ("capex", 35), ("dividends_paid", 36))
 
 
@@ -78,38 +81,63 @@ def _dps_row(rows: list[dict]) -> dict | None:
     return None
 
 
-def _dps_values(row: dict | None, year: int) -> dict[int, float | None]:
+def _dps_number(text: str) -> float | None:
+    """DPS 글 하나(앞뒤 공백을 뗀 것). 대시 모양("-", "－", "–", "—", "‐", "−")은 0.0, 빈 글·숫자가 아닌 글은 None."""
+    return 0.0 if text in _DASHES else parse_amount(text)
+
+
+def _dps_values(row: dict | None, year: int) -> tuple[dict[int, float | None], list[tuple[int, str]]]:
+    """줄 하나 → ({해: DPS}, [(해, 숫자로 읽지 못한 글)]). 빈칸은 None이고 읽지 못한 글로 치지 않아요."""
     out: dict[int, float | None] = {}
+    unreadable: list[tuple[int, str]] = []
     for back, column in enumerate(_DPS_COLUMNS):
-        text = (row or {}).get(column) or ""
-        out[year - back] = 0.0 if text.strip() == "-" else parse_amount(text)
-    return out
+        raw = (row or {}).get(column)
+        text = "" if raw is None else str(raw).strip()
+        out[year - back] = _dps_number(text)
+        if out[year - back] is None and text:
+            unreadable.append((year - back, text))
+    return out, unreadable
 
 
 def dps_from_report(rows: list[dict], year: int) -> dict[int, float | None]:
-    """배당 보고서 하나 → {year: 당기, year−1: 전기, year−2: 전전기}. "-"는 0.0, 값이 없으면 None."""
-    return _dps_values(_dps_row(rows or []), year)
+    """배당 보고서 하나 → {year: 당기, year−1: 전기, year−2: 전전기}. 대시는 0.0, 값이 없거나 못 읽으면 None."""
+    return _dps_values(_dps_row(rows or []), year)[0]
 
 
 def _merge_dps(div_reports: dict[int, list[dict]]
                ) -> tuple[dict[int, float | None], dict[int, str], list[str]]:
-    """해마다 DPS, 그 값의 출처 글, 플래그. 겹치는 해는 더 최근 보고서 값이 먼저예요."""
+    """해마다 DPS, 그 값의 출처 글, 플래그. 겹치는 해는 더 최근 보고서 값이 먼저예요.
+
+    값을 못 읽은 칸과, 보통주 주당 현금배당금 줄이 없는 보고서는 확인 표시를 달아요.
+    그대로 두면 배당을 거른 해가 빈칸이 되어 관문 ②에서 조용히 빠져요.
+    """
     values: dict[int, float | None] = {}
     origin: dict[int, str] = {}
     flags: list[str] = []
+
+    def flag(text: str) -> None:
+        if text not in flags:
+            flags.append(text)
+
     for report_year in sorted(div_reports, reverse=True):
-        row = _dps_row(div_reports[report_year] or [])
+        rows = div_reports[report_year]
+        if rows is None:
+            continue
+        row = _dps_row(rows)
+        if row is None:
+            flag(DPS_ROW_FLAG.format(year=report_year))
+        read, unreadable = _dps_values(row, report_year)
+        for y, text in unreadable:
+            flag(DPS_TEXT_FLAG.format(y=y, text=text))
         receipt = _receipt((row or {}).get("rcept_no"))
-        for y, v in _dps_values(row, report_year).items():
+        for y, v in read.items():
             kept = values.get(y)
             if kept is None:            # 처음 보는 해이거나, 더 최근 보고서에 값이 없던 해
                 values[y] = v
                 if v is not None:
                     origin[y] = f"{report_year} 사업보고서 배당에 관한 사항(보통주{receipt})"
             elif v is not None and abs(v - kept) > DPS_TOLERANCE * abs(kept):
-                flag = DPS_FLAG.format(y=y)
-                if flag not in flags:
-                    flags.append(flag)
+                flag(DPS_FLAG.format(y=y))
     return values, origin, flags
 
 
@@ -119,7 +147,7 @@ def dps_by_year(div_reports: dict[int, list[dict]]) -> tuple[dict[int, float | N
 
 
 def quick_fail_check(latest_div_rows: list[dict] | None, latest_year: int) -> bool:
-    """최근 3년 중 보통주 DPS가 0인 해가 있으면 True. 값이 없는 해(None)는 0으로 보지 않아요."""
+    """최근 3년 중 보통주 DPS가 0인 해(대시 모양 포함)가 있으면 True. 값이 없는 해(None)는 0으로 보지 않아요."""
     if not latest_div_rows:
         return False
     return any(v == 0 for v in dps_from_report(latest_div_rows, latest_year).values())

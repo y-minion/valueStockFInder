@@ -1,3 +1,5 @@
+import logging
+from dataclasses import replace
 from datetime import date
 
 from fakes import D, KIA_CORP, FakeDart, FakeKrx, mem_store, noop
@@ -25,6 +27,17 @@ def test_network_error_isolated_to_one_stock():              # Review Focus 3
     dart = FakeDart.two_companies(raise_for={"030000": NetworkError("x")})
     c = collect(dart, FakeKrx.default(), mem_store(), D, progress=noop)
     assert "000270" in c.records and [f[0] for f in c.failed] == ["030000"]
+
+
+def test_unexpected_error_isolated_to_one_stock_and_logged(caplog):
+    # 화이트리스트 밖의 오류도 그 종목만 실패로 남기고, 다음 종목은 계속 처리해요.
+    dart = FakeDart.two_companies(raise_for={"000270": TypeError("unsupported operand")})
+    with caplog.at_level(logging.ERROR, logger="vsf.collect"):
+        c = run(dart)
+    assert c.failed == [("000270", "기아", "예상하지 못한 오류: TypeError: unsupported operand")]
+    assert set(c.records) == {"030000"} and not c.pending
+    logged = [r for r in caplog.records if r.name == "vsf.collect"]
+    assert len(logged) == 1 and logged[0].exc_info[0] is TypeError and "기아(000270)" in logged[0].getMessage()
 
 
 def test_quota_moves_rest_to_pending():
@@ -84,6 +97,14 @@ def test_missing_statements_failure_names_the_year():
 def test_missing_price_is_a_failure():
     krx = FakeKrx.default()
     krx._days[date(2026, 11, 13)].pop("030000")
+    c = run(FakeDart.two_companies(), krx)
+    assert c.failed == [("030000", "제일기획", "주가 자료가 없어요")] and "000270" in c.records
+
+
+def test_price_row_without_close_is_a_failure():
+    krx = FakeKrx.default()
+    day = date(2026, 11, 13)
+    krx._days[day]["030000"] = replace(krx._days[day]["030000"], close=None)
     c = run(FakeDart.two_companies(), krx)
     assert c.failed == [("030000", "제일기획", "주가 자료가 없어요")] and "000270" in c.records
 

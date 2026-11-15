@@ -1,9 +1,12 @@
 import gzip
 import json
+from dataclasses import replace
 from datetime import date
 
-from helpers import RUN_1114, run
-from vsf.snapshot import load_previous, run_counts, save_snapshot
+import pytest
+from helpers import RUN_1114, run, snap_only
+from vsf.evaluate import RunResult
+from vsf.snapshot import SnapshotNotSaved, load_previous, run_counts, save_snapshot
 
 
 def test_snapshot_roundtrip_and_same_day_ignored(tmp_path):
@@ -39,3 +42,57 @@ def test_load_previous_picks_latest_before_and_skips_non_dates(tmp_path):
 def test_run_counts():
     assert run_counts(RUN_1114) == {"buy": 1, "near": 1, "watch": 1, "gate12_ok": 1}
     assert run_counts(run(kia_price=97000.0)) == {"buy": 0, "near": 0, "watch": 0, "gate12_ok": 1}
+
+
+def _partial(pending, results=True):
+    """기아는 분석하고 pending 종목은 하루 한도로 못 받은 실행."""
+    base = run(kia_price=60000.0)
+    return RunResult(collected=replace(base.collected, pending=list(pending)), settings_fp=base.settings_fp,
+                     results=base.results if results else {})
+
+
+def _prev_with_cheil():
+    """지난주 스냅샷: 기아·제일기획·SK(999999, 이번 주 목록에 없음)."""
+    prev = snap_only("030000", state="watch", name="제일기획")
+    kia = snap_only("000270", state="out").stocks["000270"]
+    gone = snap_only("000270", state="buy", name="없어진 종목").stocks["000270"]
+    return replace(prev, stocks={**prev.stocks, "000270": kia, "999999": gone})
+
+
+def test_partial_run_carries_pending_stocks_from_previous(tmp_path):
+    prev = _prev_with_cheil()
+    save_snapshot(_partial([("030000", "제일기획")]), tmp_path, carry_from=prev)
+    got = load_previous(tmp_path, date(2026, 11, 15))
+    assert set(got.stocks) == {"000270", "030000"}                 # 999999는 pending이 아니라서 안 옮겨요
+    assert got.stocks["030000"] == prev.stocks["030000"]           # 지난 값 그대로
+    assert got.stocks["000270"].state == "buy"                     # 이번에 분석한 종목은 이번 결과
+    assert got.counts == run_counts(_partial([]))                   # 요약 숫자는 이번 결과만
+
+
+def test_zero_stock_run_writes_no_snapshot(tmp_path):
+    with pytest.raises(SnapshotNotSaved, match="^분석한 종목이 없어 이번 결과는 저장하지 않았어요.$"):
+        save_snapshot(_partial([("000270", "기아")], results=False), tmp_path)
+    with pytest.raises(SnapshotNotSaved):                           # 지난주에도 없던 종목만 대기 중
+        save_snapshot(_partial([("123450", "새 종목")], results=False), tmp_path, carry_from=_prev_with_cheil())
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_carried_stocks_alone_are_saved(tmp_path):
+    p = save_snapshot(_partial([("030000", "제일기획"), ("000270", "기아")], results=False), tmp_path,
+                      carry_from=_prev_with_cheil())
+    assert set(load_previous(tmp_path, date(2026, 11, 15)).stocks) == {"000270", "030000"} and p.exists()
+
+
+def test_smaller_same_day_snapshot_keeps_the_bigger_one(tmp_path):
+    first = save_snapshot(_partial([("030000", "제일기획")]), tmp_path, carry_from=_prev_with_cheil())
+    before = first.read_bytes()
+    with pytest.raises(SnapshotNotSaved, match="^오늘 이미 저장한 결과가 더 많아서 그대로 두었어요.$"):
+        save_snapshot(RUN_1114, tmp_path)                           # 1종목 < 2종목
+    assert first.read_bytes() == before
+    assert [f.name for f in tmp_path.iterdir()] == ["2026-11-14.json.gz"]
+
+
+def test_unreadable_same_day_snapshot_is_replaced(tmp_path):
+    (tmp_path / "2026-11-14.json.gz").write_bytes(b"not gzip")
+    save_snapshot(RUN_1114, tmp_path)
+    assert set(load_previous(tmp_path, date(2026, 11, 15)).stocks) == {"000270"}

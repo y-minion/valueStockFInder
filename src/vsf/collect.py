@@ -30,6 +30,7 @@ class Collected:
     failed: list[tuple[str, str, str]] = field(default_factory=list)               # (코드, 이름, 사유)
     pending: list[tuple[str, str]] = field(default_factory=list)                   # 하루 한도로 못 받은 종목
     total_listed: int = 0
+    year_end_missing: list[int] = field(default_factory=list)                     # 연말 주가를 못 받은 해
 
 
 class _Excluded(Exception):
@@ -50,15 +51,23 @@ class _Context:
     year_ends: dict[int, dict[str, PriceRow]]
 
 
-def _year_ends(krx, today: date) -> dict[int, dict[str, PriceRow]]:
-    """해마다 마지막 거래일의 전체 시장 시세. 못 받은 해는 건너뛰어요."""
+def _year_ends(krx, today: date) -> tuple[dict[int, dict[str, PriceRow]], list[int]]:
+    """해마다 마지막 거래일의 전체 시장 시세와, 못 받은 해 목록.
+
+    못 받은 해는 건너뛰고 실행은 계속해요. 그해 PER이 비어 적정가 B·C가 빠질 수 있어서 리포트에 알려요.
+    """
     out: dict[int, dict[str, PriceRow]] = {}
+    missing: list[int] = []
     for y in range(today.year - YEAR_END_YEARS, today.year):
         try:
-            out[y] = krx.daily(krx.year_end(y))
-        except KrxError:
-            continue
-    return out
+            rows = krx.daily(krx.year_end(y))
+        except (KrxError, NetworkError):
+            rows = {}
+        if rows:
+            out[y] = rows
+        else:
+            missing.append(y)
+    return out, missing
 
 
 def _process(ctx: _Context, item: Listed) -> tuple[CompanyInfo, Assembled]:
@@ -144,7 +153,8 @@ def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None
         _defer(result, listed)
         progress(f"0/{len(listed)} 종목 처리 중 (오늘 DART 호출 {dart.calls_today:,}회)")
         return result
-    ctx = _Context(dart, today, price_date, prices, corp, _year_ends(krx, today))
+    year_ends, result.year_end_missing = _year_ends(krx, today)
+    ctx = _Context(dart, today, price_date, prices, corp, year_ends)
 
     def report(done: int) -> None:
         progress(f"{done}/{len(listed)} 종목 처리 중 (오늘 DART 호출 {dart.calls_today:,}회)")
@@ -178,7 +188,7 @@ def collect_one(dart, krx, store: Store, today: date, code: str) -> tuple[Compan
     if item is None:
         return f"{code} 종목을 찾지 못했어요"
     try:
-        ctx = _Context(dart, today, price_date, prices, dart.corp_codes(), _year_ends(krx, today))
+        ctx = _Context(dart, today, price_date, prices, dart.corp_codes(), _year_ends(krx, today)[0])
         return _process(ctx, item)
     except _Excluded as e:
         return f"{code}은(는) 분석 대상이 아니에요: {e}"

@@ -119,6 +119,33 @@ def test_year_ends_fetched_before_stocks_and_missing_years_skipped():
     assert krx.calls_of("listed") == 1
 
 
+def test_year_end_missing_records_failed_and_absent_years():
+    krx = FakeKrx.default()
+    krx._days.pop(date(2023, 12, 28))                    # 2023년 마지막 거래일 자료 없음 → year_end가 KrxError
+
+    real = krx.daily
+
+    def daily(day):
+        if (day.year, day.month) == (2024, 12):
+            raise NetworkError("연결이 끊겼어요")
+        return real(day)
+
+    krx.daily = daily
+    c = run(FakeDart.default(), krx)
+    # 2016–2020은 가짜 KRX에 자료가 없어요. 실패한 해도 실행을 멈추지 않고 기록만 해요.
+    assert c.year_end_missing == [2016, 2017, 2018, 2019, 2020, 2023, 2024]
+    assert set(c.records) == {"000270", "030000"}
+    years = c.records["000270"][1].inputs.years
+    assert [y.per is None for y in years] == [False, False, True, True, False]
+
+
+def test_year_end_missing_empty_when_every_year_is_there():
+    krx = FakeKrx.default()
+    for y in range(2016, 2021):                           # 2016–2020 연말도 깔아 둬요
+        krx._days[date(y, 12, 30)] = krx._days[date(2025, 12, 30)]
+    assert run(FakeDart.default(), krx).year_end_missing == []
+
+
 def test_progress_every_50_stocks_and_at_end():
     messages: list[str] = []
     collect(FakeDart.many(120), FakeKrx.many(120), mem_store(), D, progress=messages.append)

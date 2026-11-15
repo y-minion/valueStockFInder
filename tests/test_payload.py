@@ -82,6 +82,18 @@ def test_flags_and_sources_present():
     assert s["flags"] == ["주의"] and s["sources"]["F27"] == "DART"
 
 
+def test_flags_come_from_stock_result_and_year_end_missing_is_listed():
+    base = RUN_1114.results["000270"]
+    asm = replace(base.assembled, flags=("조립 단계 표시",))
+    collected = replace(RUN_1114.collected, year_end_missing=[2019, 2020])
+    r = RunResult(collected=collected, settings_fp=RUN_1114.settings_fp,
+                  results={"000270": replace(base, assembled=asm, eval_flags=("계산 뒤 표시",))})
+    p = build_payload(r, [], [], None, {}, S)
+    assert p["stocks"]["000270"]["flags"] == ["조립 단계 표시", "계산 뒤 표시"]
+    assert p["run"]["year_end_missing"] == [2019, 2020]
+    assert build_payload(RUN_1114, [], [], None, {}, S)["run"]["year_end_missing"] == []
+
+
 def test_criteria_overridden_false_then_true():
     p = build_payload(RUN_1114, [], [], None, {}, S)
     assert p["stocks"]["000270"]["criteria_overridden"] is False

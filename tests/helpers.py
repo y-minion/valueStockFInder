@@ -425,7 +425,7 @@ def run(kia_price: float, criteria: Criteria | None = None, latest_eps: float | 
     """기아 한 종목의 이번 실행 결과. 기준을 직접 줄 수 있어요."""
     from vsf.config import ReportSettings
     from vsf.engine import compute, is_near, summarize, watch_state
-    from vsf.evaluate import RunResult, StockResult
+    from vsf.evaluate import RunResult, StockResult, evaluation_flags
     criteria = criteria or Criteria()
     collected = collected_with_kia(kia_price, latest_eps)
     company, assembled = collected.records["000270"]
@@ -434,7 +434,8 @@ def run(kia_price: float, criteria: Criteria | None = None, latest_eps: float | 
     state = watch_state(summary, ReportSettings())
     result = StockResult(company=company, assembled=assembled, criteria=criteria, extra_gate1=extra,
                          cells=cells, summary=summary, industry=None, state=state,
-                         near=state != "out" and is_near(summary, ReportSettings()))
+                         near=state != "out" and is_near(summary, ReportSettings()),
+                         eval_flags=evaluation_flags(cells, state))
     return RunResult(collected=collected, settings_fp=fp(criteria.required_return),
                      results={"000270": result})
 

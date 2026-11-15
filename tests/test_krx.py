@@ -101,6 +101,18 @@ def test_daily_today_not_cached_and_empty_not_stored(store):
     assert t.calls == n + 2
 
 
+@pytest.mark.parametrize("empty_market", ["stk_bydd_trd", "ksq_bydd_trd"])
+def test_day_with_one_market_empty_is_not_cached(store, empty_market):
+    # 한 시장만 비어 있으면 저장하지 않아요. 저장하면 다음에는 다른 시장 종목이 조용히 빠져요.
+    t = FakeKrx(bodies={empty_market: EMPTY})
+    krx = make(store, t)
+    rows = krx.daily(date(2025, 12, 30))
+    assert rows and {r.market for r in rows.values()} == {"KOSDAQ" if empty_market.startswith("stk") else "KOSPI"}
+    assert store.get_prices(date(2025, 12, 30)) == {} and store.price_dates() == []
+    n = t.calls
+    assert krx.daily(date(2025, 12, 30)) == rows and t.calls == n + 2   # 다음에 다시 받아요
+
+
 def test_latest_trading_day_skips_empty_days(store):
     assert make(store, FakeKrx()).latest_trading_day(date(2026, 11, 15)) == date(2026, 11, 13)
 

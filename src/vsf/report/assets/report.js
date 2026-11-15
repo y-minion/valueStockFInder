@@ -174,6 +174,8 @@ function indexHead(data) {
 function banners(data) {
   var r = data.run, out = "";
   if (r.partial) out += banner("전체 " + fmt(r.total_listed, "won") + "개 중 " + fmt(r.analyzed, "won") + "개만 분석했어요. 내일 다시 실행하면 이어서 받아요.", "warn");
+  var missing = r.year_end_missing || [];
+  if (missing.length) out += banner("연말 주가를 가져오지 못한 해가 있어요: " + missing.join("·") + ". 이 해들의 PER이 비어 적정가 B·C 계산이 빠질 수 있어요.", "warn");
   (r.criteria_changes || []).forEach(function (c) {
     out += banner("지난 실행과 기준이 달라졌어요: " + c.label + " " + fmt(c.old, "raw") + " → " + fmt(c.new, "raw"), "warn");
   });

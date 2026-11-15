@@ -16,6 +16,16 @@ test('index header and partial banner use fixed wording', () => {
   assert.ok(h.includes('요구수익률 0.1 → 0.12'));
   assert.ok(h.includes('관심 목록 (20% 이내)') && h.includes('매수선까지 10% 이내'));
 });
+test('year-end price banner shows only when some years are missing', () => {
+  const text = '연말 주가를 가져오지 못한 해가 있어요: 2019·2020. 이 해들의 PER이 비어 적정가 B·C 계산이 빠질 수 있어요.';
+  const d = { ...data, run: { ...data.run, year_end_missing: [2019, 2020] } };
+  assert.ok(r.renderIndex(d).includes('<div class="banner warn">' + text + '</div>'));
+  assert.deepEqual(data.run.year_end_missing, []);
+  assert.ok(!r.renderIndex(data).includes('연말 주가를 가져오지 못한'));
+  const old = { ...data, run: { ...data.run } };
+  delete old.run.year_end_missing;                       // 예전 data.js에는 키가 없어요
+  assert.ok(!r.renderIndex(old).includes('연말 주가를 가져오지 못한'));
+});
 test('first run banner', () => {
   const d = { ...data, run: { ...data.run, first_run: true, partial: false, criteria_changes: [] } };
   assert.ok(r.renderIndex(d).includes('첫 실행이라 비교할 지난 결과가 없어요'));

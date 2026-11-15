@@ -5,9 +5,13 @@ from vsf.collect import Collected
 from vsf.config import ReportSettings, Settings, settings_fingerprint
 from vsf.data.assemble import Assembled, CompanyInfo
 from vsf.engine import Summary, compute, is_near, summarize, watch_state
+from vsf.excelfn import is_num
 from vsf.industry import (IndustryInfo, build_industry, effective_criteria, extra_gate1,
                           industry_inputs)
 from vsf.model import Criteria, SheetValues, StockInputs
+
+FAIR_VALUE_FLAG = ("적정가 세 방법 중 {missing}를 계산하지 못했어요(연말 PER·배당 자료 부족). "
+                   "숫자를 확인해 주세요.")
 
 
 @dataclass(frozen=True)
@@ -21,6 +25,12 @@ class StockResult:
     industry: IndustryInfo | None
     state: str
     near: bool
+    eval_flags: tuple[str, ...]   # 계산 뒤에 단 '숫자 확인 필요' 사유
+
+    @property
+    def flags(self) -> tuple[str, ...]:
+        """'숫자 확인 필요' 사유 전부: 조립 단계 표시(assembled.flags) 다음에 계산 뒤 표시."""
+        return self.assembled.flags + self.eval_flags
 
 
 @dataclass
@@ -34,6 +44,20 @@ def state_of(inputs: StockInputs, criteria: Criteria, extra: str | None, report:
     return watch_state(summarize(compute(inputs, criteria, extra)), report)
 
 
+def evaluation_flags(cells: SheetValues, state: str) -> tuple[str, ...]:
+    """계산 결과를 보고 다는 '숫자 확인 필요' 사유.
+
+    적정가 B(과거 PER)·C(과거 배당수익률)가 빠지면 MIN()에 A(이론)만 남아 매수선이 올라가요.
+    그러면 연말 주가 같은 자료 하나가 없어서 조용히 '매수선 이하'가 나올 수 있어요.
+    정상 EPS가 양수이고 'out'이 아닌 종목만 봐요 (어차피 빠지는 종목에는 표시하지 않아요).
+    """
+    b96 = cells.get("B96")
+    if state == "out" or not is_num(b96) or b96 <= 0:
+        return ()
+    missing = [name for name, addr in (("B", "B103"), ("C", "B104")) if not is_num(cells.get(addr))]
+    return (FAIR_VALUE_FLAG.format(missing="·".join(missing)),) if missing else ()
+
+
 def evaluate_one(company: CompanyInfo, assembled: Assembled, settings: Settings,
                  industry: IndustryInfo | None) -> StockResult:
     criteria = effective_criteria(settings.criteria, company.induty_code, settings.industry.overrides)
@@ -43,7 +67,8 @@ def evaluate_one(company: CompanyInfo, assembled: Assembled, settings: Settings,
     state = watch_state(summary, settings.report)
     return StockResult(company=company, assembled=assembled, criteria=criteria, extra_gate1=extra,
                        cells=cells, summary=summary, industry=industry, state=state,
-                       near=state != "out" and is_near(summary, settings.report))
+                       near=state != "out" and is_near(summary, settings.report),
+                       eval_flags=evaluation_flags(cells, state))
 
 
 def evaluate(collected: Collected, settings: Settings) -> RunResult:

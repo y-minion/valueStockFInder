@@ -124,6 +124,10 @@ class KrxClient:
         return out
 
     def daily(self, day: date) -> dict[str, PriceRow]:
+        """그날 두 시장 시세. 지난 날은 두 시장 모두 자료가 있을 때만 저장해요.
+
+        한 시장만 받은 날을 저장하면, 다음부터 다른 시장 종목이 그날 시세 없이 조용히 빠져요.
+        """
         cacheable = day < self._today()
         if cacheable:
             stored = self._store.get_prices(day)
@@ -131,6 +135,7 @@ class KrxClient:
                 return stored
         f = DAILY_FIELDS
         out: dict[str, PriceRow] = {}
+        markets_with_rows: set[str] = set()
         for prefix, market in MARKETS:
             for r in self._rows(f"{prefix}_bydd_trd", day):
                 code = str(r.get(f["code"]) or "").strip()
@@ -140,7 +145,8 @@ class KrxClient:
                     raise KrxError(f"종목코드 {code}가 코스피와 코스닥 응답에 모두 있어요")
                 out[code] = PriceRow(day, code, str(r.get(f["name"]) or "").strip(), market,
                                      _num(r.get(f["close"])), _num(r.get(f["shares"])))
-        if cacheable and out:
+                markets_with_rows.add(market)
+        if cacheable and len(markets_with_rows) == len(MARKETS):
             self._store.put_prices(out.values())
         return out
 

@@ -80,7 +80,7 @@ module.exports = {
   run: {
     date: "2026-11-14", price_date: "2026-11-13", analyzed: 6, total_listed: 2700,
     excluded: { "우선주": [["005935", "삼성전자우"]] }, failed: [["111111", "실패회사", "사유"]], pending: [["222222", "대기회사"]],
-    partial: true, first_run: false,
+    partial: true, first_run: false, year_end_missing: [],
     criteria: { criteria: { required_return: 0.1 }, report: { watch_range: 0.2, near_range: 0.1 }, industry: {roe_top_percent: 50} },
     criteria_changes: [{ key: "required_return", label: "요구수익률", old: 0.1, new: 0.12 }],
   },

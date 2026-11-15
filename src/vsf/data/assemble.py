@@ -475,7 +475,8 @@ def _pbr(a: dict[int, _Period], eps: dict[int, float | None], latest: int, price
 
 
 def _number_checks(a: dict[int, _Period], b: dict[int, _Period], main: dict[int, _Period],
-                   eps: dict[int, float | None], per: dict[int, float | None], latest: int, out: _Out) -> None:
+                   eps: dict[int, float | None], per: dict[int, float | None], latest: int, out: _Out,
+                   financial: bool = False) -> None:
     """스펙 6.6: 의심스러운 숫자에 '숫자 확인 필요'를 달아요. 값은 그대로 두고 표시만 해요."""
     for y in range(latest - 4, latest + 1):
         _, s = _field(main, b, y, latest, _net_income)          # 33행과 같은 순이익
@@ -487,7 +488,9 @@ def _number_checks(a: dict[int, _Period], b: dict[int, _Period], main: dict[int,
             out.flag(PER_UNIT_FLAG.format(y=y, per=v))
     y = latest - 2                                          # A·B 보고서가 함께 적은 해
     if y in a and y in b:
-        for name, value in (("순이익", _net_income), ("영업활동현금흐름", lambda p: p.acc["ocf"])):
+        checked = (("순이익", _net_income),) if financial else (
+            ("순이익", _net_income), ("영업활동현금흐름", lambda p: p.acc["ocf"]))   # 금융회사는 영업현금흐름을 비워요
+        for name, value in checked:
             kept, other = value(a[y]).value, value(b[y]).value
             if kept and other and abs(other - kept) > OVERLAP_TOLERANCE * abs(kept):
                 out.flag(OVERLAP_FLAG.format(y=y, name=name))
@@ -549,12 +552,12 @@ def assemble(company: CompanyInfo, latest_year: int, fin_a: FinRows | None, fin_
         cov = _coverage(main, b, L, out)
         amounts = _amounts(main, b, L, out)
     else:      # 금융회사는 부채비율·이자보상배율·영업현금흐름·설비투자가 업종과 맞지 않아 비워요 (계산 자체를 건너뛰어 메모도 안 남겨요).
-        debt = cov = dict.fromkeys(years_range)
+        debt, cov = dict.fromkeys(years_range), dict.fromkeys(years_range)
         amounts = {field: dict.fromkeys(years_range) for field, _ in _AMOUNT_ROWS}
-        for field in ("net_income", "dividends_paid"):
-            amounts[field] = _amounts(main, b, L, out, only=(field,))[field]
+        kept = ("net_income", "dividends_paid")
+        amounts.update({f: v for f, v in _amounts(main, b, L, out, only=kept).items() if f in kept})
     pbr = _pbr(a, eps, L, price, price_date, out)
-    _number_checks(a, b, main, eps, per, L, out)
+    _number_checks(a, b, main, eps, per, L, out, financial=company.financial_kind is not None)
     _special_dividends(eps, dps, out)
     years = tuple(YearRow(year=y, eps=eps[y], per=per[y], dps=dps[y], roe=roe[y], debt_ratio=debt[y],
                           interest_coverage=cov[y], **{field: amounts[field][y] for field, _ in _AMOUNT_ROWS})

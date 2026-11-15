@@ -753,4 +753,14 @@ def test_financial_company_leaves_sector_mismatched_numbers_blank():
         assert None not in (y.eps, y.roe, y.net_income, y.dividends_paid)
     assert not any(cell[1:] in ("31", "32", "34", "35") for cell in a.sources)
     assert not any("이자보상배율" in n for n in a.notes)
+    assert a.flags == ()
     assert assemble(co, L, fin_a, fin_b, divs, ye, price, d).inputs.years[0].debt_ratio is not None
+
+
+def test_financial_company_has_no_cash_flow_overlap_flag():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    ocf_3pct = _set_amount(fin_b, OCF, "thstrm", "11,639,000,000,000")
+    bank = assemble(replace(co, financial_kind="은행"), L, fin_a, ocf_3pct, divs, ye, price, d)
+    assert not any("영업활동현금흐름" in f for f in bank.flags)
+    general = assemble(co, L, fin_a, ocf_3pct, divs, ye, price, d)
+    assert any("영업활동현금흐름" in f for f in general.flags)

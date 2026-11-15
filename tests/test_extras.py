@@ -59,9 +59,8 @@ def news_http(*items: dict, status: int = 200, seen: list | None = None) -> http
     return httpx.Client(transport=httpx.MockTransport(handle))
 
 
-def news_item(title: str, pub: str = "Fri, 13 Nov 2026 10:30:00 +0900") -> dict:
-    return {"title": title, "originallink": "https://news.example/a", "link": "https://n.naver/a",
-            "pubDate": pub}
+def news_item(title: str, pub: str = "Fri, 13 Nov 2026 10:30:00 +0900", link: str = "https://n.naver/a") -> dict:
+    return {"title": title, "originallink": "https://news.example/a", "link": link, "pubDate": pub}
 
 
 def test_quarterly_label_and_values():
@@ -101,8 +100,41 @@ def test_news_bad_date_left_blank_and_request_shape():
     # 개발자센터는 2026-07-31부터 검색 API 새 키를 안 내줘요. 새 키는 NAVER API HUB용이에요.
     assert req.headers["X-NCP-APIGW-API-KEY-ID"] == "my-id" and req.headers["X-NCP-APIGW-API-KEY"] == "my-secret"
     assert "X-Naver-Client-Id" not in req.headers and "X-Naver-Client-Secret" not in req.headers
-    assert req.url.params["display"] == "3" and req.url.params["sort"] == "date"
+    # 관련도순으로 넉넉히 받아요. 최신순이면 '기아'·'KT'처럼 야구단과 이름이 같은 회사는 경기 기사뿐이에요.
+    assert req.url.params["display"] == "100" and req.url.params["sort"] == "sim"
     assert str(req.url).startswith("https://naverapihub.apigw.ntruss.com/search/v1/news?")
+
+
+def test_news_skips_sports_entertainment_and_repeated_titles():
+    items = [news_item("KT 위즈 우승", link="https://m.sports.naver.com/kbaseball/article/1"),
+             news_item("KT 광고 모델", link="https://m.entertain.naver.com/article/2"),
+             news_item("KT, 3분기 실적 발표"),
+             news_item("KT 3분기 실적 발표!"),            # 기호만 다른 같은 제목
+             news_item("KT, 배당 늘린다")]
+    got = NaverNews("i", "s", http=news_http(*items)).search("KT")
+    assert [g["title"] for g in got] == ["KT, 3분기 실적 발표", "KT, 배당 늘린다"]
+
+
+def test_news_keeps_the_n_most_relevant_and_lists_them_newest_first():
+    items = [news_item("가", pub="Wed, 11 Nov 2026 09:00:00 +0900"),
+             news_item("나", pub="Fri, 13 Nov 2026 09:00:00 +0900"),
+             news_item("다", pub="Thu, 12 Nov 2026 09:00:00 +0900"),
+             news_item("라", pub="Sat, 14 Nov 2026 09:00:00 +0900")]   # 관련도 4위라서 3개만 고르면 빠져요
+    got = NaverNews("i", "s", http=news_http(*items)).search("기아", 3)
+    assert [g["title"] for g in got] == ["나", "다", "가"]
+
+
+def test_news_takes_one_per_day_before_a_second_from_the_same_day():
+    # 같은 사건 기사는 같은 날 몰려요. 날짜별로 돌아가며 골라서 다른 날 소식도 보이게 해요.
+    d15, d13, d12 = ("Sun, 15 Nov 2026 09:00:00 +0900", "Fri, 13 Nov 2026 09:00:00 +0900",
+                     "Thu, 12 Nov 2026 09:00:00 +0900")
+    items = [news_item("A", pub=d15), news_item("B", pub=d15), news_item("C", pub=d15),
+             news_item("D", pub=d13), news_item("E", pub=d12)]
+    got = NaverNews("i", "s", http=news_http(*items)).search("기아", 3)
+    assert [g["title"] for g in got] == ["A", "D", "E"]
+    few = [news_item("A", pub=d15), news_item("B", pub=d15), news_item("C", pub=d13)]
+    got = NaverNews("i", "s", http=news_http(*few)).search("기아", 3)
+    assert [g["title"] for g in got] == ["A", "B", "C"]      # 날짜가 모자라면 같은 날에서 더 골라요
 
 
 def test_news_json_body_sent_as_text_plain_is_read():

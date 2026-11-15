@@ -111,3 +111,43 @@ def test_unreadable_same_day_snapshot_is_replaced(tmp_path):
     (tmp_path / "2026-11-14.json.gz").write_bytes(b"not gzip")
     save_snapshot(RUN_1114, tmp_path)
     assert set(load_previous(tmp_path, date(2026, 11, 15)).stocks) == {"000270"}
+
+
+def _loss_inputs():
+    from helpers import _kia_inputs
+    inputs = _kia_inputs(60000.0)
+    years = list(inputs.years)
+    years[0] = replace(years[0], net_income=-100.0)
+    return replace(inputs, years=tuple(years))
+
+
+def test_financial_gate_round_trips_through_snapshot(tmp_path):
+    from vsf.financial import CapitalRatio, FinancialGate
+    gate = FinancialGate("보험", CapitalRatio(180.5, "2026-06", "FISIS"), 130.0)
+    r = RUN_1114
+    res = replace(r.results["000270"], financial=gate)
+    save_snapshot(replace(r, results={"000270": res}), tmp_path)
+    assert load_previous(tmp_path, date(2026, 11, 21)).stocks["000270"].financial == gate
+
+
+def test_old_snapshot_without_financial_reads_none(tmp_path):
+    save_snapshot(RUN_1114, tmp_path)
+    p = tmp_path / "2026-11-14.json.gz"
+    doc = json.loads(gzip.decompress(p.read_bytes()).decode("utf-8"))
+    for s in doc["stocks"].values():
+        del s["financial"]
+    p.write_bytes(gzip.compress(json.dumps(doc).encode()))
+    assert load_previous(tmp_path, date(2026, 11, 21)).stocks["000270"].financial is None
+
+
+def test_carried_financial_stock_counts_with_sector_verdict():
+    from vsf.config import ReportSettings
+    from vsf.evaluate import state_of
+    from vsf.financial import FinancialGate
+    from vsf.model import Criteria
+    from vsf.snapshot import SnapStock, _carried_counts
+    inputs = _loss_inputs()
+    gate = FinancialGate("은행", None, 9.0)
+    kw = dict(name="기아", inputs=inputs, criteria=Criteria(), extra_gate1=None, state="out", near=False)
+    assert _carried_counts([SnapStock(**kw, financial=gate)])["gate12_ok"] == 0
+    assert _carried_counts([SnapStock(**kw)])["gate12_ok"] == 1

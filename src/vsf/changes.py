@@ -4,11 +4,12 @@ from typing import Literal
 
 from vsf.config import CRITERIA_LABELS, ReportSettings
 from vsf.evaluate import RunResult, state_of
+from vsf.financial import FinancialGate
 from vsf.snapshot import Snapshot
 
 Kind = Literal["new_buy", "new_watch", "above_buy", "left"]
 
-_SECTIONS = ("criteria", "report", "industry")
+_SECTIONS = ("criteria", "report", "industry", "financial")
 
 
 @dataclass(frozen=True)
@@ -46,9 +47,15 @@ def detect_changes(prev: Snapshot | None, run: RunResult, report: ReportSettings
             out.append(Change(code, name, kind, ("새로 분석됨",)))
             continue
         cur_in = cur.assembled.inputs
-        s_a = state_of(p.inputs, cur.criteria, cur.extra_gate1, report)
+        if cur.financial is None:
+            gate = None
+        elif p.financial is None:
+            gate = cur.financial
+        else:   # 지난주 자료를 이번 주 기준선으로 본 판정
+            gate = FinancialGate(p.financial.kind, p.financial.capital, cur.financial.capital_min)
+        s_a = state_of(p.inputs, cur.criteria, cur.extra_gate1, report, gate)
         repriced = replace(p.inputs, price=cur_in.price, price_date=cur_in.price_date)
-        s_b = state_of(repriced, cur.criteria, cur.extra_gate1, report)
+        s_b = state_of(repriced, cur.criteria, cur.extra_gate1, report, gate)
         steps = (("기준 변경", s0 != s_a), ("주가", s_a != s_b), ("재무 갱신", s_b != s1))
         out.append(Change(code, name, kind, tuple(label for label, hit in steps if hit)))
     for code, p in prev.stocks.items():
@@ -60,7 +67,9 @@ def detect_changes(prev: Snapshot | None, run: RunResult, report: ReportSettings
 def criteria_changes(prev_fp: dict, cur_fp: dict) -> list[dict]:
     out = []
     for section in _SECTIONS:
-        old_sec, new_sec = prev_fp.get(section, {}), cur_fp.get(section, {})
+        if section not in prev_fp:
+            continue
+        old_sec, new_sec = prev_fp[section], cur_fp.get(section, {})
         for key, new in new_sec.items():
             old = old_sec.get(key)
             if old != new:

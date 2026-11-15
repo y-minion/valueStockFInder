@@ -38,3 +38,42 @@ def test_override_change_uses_overrides_label():
     b["industry"]["overrides"] = {"30": {"roe_min": 20.0}}
     assert criteria_changes(a, b) == [{"key": "overrides", "label": "업종별 기준 덮어쓰기",
                                        "old": {}, "new": {"30": {"roe_min": 20.0}}}]
+
+
+def test_criteria_changes_skip_missing_financial_section():
+    assert criteria_changes({"criteria": {"required_return": 0.1}},
+                            {"criteria": {"required_return": 0.1}, "financial": {"include": True}}) == []
+    a = {"criteria": {}, "financial": {"include": True}}
+    b = {"criteria": {}, "financial": {"include": False}}
+    assert criteria_changes(a, b) == [{"key": "include", "label": "금융회사 포함", "old": True, "new": False}]
+
+
+def test_change_cause_uses_sector_verdict():
+    from dataclasses import replace
+    from helpers import _kia_inputs
+    from vsf.engine import compute, is_near, summarize, watch_state
+    from vsf.evaluate import StockResult, evaluation_flags, state_of
+    from vsf.financial import FinancialGate
+    from vsf.snapshot import SnapStock
+    gate = FinancialGate("은행", None, 9.0)
+    rep = ReportSettings()
+    loss = _kia_inputs(60000.0)
+    years = list(loss.years)
+    years[0] = replace(years[0], net_income=-100.0)
+    loss = replace(loss, years=tuple(years))
+    assert state_of(loss, Criteria(), None, rep, gate) == "out"
+    assert state_of(loss, Criteria(), None, rep) == "buy"
+    prev0 = snap(kia_price=60000)
+    prev = replace(prev0, stocks={"000270": SnapStock(name="기아", inputs=loss, criteria=Criteria(),
+                                                      extra_gate1=None, state="out", near=False,
+                                                      financial=gate)})
+    r = run(kia_price=60000)
+    cur = r.results["000270"]
+    cells = compute(cur.assembled.inputs, Criteria(), None, financial=gate)
+    summary = summarize(cells)
+    state = watch_state(summary, rep)
+    res = replace(cur, cells=cells, summary=summary, state=state, financial=gate,
+                  near=state != "out" and is_near(summary, rep))
+    assert state == "buy"
+    ch = detect_changes(prev, replace(r, results={"000270": res}), rep)
+    assert ch == [Change("000270", "기아", "new_buy", ("재무 갱신",))]

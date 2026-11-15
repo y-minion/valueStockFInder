@@ -6,6 +6,7 @@ from vsf.config import ReportSettings, Settings, settings_fingerprint
 from vsf.data.assemble import Assembled, CompanyInfo
 from vsf.engine import Summary, compute, is_near, summarize, watch_state
 from vsf.excelfn import is_num
+from vsf.financial import FinancialGate, financial_gate
 from vsf.industry import (IndustryInfo, build_industry, effective_criteria, extra_gate1,
                           industry_inputs)
 from vsf.model import Criteria, SheetValues, StockInputs
@@ -26,6 +27,7 @@ class StockResult:
     state: str
     near: bool
     eval_flags: tuple[str, ...]   # 계산 뒤에 단 '숫자 확인 필요' 사유
+    financial: FinancialGate | None = None
 
     @property
     def flags(self) -> tuple[str, ...]:
@@ -40,8 +42,9 @@ class RunResult:
     results: dict[str, StockResult]
 
 
-def state_of(inputs: StockInputs, criteria: Criteria, extra: str | None, report: ReportSettings) -> str:
-    return watch_state(summarize(compute(inputs, criteria, extra)), report)
+def state_of(inputs: StockInputs, criteria: Criteria, extra: str | None, report: ReportSettings,
+             financial: FinancialGate | None = None) -> str:
+    return watch_state(summarize(compute(inputs, criteria, extra, financial=financial)), report)
 
 
 def evaluation_flags(cells: SheetValues, state: str) -> tuple[str, ...]:
@@ -62,13 +65,14 @@ def evaluate_one(company: CompanyInfo, assembled: Assembled, settings: Settings,
                  industry: IndustryInfo | None) -> StockResult:
     criteria = effective_criteria(settings.criteria, company.induty_code, settings.industry.overrides)
     extra = extra_gate1(industry, settings.industry)
-    cells = compute(assembled.inputs, criteria, extra)
+    fin = financial_gate(company.financial_kind, None, settings.financial)
+    cells = compute(assembled.inputs, criteria, extra, financial=fin)
     summary = summarize(cells)
     state = watch_state(summary, settings.report)
     return StockResult(company=company, assembled=assembled, criteria=criteria, extra_gate1=extra,
                        cells=cells, summary=summary, industry=industry, state=state,
                        near=state != "out" and is_near(summary, settings.report),
-                       eval_flags=evaluation_flags(cells, state))
+                       eval_flags=evaluation_flags(cells, state), financial=fin)
 
 
 def evaluate(collected: Collected, settings: Settings) -> RunResult:

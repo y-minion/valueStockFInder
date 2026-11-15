@@ -1,8 +1,11 @@
 from dataclasses import replace
 
 import pytest
-from helpers import collected_with_kia, settings_with
-from vsf.evaluate import FAIR_VALUE_FLAG, evaluate, evaluate_one, evaluation_flags
+from helpers import collected_with_kia, settings_with, synthetic_company
+from vsf.config import ReportSettings
+from vsf.data.assemble import assemble
+from vsf.evaluate import FAIR_VALUE_FLAG, evaluate, evaluate_one, evaluation_flags, state_of
+from vsf.financial import FinancialGate
 
 
 def test_evaluate_applies_override_and_extra_gate():
@@ -87,3 +90,12 @@ def test_out_stock_with_blank_b_c_is_not_flagged():
 def test_evaluation_flags_rule(cells, state, want):
     got = evaluation_flags(cells, state)
     assert got == (() if want is None else (FAIR_VALUE_FLAG.format(missing=want),))
+
+
+def test_evaluate_one_uses_sector_verdict_for_financials():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    bank = replace(co, financial_kind="은행")
+    a = assemble(bank, L, fin_a, fin_b, divs, ye, price, d)
+    r = evaluate_one(bank, a, settings_with(), None)
+    assert r.financial == FinancialGate("은행", None, 9.0) and r.cells["D79"] == "해당 없음"
+    assert state_of(a.inputs, r.criteria, None, ReportSettings(), financial=r.financial) == r.state

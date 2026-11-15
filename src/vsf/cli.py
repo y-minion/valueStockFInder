@@ -135,18 +135,25 @@ def _excel(code: str, settings: Settings, keys: Keys, store: Store, deps: Deps, 
         return 1
     snap = load_previous(runs_dir, today + timedelta(days=1))
     held = snap.stocks.get(code) if snap else None
+    made_from = None
     if held is not None:
         inputs, criteria, extra = held.inputs, held.criteria, held.extra_gate1
-        cells = compute(inputs, criteria, extra)
+        price_date = held.inputs.price_date.isoformat() if held.inputs.price_date else "알 수 없음"
+        made_from = f"{snap.date.isoformat()} 실행 결과(주가 {price_date} 기준)로 만들었어요."
     else:
         got = collect_one(deps.make_dart(keys, store, settings), deps.make_krx(keys, store), store, today, code)
         if isinstance(got, str):
             print(got)
             return 1
         result = evaluate_one(got[0], got[1], settings, None)
-        inputs, criteria, extra, cells = got[1].inputs, result.criteria, result.extra_gate1, result.cells
+        inputs, criteria, extra = got[1].inputs, result.criteria, result.extra_gate1
+    # 엑셀에는 업종 비교 항목이 없어요. 캐시 값도 엑셀(Numbers)이 다시 계산하는 값과 같게, 업종 판정 없이 계산해요.
+    # 업종 판정은 B23 메모에만 적어요.
+    cells = compute(inputs, criteria, None)
     note = f"업종 안 ROE 순위 판정: {extra}" if extra is not None else ""
     path = export_xlsx(settings.calculator_path, settings.exports_dir, inputs, cells, criteria, today, note)
+    if made_from:
+        print(made_from)
     print(f"엑셀 파일: {path}")
     if not no_open:
         deps.open_path(path)

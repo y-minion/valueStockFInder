@@ -25,6 +25,7 @@ from vsf.data.krx import BASE as KRX_BASE  # noqa: E402
 from vsf.data.krx import BASE_FIELDS, DAILY_FIELDS  # noqa: E402
 
 COMPANIES = {"기아": "000270", "제일기획": "030000"}
+RAW_FIRST_ROWS = "_raw_first_rows.json"
 
 
 class RecorderError(Exception):
@@ -119,15 +120,37 @@ def record_dart(key: str, out: Path) -> int:
     return 0
 
 
-def record_krx(key: str, out: Path) -> int:
-    """일별매매정보 2일, 종목기본정보 1일을 받아 여섯 종목 안팎으로 줄여 저장해요."""
+def first_rows_json(bodies: dict[str, dict], key: str) -> str:
+    """응답마다 OutBlock_1의 첫 줄을 거르지 않고 그대로 모은 JSON 글이에요. 키 글자는 지워요.
+
+    DAILY_FIELDS·BASE_FIELDS의 필드 이름이 실제 응답과 다르면 여기서 바로 보여요.
+    """
+    first: dict[str, dict | None] = {}
+    for name, body in bodies.items():
+        rows = body.get("OutBlock_1") if isinstance(body, dict) else None
+        first[name] = rows[0] if isinstance(rows, list) and rows else None
+    return json.dumps(first, ensure_ascii=False, indent=2).replace(key, "REMOVED") + "\n"
+
+
+def record_krx(key: str, out: Path, http: httpx.Client | None = None) -> int:
+    """일별매매정보 2일, 종목기본정보 1일을 받아 여섯 종목 안팎으로 줄여 저장해요.
+
+    응답마다 거르지 않은 첫 줄도 _raw_first_rows.json에 따로 남겨요.
+    """
     out.mkdir(parents=True, exist_ok=True)
-    http = httpx.Client(timeout=60)
+    http = http or httpx.Client(timeout=60)
     base_day = "20261113"
+    raw: dict[str, dict] = {}
+
+    def get(service: str, day: str) -> list[dict]:
+        body = fetch_krx(http, service, key, day)
+        raw[f"{service}_{day}"] = body
+        return body.get("OutBlock_1", [])
+
     base: dict[str, list[dict]] = {}
     for prefix in ("stk", "ksq"):
         service = f"{prefix}_isu_base_info"
-        base[service] = fetch_krx(http, service, key, base_day).get("OutBlock_1", [])
+        base[service] = get(service, base_day)
 
     c = BASE_FIELDS
     every = [r for rows in base.values() for r in rows]
@@ -157,8 +180,10 @@ def record_krx(key: str, out: Path) -> int:
     for day in ("20251230", "20261113"):
         for prefix in ("stk", "ksq"):
             service = f"{prefix}_bydd_trd"
-            rows = fetch_krx(http, service, key, day).get("OutBlock_1", [])
+            rows = get(service, day)
             save(f"{service}_{day}.json", rows, DAILY_FIELDS["code"])
+    (out / RAW_FIRST_ROWS).write_text(first_rows_json(raw, key), encoding="utf-8")
+    written.append(RAW_FIRST_ROWS)
     print("\n".join(sorted(written)))
     return 0
 

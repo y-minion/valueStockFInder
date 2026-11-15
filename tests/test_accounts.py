@@ -114,3 +114,18 @@ def test_multiple_id_matches_take_first_in_ord_order():
 def test_blank_amount_for_period_is_none():
     fin = synthetic(defaults=False, extra=[fin_row("BS", "ifrs-full_Equity", "자본총계", "5", "")])
     assert extract(fin, "frmtrm")["equity_total"].value is None
+
+
+def test_basic_and_diluted_eps_by_id_and_by_name():
+    by_id = synthetic(defaults=False, extra=[
+        fin_row("IS", "ifrs-full_BasicAndDilutedEarningsLossPerShare", "기본 및 희석주당이익(손실)", "5,000")])
+    assert extract(by_id, "thstrm")["eps"] == Sourced(5000, "ifrs-full_BasicAndDilutedEarningsLossPerShare", "id")
+    for name in ("기본및희석주당이익", "기본 및 희석주당이익(손실)", "기본및희석주당순이익", "기본 및 희석 주당순이익(손실)"):
+        by_name = synthetic(defaults=False, extra=[fin_row("IS", NO_ID, name, "4,000")])
+        assert extract(by_name, "thstrm")["eps"] == Sourced(4000, name, "name"), name
+
+
+def test_diluted_only_eps_is_not_taken_as_basic():
+    fin = synthetic(defaults=False, extra=[
+        fin_row("IS", "ifrs-full_DilutedEarningsLossPerShare", "희석주당이익(손실)", "4,900")])
+    assert extract(fin, "thstrm")["eps"].value is None

@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 
@@ -202,6 +203,26 @@ def _equity(p: _Period) -> Sourced:
     return p.acc["equity_total" if p.fs == "OFS" else "equity_parent"]
 
 
+def _acc(name: str) -> Callable[[_Period], Sourced]:
+    return lambda p: p.acc[name]
+
+
+def _field(main: dict[int, _Period], b: dict[int, _Period], y: int, latest: int,
+           get: Callable[[_Period], Sourced]) -> tuple[_Period | None, Sourced | None]:
+    """y년 계정 하나와 그 값을 적은 보고서.
+
+    겹치는 해(L−2)는 A 보고서(전전기) 값을 쓰고, A에 그 계정 값이 없으면 B 보고서(당기) 값을 써요.
+    계정마다 따로 정해서, 출처 글도 실제로 값을 가져온 보고서를 가리켜요.
+    """
+    p = main.get(y)
+    s = get(p) if p is not None else None
+    if y == latest - 2 and (s is None or s.value is None) and y in b and b[y] is not p:
+        other = get(b[y])
+        if other.value is not None:
+            return b[y], other
+    return p, s
+
+
 def _label(*periods: _Period) -> str:
     """"2025 사업보고서(연결, 접수번호 …)". 두 보고서를 함께 쓰면 최근 것부터 쉼표로 이어요."""
     ordered = sorted(periods, key=lambda p: -p.report_year)
@@ -242,12 +263,12 @@ def _split_divisor(a: dict[int, _Period], b: dict[int, _Period], year_end: dict[
     return check.eps_divisor_older
 
 
-def _eps(main: dict[int, _Period], divisor: float, latest: int, out: _Out) -> dict[int, float | None]:
-    """L…L−2는 A 보고서 그대로, L−3·L−4는 B 보고서 값을 divisor로 나눠요."""
+def _eps(main: dict[int, _Period], b: dict[int, _Period], divisor: float, latest: int,
+         out: _Out) -> dict[int, float | None]:
+    """L…L−2는 A 보고서 그대로, L−3·L−4(와 A에 없는 L−2)는 B 보고서 값을 divisor로 나눠요."""
     eps: dict[int, float | None] = {}
     for y in range(latest - 4, latest + 1):
-        p = main.get(y)
-        s = p.acc["eps"] if p is not None else None
+        p, s = _field(main, b, y, latest, _acc("eps"))
         eps[y] = None
         if s is None or s.value is None:
             continue
@@ -296,8 +317,9 @@ def _roe(a: dict[int, _Period], b: dict[int, _Period], main: dict[int, _Period],
 
     roe: dict[int, float | None] = {}
     for y in range(latest - 4, latest + 1):
-        p, cur, prev = main.get(y), year_end_equity(y), year_end_equity(y - 1)
-        income = _net_income(p).value if p is not None else None
+        p, s = _field(main, b, y, latest, _net_income)
+        cur, prev = year_end_equity(y), year_end_equity(y - 1)
+        income = s.value if s is not None else None
         roe[y] = None
         if income is None or cur is None:
             continue
@@ -314,13 +336,15 @@ def _roe(a: dict[int, _Period], b: dict[int, _Period], main: dict[int, _Period],
     return roe
 
 
-def _debt_ratio(main: dict[int, _Period], latest: int, out: _Out) -> dict[int, float | None]:
+def _debt_ratio(main: dict[int, _Period], b: dict[int, _Period], latest: int,
+                out: _Out) -> dict[int, float | None]:
     """부채총계 ÷ 자본총계 × 100."""
     debt: dict[int, float | None] = {}
     for y in range(latest - 4, latest + 1):
-        p = main.get(y)
-        liabilities = p.acc["liabilities"].value if p is not None else None
-        equity = p.acc["equity_total"].value if p is not None else None
+        p_liab, liab = _field(main, b, y, latest, _acc("liabilities"))
+        p_eq, eq = _field(main, b, y, latest, _acc("equity_total"))
+        liabilities = liab.value if liab is not None else None
+        equity = eq.value if eq is not None else None
         debt[y] = None
         if liabilities is None or equity is None:
             continue
@@ -328,20 +352,25 @@ def _debt_ratio(main: dict[int, _Period], latest: int, out: _Out) -> dict[int, f
             out.flag(EQUITY_FLAG.format(y=y))
             continue
         debt[y] = excel_round(liabilities / equity * 100, 2)
-        out.sources[_cell(y, latest, 31)] = f"{_label(p)} · 부채총계 ÷ 자본총계"
+        out.sources[_cell(y, latest, 31)] = f"{_label(p_liab, p_eq)} · 부채총계 ÷ 자본총계"
     return debt
 
 
-def _coverage(main: dict[int, _Period], latest: int, out: _Out) -> dict[int, float | None]:
+def _coverage(main: dict[int, _Period], b: dict[int, _Period], latest: int,
+              out: _Out) -> dict[int, float | None]:
     """영업이익 ÷ 이자비용. 이자비용이 없으면 '이자의 지급'(절댓값)으로, 분모가 0이면 999."""
     cov: dict[int, float | None] = {}
     for y in range(latest - 4, latest + 1):
-        p = main.get(y)
         cov[y] = None
-        if p is None:
-            continue
-        income, expense = p.acc["operating_income"].value, p.acc["interest_expense"].value
-        denom, name = (expense, "이자비용") if expense is not None else (p.acc["interest_paid"].value, "이자의 지급")
+        p_inc, inc = _field(main, b, y, latest, _acc("operating_income"))
+        p_den, exp = _field(main, b, y, latest, _acc("interest_expense"))
+        income = inc.value if inc is not None else None
+        expense = exp.value if exp is not None else None
+        if expense is not None:
+            denom, name = expense, "이자비용"
+        else:
+            p_den, paid = _field(main, b, y, latest, _acc("interest_paid"))
+            denom, name = (paid.value if paid is not None else None), "이자의 지급"
         if income is None or denom is None:
             continue
         denom = abs(denom)
@@ -349,17 +378,17 @@ def _coverage(main: dict[int, _Period], latest: int, out: _Out) -> dict[int, flo
         if expense is None:
             out.note(INTEREST_PAID_NOTE.format(y=y))
         zero = "(0이라 999)" if denom == 0 else ""
-        out.sources[_cell(y, latest, 32)] = f"{_label(p)} · 영업이익 ÷ {name}{zero}"
+        out.sources[_cell(y, latest, 32)] = f"{_label(p_inc, p_den)} · 영업이익 ÷ {name}{zero}"
     return cov
 
 
-def _amounts(main: dict[int, _Period], latest: int, out: _Out) -> dict[str, dict[int, float | None]]:
+def _amounts(main: dict[int, _Period], b: dict[int, _Period], latest: int,
+             out: _Out) -> dict[str, dict[int, float | None]]:
     """순이익·영업현금흐름·설비투자·배당금 지급 총액을 억 원으로."""
     got: dict[str, dict[int, float | None]] = {field: {} for field, _ in _AMOUNT_ROWS}
     for y in range(latest - 4, latest + 1):
-        p = main.get(y)
         for field, row in _AMOUNT_ROWS:
-            s = None if p is None else (_net_income(p) if field == "net_income" else p.acc[field])
+            p, s = _field(main, b, y, latest, _net_income if field == "net_income" else _acc(field))
             value = None if s is None or s.value is None else excel_round(s.value / 1e8, 2)
             got[field][y] = value
             if value is not None:
@@ -385,8 +414,8 @@ def _number_checks(a: dict[int, _Period], b: dict[int, _Period], main: dict[int,
                    eps: dict[int, float | None], per: dict[int, float | None], latest: int, out: _Out) -> None:
     """스펙 6.6: 의심스러운 숫자에 '숫자 확인 필요'를 달아요. 값은 그대로 두고 표시만 해요."""
     for y in range(latest - 4, latest + 1):
-        p, e = main.get(y), eps.get(y)
-        income = _net_income(p).value if p is not None else None
+        _, s = _field(main, b, y, latest, _net_income)          # 33행과 같은 순이익
+        e, income = eps.get(y), (s.value if s is not None else None)
         if e and income and (e > 0) != (income > 0):       # 0은 부호가 없어서 건너뛰어요
             out.flag(SIGN_FLAG.format(y=y))
         v = per.get(y)
@@ -442,17 +471,17 @@ def assemble(company: CompanyInfo, latest_year: int, fin_a: FinRows | None, fin_
     out = _Out()
     a = _periods(fin_a, L)
     b = _periods(fin_b, L - 2) if a else {}
-    main = {**b, **a}                                  # 해 → 쓰는 기간. 겹치는 L−2는 A예요.
+    main = {**b, **a}                                  # 해 → 쓰는 기간. 겹치는 L−2는 A예요 (계정이 없으면 B, _field).
     if any(p.fs == "OFS" for p in main.values()):
         out.note(OFS_NOTE)
     _currency([fin for fin, used in ((fin_a, a), (fin_b, b)) if used], out)
-    eps = _eps(main, _split_divisor(a, b, year_end, price, L, out), L, out)
+    eps = _eps(main, b, _split_divisor(a, b, year_end, price, L, out), L, out)
     dps = _dps(div_reports, L, range(L - 9, L + 1), out)
     per = _per(eps, year_end, L, out)
     roe = _roe(a, b, main, L, out)
-    debt = _debt_ratio(main, L, out)
-    cov = _coverage(main, L, out)
-    amounts = _amounts(main, L, out)
+    debt = _debt_ratio(main, b, L, out)
+    cov = _coverage(main, b, L, out)
+    amounts = _amounts(main, b, L, out)
     pbr = _pbr(a, eps, L, price, price_date, out)
     _number_checks(a, b, main, eps, per, L, out)
     _special_dividends(eps, dps, out)

@@ -128,3 +128,41 @@ test('gate tables show static criteria and a gate 3 verdict row', () => {
   for (const s of ['0번 (아니면 이유 확인)', '>0번<', '관문 ③ 결과', '주가 ≤ 매수선', 'pill ok">통과']) assert.ok(h.includes(s), s);
   assert.ok(h.includes('통과 기준: 0.75배 이하'));
 });
+
+test('criteria change banner shows booleans and objects and escapes once', () => {
+  const d = { ...data, run: { ...data.run, criteria_changes: [
+    { key: 'use_in_verdict', label: '업종 비교를 판정에 넣기', old: false, new: true },
+    { key: 'overrides', label: '업종별 기준 덮어쓰기', old: {}, new: { '35': { roe_min: 6 } } },
+    { key: 'overrides', label: '업종별 기준 덮어쓰기', old: { '35': { roe_min: 6, debt_ratio_max: 150 }, '20': { roe_min: 9 } }, new: {} },
+    { key: 'required_return', label: '요구수익률', old: 0.1, new: 0.09 },
+    { key: 'note', label: 'A&B', old: 'x<y', new: null },
+  ] } };
+  const banners = [...r.renderIndex(d).matchAll(/<div class="banner warn">([^<]*)<\/div>/g)].map(m => m[1]);
+  const prefix = '지난 실행과 기준이 달라졌어요: ';
+  for (const want of ['업종 비교를 판정에 넣기 꺼짐 → 켜짐', '업종별 기준 덮어쓰기 없음 → 35: roe_min 6',
+                      '업종별 기준 덮어쓰기 20: roe_min 9 / 35: roe_min 6, debt_ratio_max 150 → 없음',
+                      '요구수익률 0.1 → 0.09', 'A&amp;B x&lt;y → —'])
+    assert.ok(banners.includes(prefix + want), want);
+  assert.ok(!banners.join('').includes('&amp;lt;') && !banners.join('').includes('&amp;amp;'));
+});
+test('header shows the applied criteria in one line', () => {
+  const line = '적용한 기준: 요구수익률 10% · 안전마진 25% · ROE ≥ 8% · 부채비율 &lt; 200% · 이자보상배율 ≥ 3배 · ' +
+    '배당성향 20%~60% · 관심 목록 20% 이내';
+  const h = r.renderIndex(data);
+  assert.ok(h.includes('<p class="muted">' + line + '</p>'));
+  assert.ok(h.indexOf('적용한 기준') < h.indexOf('banner'));            // 머리 안, 알림보다 위
+  const d = JSON.parse(JSON.stringify(data));
+  Object.assign(d.run.criteria.criteria, { required_return: 0.095, roe_min: 7.5, payout_max: 0.65 });
+  d.run.criteria.report.watch_range = 0.15;
+  const h2 = r.renderIndex(d);
+  assert.ok(h2.includes('요구수익률 9.5% · ') && h2.includes('ROE ≥ 7.5% · ') && h2.includes('배당성향 20%~65% · 관심 목록 15% 이내'));
+  delete d.run.criteria;                                                 // 예전 data.js
+  assert.ok(!r.renderIndex(d).includes('적용한 기준'));
+});
+test('watchlist industry column shows rank and median', () => {
+  const h = r.renderIndex(data);
+  assert.ok(h.includes('상위 18.5% (중간값 9.1%)'));
+  const d = JSON.parse(JSON.stringify(data));
+  d.stocks.A.industry.roe_rank_pct = null;
+  assert.ok(r.renderIndex(d).includes('<td class="num">—</td>'));
+});

@@ -547,6 +547,59 @@ def test_cfs_without_parent_net_income_does_not_fall_back_to_profit_loss():
     co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
     fin_a = replace(fin_a, rows=[r for r in fin_a.rows if r["account_id"] != NI_PARENT])
     a = assemble(co, L, fin_a, fin_b, divs, ye, price, d)
-    assert [r.net_income for r in a.inputs.years] == [47604.5, 54094.29, None, None, None]
-    assert not {"D33", "E33", "F33"} & a.sources.keys() and "C33" in a.sources
-    assert [r.roe for r in a.inputs.years[2:]] == [None, None, None]
+    # 2024·2025는 비어요 (당기순이익으로 대신하지 않아요). 2023은 겹치는 해라 B 보고서의 지배주주 순이익이에요.
+    assert [r.net_income for r in a.inputs.years] == [47604.5, 54094.29, 87769.7, None, None]
+    assert not {"E33", "F33"} & a.sources.keys() and "C33" in a.sources
+    assert a.sources["D33"] == f"{B_REPORT} · {NI_PARENT}"
+    assert [r.roe for r in a.inputs.years[2:]] == [21.17, None, None]
+
+
+# ---- 겹치는 해(L−2): A 보고서 전전기 값이 없으면 B 보고서 당기 값 ----
+
+CAPEX_ID = "ifrs-full_PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"
+DIV_PAID_ID = "ifrs-full_DividendsPaidClassifiedAsFinancingActivities"
+
+
+def _a_blank_b_set(account_id: str, b_text: str) -> tuple:
+    """A(2025) 보고서의 2023년(전전기) 값을 지우고, B(2023) 보고서의 2023년(당기) 값을 b_text로 바꾼 인자 묶음."""
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    return (co, L, _set_amount(fin_a, account_id, "bfefrmtrm", ""), _set_amount(fin_b, account_id, "thstrm", b_text),
+            divs, ye, price, d)
+
+
+def test_overlap_year_ocf_falls_back_to_b_report():
+    a = assemble(*_a_blank_b_set(OCF, "11,639,000,000,000"))
+    assert a.inputs.years[2].ocf == 116390                                  # A에 없어서 B 값
+    assert a.sources["D34"] == f"{B_REPORT} · {OCF}"
+    assert a.flags == ()
+
+
+@pytest.mark.parametrize("account_id,b_text,field,want,cell,source", [
+    (EPS_ID, "23,000", "eps", 23000, "D27", f"{B_REPORT} · {EPS_ID}"),
+    (NI_PARENT, "9,000,000,000,000", "net_income", 90000, "D33", f"{B_REPORT} · {NI_PARENT}"),
+    (CAPEX_ID, "-2,600,000,000,000", "capex", 26000, "D35", f"{B_REPORT} · {CAPEX_ID}"),
+    (DIV_PAID_ID, "-1,500,000,000,000", "dividends_paid", 15000, "D36", f"{B_REPORT} · {DIV_PAID_ID}"),
+    # 부채 36조(B) ÷ 자본 45.06조(A) × 100, 부채 32.98조(A) ÷ 자본 50조(B) × 100
+    ("ifrs-full_Liabilities", "36,000,000,000,000", "debt_ratio", 79.89, "D31", f"{A_REPORT}, {B_REPORT} · 부채총계 ÷ 자본총계"),
+    ("ifrs-full_Equity", "50,000,000,000,000", "debt_ratio", 65.96, "D31", f"{A_REPORT}, {B_REPORT} · 부채총계 ÷ 자본총계"),
+    # 영업이익 12조(B) ÷ 이자비용 1,842억(A), 영업이익 11.6079조(A) ÷ 이자비용 2,000억(B)
+    ("dart_OperatingIncomeLoss", "12,000,000,000,000", "interest_coverage", 65.15, "D32",
+     f"{A_REPORT}, {B_REPORT} · 영업이익 ÷ 이자비용"),
+    ("ifrs-full_InterestExpense", "200,000,000,000", "interest_coverage", 58.04, "D32",
+     f"{A_REPORT}, {B_REPORT} · 영업이익 ÷ 이자비용"),
+])
+def test_overlap_year_falls_back_to_b_report_field_by_field(account_id, b_text, field, want, cell, source):
+    a = assemble(*_a_blank_b_set(account_id, b_text))
+    assert getattr(a.inputs.years[2], field) == want
+    assert a.sources[cell] == source
+    assert a.flags == () and not any(n.startswith("2023년 이자보상배율") for n in a.notes)
+
+
+def test_overlap_year_net_income_from_b_feeds_roe():
+    a = assemble(*_a_blank_b_set(NI_PARENT, "9,000,000,000,000"))
+    assert a.inputs.years[2].roe == 21.71                                    # 9 ÷ ((37.9 + 45.0) / 2) × 100
+
+
+def test_overlap_year_stays_blank_when_both_reports_are_blank():
+    a = assemble(*_a_blank_b_set(OCF, ""))
+    assert a.inputs.years[2].ocf is None and "D34" not in a.sources

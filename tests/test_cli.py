@@ -101,15 +101,59 @@ def test_excel_uses_snapshot(tmp_path, template_path, capsys):
     assert list((tmp_path / "exports").glob("*000270*.xlsx"))
     assert d.dart.calls_today == 0
     assert d.awake == []
-    assert "엑셀 파일:" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    made = out.index("2026-11-14 실행 결과(주가 2026-11-13 기준)로 만들었어요.")   # 어느 실행으로 만들었는지
+    assert made < out.index("엑셀 파일:")
 
 
 @pytest.mark.template
-def test_excel_without_snapshot_collects_one(tmp_path, template_path):
+def test_excel_without_snapshot_collects_one(tmp_path, template_path, capsys):
     d = fake_deps(tmp_path)
     assert run(tmp_path, d, "--excel", "000270") == 0
     assert d.dart.calls_today > 0 and d.awake == []
     assert list((tmp_path / "exports").glob("*000270*.xlsx"))
+    assert "실행 결과(주가" not in capsys.readouterr().out          # 스냅샷을 쓰지 않았어요
+
+
+def industry_verdict_args(tmp_path: Path) -> list[str]:
+    """업종 비교를 판정에 넣는 설정(상위 10% 안이어야 통과). 같은 ROE 두 종목은 50%라 '탈락'이에요."""
+    (tmp_path / "keys.toml").write_text(KEYS, encoding="utf-8")
+    s = write_settings(tmp_path, criteria={"use_in_verdict": "true", "roe_top_percent": "10.0"})
+    return ["--settings", str(s), "--keys", str(tmp_path / "keys.toml"), "--no-open"]
+
+
+@pytest.mark.template
+def test_excel_from_snapshot_leaves_the_industry_verdict_to_the_memo(tmp_path, template_path):
+    from helpers import XlsxReader
+    from vsf.engine import compute
+    d = fake_deps(tmp_path)
+    args = industry_verdict_args(tmp_path)
+    assert main(args, deps=d) == 0
+    held = load_previous(tmp_path / "data" / "runs", D + timedelta(days=1)).stocks["000270"]
+    assert held.extra_gate1 == "탈락"
+    assert main(args + ["--excel", "000270"], deps=d) == 0
+    want = compute(held.inputs, held.criteria, None)                 # 엑셀(Numbers)이 다시 계산하는 값
+    assert want["D82"] == "통과" and compute(held.inputs, held.criteria, "탈락")["D82"] == "탈락"
+    x = XlsxReader(next((tmp_path / "exports").glob("*000270*.xlsx")))
+    assert x.cell("기아", "D82")[1] == want["D82"] and x.cell("기아", "B15")[1] == want["B15"]
+    assert x.cell("기아", "B23")[1].endswith("업종 비교 항목(엑셀에는 없음): 업종 안 ROE 순위 판정: 탈락")
+
+
+@pytest.mark.template
+def test_excel_without_snapshot_leaves_the_industry_verdict_to_the_memo(tmp_path, template_path):
+    from fakes import mem_store
+    from helpers import XlsxReader
+    from vsf.collect import collect_one
+    from vsf.engine import compute
+    from vsf.model import Criteria
+    d = fake_deps(tmp_path)
+    assert main(industry_verdict_args(tmp_path) + ["--excel", "000270"], deps=d) == 0   # 업종 정보 없음 → '입력 필요'
+    inputs = collect_one(FakeDart.default(), FakeKrx.default(), mem_store(), D, "000270")[1].inputs
+    want = compute(inputs, Criteria(), None)
+    assert want["D82"] == "통과" and compute(inputs, Criteria(), "입력 필요")["D82"] == "확인 필요"
+    x = XlsxReader(next((tmp_path / "exports").glob("*000270*.xlsx")))
+    assert x.cell("기아", "D82")[1] == want["D82"] and x.cell("기아", "B15")[1] == want["B15"]
+    assert x.cell("기아", "B23")[1].endswith("업종 비교 항목(엑셀에는 없음): 업종 안 ROE 순위 판정: 입력 필요")
 
 
 def test_excel_unknown_code(tmp_path, capsys):

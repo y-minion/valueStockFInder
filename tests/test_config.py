@@ -61,3 +61,37 @@ def test_missing_dart_key(tmp_path):
 def test_fingerprint_is_json_roundtrip():
     s = load_settings(ROOT / "settings.toml")
     assert json.loads(json.dumps(settings_fingerprint(s)))["criteria"]["required_return"] == 0.10
+
+
+@pytest.mark.parametrize("key,text", [
+    ("roe_min", "inf"), ("debt_ratio_max", "-inf"), ("safety_margin", "nan"), ("required_return", "+inf"),
+    ("near_range", "nan"), ("watch_range", "inf"), ("roe_top_percent", "inf"), ("roe_top_percent", "nan"),
+])
+def test_non_finite_numbers_are_rejected(tmp_path, key, text):
+    p = write_settings(tmp_path, criteria={key: text})      # 그 키가 있는 줄을 바꿔요 ([report]·[industry]도)
+    with pytest.raises(ConfigError, match=key) as e:
+        load_settings(p)
+    assert "inf나 nan은 쓸 수 없어요" in str(e.value)
+
+
+def test_non_finite_override_is_rejected(tmp_path):
+    with pytest.raises(ConfigError, match="roe_min") as e:
+        load_settings(write_settings(tmp_path, overrides='"35" = { roe_min = inf }'))
+    assert "inf나 nan은 쓸 수 없어요" in str(e.value) and '"35"' in str(e.value)
+
+
+@pytest.mark.parametrize("extra", ["\n[criterias]\nroe_min = 8\n", "\n[reports]\n"])
+def test_unknown_top_level_section_is_rejected(tmp_path, extra):
+    p = write_settings(tmp_path)
+    p.write_text(p.read_text(encoding="utf-8") + extra, encoding="utf-8")
+    name = extra.split("[")[1].split("]")[0]
+    with pytest.raises(ConfigError, match=rf"\[{name}\]") as e:
+        load_settings(p)
+    assert "알 수 없는" in str(e.value)
+
+
+def test_unknown_top_level_key_is_rejected(tmp_path):
+    p = write_settings(tmp_path)
+    p.write_text("safety_margin = 0.3\n" + p.read_text(encoding="utf-8"), encoding="utf-8")   # 표 밖에 쓴 값
+    with pytest.raises(ConfigError, match="safety_margin"):
+        load_settings(p)

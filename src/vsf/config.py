@@ -1,4 +1,5 @@
 """settings.toml / keys.toml 읽기와 값 검사."""
+import math
 import tomllib
 from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
@@ -29,6 +30,8 @@ CRITERIA_LABELS: dict[str, str] = {
     "min_group_size": "업종 최소 묶음 크기",
     "overrides": "업종별 기준 덮어쓰기",
 }
+
+_SECTIONS = ("criteria", "report", "industry", "paths", "dart")
 
 _RATE_KEYS = {
     "required_return", "safety_margin", "payout_min", "payout_max",
@@ -77,6 +80,8 @@ def _bad(where: str, key: str, why: str) -> ConfigError:
 def _number(where: str, key: str, value) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise _bad(where, key, f"숫자여야 해요 (지금: {value!r}). 따옴표나 % 없이 숫자만 써요.")
+    if not math.isfinite(value):
+        raise _bad(where, key, f"inf나 nan은 쓸 수 없어요 (지금: {value}). 보통 숫자로 써요.")
     return float(value)
 
 
@@ -112,6 +117,10 @@ def load_settings(path: Path) -> Settings:
     except tomllib.TOMLDecodeError as e:
         raise ConfigError(f"settings.toml을 읽을 수 없어요: {e}") from None
     base = path.parent
+    for name in raw:
+        if name not in _SECTIONS:
+            allowed = ", ".join(f"[{x}]" for x in _SECTIONS)
+            raise ConfigError(f"settings.toml의 [{name}]은(는) 알 수 없는 부분이에요. 쓸 수 있는 부분: {allowed}")
 
     crit_fields = {f.name for f in fields(Criteria)}
     crit_raw = _section(raw, "criteria")

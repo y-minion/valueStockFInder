@@ -165,11 +165,36 @@ function tile(label, n, prev) {
   return '<div class="tile"><div class="muted">' + esc(label) + '</div><div class="big">' + fmt(n, "won") + "</div>" +
     (prev != null ? '<div class="muted">지난주 ' + fmt(prev, "won") + "</div>" : "") + "</div>";
 }
+// 0.1 → "10%" (소수 둘째 자리까지, 끝의 0은 떼요)
+function pctText(v) { return fmt(v * 100, "raw") + "%"; }
+// 머리의 '적용한 기준' 한 줄 (스펙 7.2). 값이 없는 항목은 빼요.
+function criteriaLine(data) {
+  var fp = data.run.criteria || {}, c = fp.criteria || {}, rep = fp.report || {}, parts = [];
+  if (isNum(c.required_return)) parts.push("요구수익률 " + pctText(c.required_return));
+  if (isNum(c.safety_margin)) parts.push("안전마진 " + pctText(c.safety_margin));
+  if (isNum(c.roe_min)) parts.push("ROE ≥ " + fmt(c.roe_min, "raw") + "%");
+  if (isNum(c.debt_ratio_max)) parts.push("부채비율 < " + fmt(c.debt_ratio_max, "raw") + "%");
+  if (isNum(c.interest_coverage_min)) parts.push("이자보상배율 ≥ " + fmt(c.interest_coverage_min, "raw") + "배");
+  if (isNum(c.payout_min) && isNum(c.payout_max)) parts.push("배당성향 " + pctText(c.payout_min) + "~" + pctText(c.payout_max));
+  if (isNum(rep.watch_range)) parts.push("관심 목록 " + pctText(rep.watch_range) + " 이내");
+  return parts.length ? '<p class="muted">' + esc("적용한 기준: " + parts.join(" · ")) + "</p>" : "";
+}
 function indexHead(data) {
   var r = data.run, n = 0;
   Object.keys(r.excluded || {}).forEach(function (k) { n += r.excluded[k].length; });
   return "<h1>주간 배당주 리포트</h1><p class=\"muted\">" + dateKo(r.date) + " 실행 · " + dateKo(r.price_date) + " 종가 기준 · 분석 " +
-    fmt(r.analyzed, "won") + "개 / 상장 " + fmt(r.total_listed, "won") + "개 · 제외 " + fmt(n, "won") + "개</p>";
+    fmt(r.analyzed, "won") + "개 / 상장 " + fmt(r.total_listed, "won") + "개 · 제외 " + fmt(n, "won") + "개</p>" + criteriaLine(data);
+}
+// 기준 변경 알림에 넣는 값. 글자 그대로 돌려주고, escape는 banner()가 한 번만 해요.
+// 참/거짓은 켜짐/꺼짐, 표는 "35: roe_min 6"처럼 짧게, 빈 표는 "없음".
+function critValue(v, inner) {
+  if (v == null) return "—";
+  if (typeof v === "boolean") return v ? "켜짐" : "꺼짐";
+  if (typeof v === "number") return fmt(v, "raw");
+  if (typeof v !== "object") return String(v);
+  var keys = Object.keys(v);
+  if (!keys.length) return "없음";
+  return keys.map(function (k) { return k + (inner ? " " : ": ") + critValue(v[k], true); }).join(inner ? ", " : " / ");
 }
 function banners(data) {
   var r = data.run, out = "";
@@ -177,7 +202,7 @@ function banners(data) {
   var missing = r.year_end_missing || [];
   if (missing.length) out += banner("연말 주가를 가져오지 못한 해가 있어요: " + missing.join("·") + ". 이 해들의 PER이 비어 적정가 B·C 계산이 빠질 수 있어요.", "warn");
   (r.criteria_changes || []).forEach(function (c) {
-    out += banner("지난 실행과 기준이 달라졌어요: " + c.label + " " + fmt(c.old, "raw") + " → " + fmt(c.new, "raw"), "warn");
+    out += banner("지난 실행과 기준이 달라졌어요: " + c.label + " " + critValue(c.old) + " → " + critValue(c.new), "warn");
   });
   if (r.first_run) out += banner("첫 실행이라 비교할 지난 결과가 없어요", "info");
   return out;
@@ -200,6 +225,11 @@ function changesTable(data) {
   }).join("");
   return h + wrap("<table><tr><th>종목</th><th>변화</th><th>원인</th></tr>" + rows + "</table>");
 }
+// 첫 페이지 업종 칸: "상위 18.5% (중간값 9.1%)" (스펙 5.5)
+function industryRank(ind) {
+  if (!ind || !isNum(ind.roe_rank_pct)) return "—";
+  return "상위 " + fmt(ind.roe_rank_pct, "raw") + "%" + (isNum(ind.roe_median) ? " (중간값 " + fmt(ind.roe_median, "raw") + "%)" : "");
+}
 function watchTable(data) {
   var h = "<h2>관심 목록 (매수선에 가까운 순)</h2>", list = data.watchlist || [];
   if (!list.length) return h + '<p class="muted">지금 관심 목록에 든 종목이 없어요.</p>';
@@ -208,7 +238,7 @@ function watchTable(data) {
     return "<tr><td>" + stockLink(code, s.name) + flagChip(s) + '<div class="muted">' + esc(ind ? ind.group_name : "업종 정보 없음") + "</div></td><td>" +
       gateBadge(1, m.gate1) + " " + gateBadge(2, m.gate2) + " " + gateBadge(3, m.gate3) + '</td><td class="num">' + fmt(m.ratio, "d2") +
       '</td><td class="num">' + fmt(m.drop == null ? null : Math.round(m.drop * 100) / 100, "pct0") + '</td><td class="num">' + fmt(m.yield_now, "pct") +
-      "</td><td>" + fmt(m.method) + '</td><td class="num">' + (ind && isNum(ind.roe_rank_pct) ? "상위 " + fmt(ind.roe_rank_pct, "raw") + "%" : "—") +
+      "</td><td>" + fmt(m.method) + '</td><td class="num">' + industryRank(ind) +
       "</td><td>" + (s.flags.length ? esc(s.flags.join(" / ")) : "") + "</td></tr>";
   }).join("");
   return h + wrap("<table><tr><th>종목(업종)</th><th>관문</th><th>주가÷적정가</th><th>매수선까지</th><th>지금 배당수익률</th><th>적정가 방법</th><th>업종 ROE 순위</th><th>경고</th></tr>" + rows + "</table>");

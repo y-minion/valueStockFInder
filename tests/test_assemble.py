@@ -5,10 +5,11 @@ from datetime import date
 
 import pytest
 
-from helpers import (ORIGINAL_OLD_EPS, SYN_SHARES, div_rows, load_company, load_divs, load_fin,
-                     load_price, load_year_end, synthetic_company)
+from helpers import (ORIGINAL_OLD_EPS, SYN_SHARES, div_rows, fin_row, load_company, load_divs, load_fin,
+                     load_oracle, load_price, load_year_end, synthetic_company)
 from vsf.data.assemble import (Assembled, assemble, assemble_quick_fail, dps_by_year,
                                dps_from_report, quick_fail_check)
+from vsf.data.assemble import ROE_END_NOTE
 from vsf.data.splits import RESTATE_FLAG, SPLIT_FLAG
 from vsf.data.store import PriceRow
 from vsf.engine import compute, summarize
@@ -71,6 +72,57 @@ def test_missing_older_report_leaves_blanks(recorded_kia):
     a = assemble(kia_co, 2025, load_fin("kia_2025_cfs"), None, load_divs("kia"), load_year_end("kia"),
                  price, D)
     assert a.inputs.years[0].eps is None and a.inputs.years[1].ocf is None
+
+
+# ---- DART 녹화 자료만으로 (KRX 키 없이) 예시 시트와 맞춰 보기 ----
+
+DART_ONLY_PRICE_DATE = date(2026, 11, 13)
+
+
+def _dart_only(name: str):
+    """녹화한 DART 자료 + 예시 시트의 종가로 조립한 입력, 그리고 예시 시트(입력·기준·칸 값)."""
+    example, criteria, cells = load_oracle(name)
+    co = load_company(name)
+    price = PriceRow(DART_ONLY_PRICE_DATE, co.code, co.name, co.market, close=example.price, shares=None)
+    a = assemble(co, 2025, load_fin(f"{name}_2025_cfs"), load_fin(f"{name}_2023_cfs"), load_divs(name),
+                 {}, price, DART_ONLY_PRICE_DATE)
+    return a, example, criteria, cells
+
+
+def _close(got, want, rel: float) -> bool:
+    return got is not None and math.isclose(got, want, rel_tol=rel)
+
+
+@pytest.mark.recorded("dart")
+@pytest.mark.parametrize("name", ["kia", "cheil"])
+def test_dart_inputs_match_example_sheet(name):
+    a, example, _, _ = _dart_only(name)
+    got, want = a.inputs.years, example.years
+    assert [r.eps for r in got] == [r.eps for r in want]
+    assert [r.dps for r in got] == [r.dps for r in want]
+    assert a.inputs.prior_dps == example.prior_dps
+    # ROE는 제일기획 2023–2025년 예시 값이 평균 자본 계산과 0.5–0.7% 벌어져서 1%로 봐요 (2021년은 0.4%).
+    for field, rel in (("net_income", 0.005), ("debt_ratio", 0.005), ("roe", 0.01), ("ocf", 0.01)):
+        bad = [(r.year, getattr(r, field), getattr(w, field)) for r, w in zip(got, want)
+               if not _close(getattr(r, field), getattr(w, field), rel)]
+        assert not bad, f"{field}: {bad}"
+    assert all(r.capex is not None and r.capex > 0 for r in got)
+    assert all(r.dividends_paid is not None and r.dividends_paid > 0 for r in got)
+    assert a.flags == ()
+    assert ROE_END_NOTE.format(y=2021) not in a.notes
+
+
+@pytest.mark.recorded("dart")
+@pytest.mark.parametrize("name", ["kia", "cheil"])
+def test_dart_inputs_give_example_verdicts(name):
+    a, example, criteria, _ = _dart_only(name)
+    # PER은 KRX 연말 종가가 있어야 해서, 예시 시트 값을 그대로 가져와요.
+    years = tuple(replace(r, per=w.per) for r, w in zip(a.inputs.years, example.years))
+    inputs = replace(a.inputs, years=years, price=example.price, price_date=example.price_date,
+                     pbr=example.pbr)
+    got, want = compute(inputs, criteria), compute(example, criteria)
+    for addr in ("D82", "D90", "D110", "B105", "B106", "B107", "B15"):
+        assert got[addr] == want[addr], addr
 
 
 # ---- 계획서의 합성 자료 테스트 ----
@@ -157,6 +209,44 @@ def test_roe_year_end_equity_a_first_then_b():
     # A에 없으면 B(46조): 8.77697 ÷ ((37.9 + 46) / 2), 9.772957 ÷ ((46 + 53.5) / 2)
     assert [r.roe for r in a.inputs.years[2:4]] == [20.92, 19.64]
     assert a.notes == ("2021년 ROE는 기말 자본 기준이에요", "PBR은 추정값이에요")
+
+
+SCE_PARENT = "자본 [구성요소]|지배기업의 소유주에게 귀속되는 지분 [구성요소]"
+
+
+def _with_sce_begin(fin, thstrm: str, frmtrm: str, bfefrmtrm: str):
+    """자본변동표 지배기업 지분 기초자본 줄을 덧붙인 사본."""
+    row = fin_row("SCE", "dart_EquityAtBeginningOfPeriod", "기초자본", thstrm, frmtrm, bfefrmtrm, ord=90,
+                  account_detail=SCE_PARENT)
+    return replace(fin, rows=[*fin.rows, row])
+
+
+# 합성 B 보고서(2023)의 지배주주 자본: 2021 32.4조, 2022 37.9조, 2023 45.0조. 2020년 말은 29.0조라고 해요.
+_B_BEGIN = ("37,900,000,000,000", "32,400,000,000,000", "29,000,000,000,000")
+
+
+def test_oldest_roe_uses_sce_beginning_equity_when_report_is_consistent():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    a = assemble(co, L, fin_a, _with_sce_begin(fin_b, *_B_BEGIN), divs, ye, price, d)
+    assert a.inputs.years[0].roe == round(4.76045 / ((32.4 + 29.0) / 2) * 100, 2)
+    assert "자본변동표 기초자본" in a.sources["B30"]
+    assert a.sources["B30"].startswith(B_REPORT)
+    assert ROE_END_NOTE.format(y=2021) not in a.notes
+
+
+def test_oldest_roe_keeps_year_end_equity_when_sce_is_off_by_2_percent():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    off = (_B_BEGIN[0], "33,050,000,000,000", _B_BEGIN[2])   # 전기 기초가 2022년 말(=2021 기말) 32.4조와 2% 어긋나요
+    a = assemble(co, L, fin_a, _with_sce_begin(fin_b, *off), divs, ye, price, d)
+    assert a.inputs.years[0].roe == round(4.76045 / 32.4 * 100, 2)
+    assert ROE_END_NOTE.format(y=2021) in a.notes and "자본변동표" not in a.sources["B30"]
+
+
+def test_oldest_roe_keeps_year_end_equity_when_only_one_pair_is_comparable():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    a = assemble(co, L, fin_a, _with_sce_begin(fin_b, _B_BEGIN[0], "", ""), divs, ye, price, d)
+    assert a.inputs.years[0].roe == round(4.76045 / 32.4 * 100, 2)
+    assert ROE_END_NOTE.format(y=2021) in a.notes
 
 
 def test_pbr_estimate(base):

@@ -7,7 +7,7 @@ from vsf.data.accounts import PERIODS, Sourced, extract, parse_amount
 
 FIELDS = {"net_income_parent", "profit_loss", "eps", "equity_parent", "equity_total", "liabilities",
           "current_assets", "operating_income", "interest_expense", "interest_paid", "ocf", "capex",
-          "dividends_paid"}
+          "dividends_paid", "equity_begin_parent", "equity_begin_total"}
 NO_ID = "-표준계정코드 미사용-"
 
 
@@ -129,3 +129,42 @@ def test_diluted_only_eps_is_not_taken_as_basic():
     fin = synthetic(defaults=False, extra=[
         fin_row("IS", "ifrs-full_DilutedEarningsLossPerShare", "희석주당이익(손실)", "4,900")])
     assert extract(fin, "thstrm")["eps"].value is None
+
+
+SCE_BEGIN = "dart_EquityAtBeginningOfPeriod"
+PARENT_DETAIL = "자본 [구성요소]|지배기업의 소유주에게 귀속되는 지분 [구성요소]"
+
+
+def _sce(detail: str, amount, ord: int = 1) -> dict:
+    return fin_row("SCE", SCE_BEGIN, "기초자본", amount, "100", "90", ord=ord, account_detail=detail)
+
+
+def test_sce_beginning_equity_picks_parent_and_total_rows():
+    fin = synthetic(extra=[_sce(PARENT_DETAIL + " ", "1,000", 1),
+                           _sce("자본 [구성요소]", "1,100", 2),
+                           _sce(PARENT_DETAIL + "|이익잉여금 [구성요소]", "300", 3),
+                           _sce("연결재무제표 [member]", "9,999", 4)])
+    e = extract(fin, "thstrm")
+    assert e["equity_begin_parent"] == Sourced(1000.0, SCE_BEGIN, "id")
+    assert e["equity_begin_total"] == Sourced(1100.0, SCE_BEGIN, "id")
+    assert extract(fin, "frmtrm")["equity_begin_parent"].value == 100.0
+
+
+def test_sce_component_row_alone_is_not_picked_and_no_name_fallback():
+    fin = synthetic(extra=[_sce(PARENT_DETAIL + "|이익잉여금 [구성요소]", "300"),
+                           fin_row("SCE", NO_ID, "기초자본", "5", account_detail=PARENT_DETAIL)])
+    e = extract(fin, "thstrm")
+    assert e["equity_begin_parent"] == Sourced(None, "", "id")
+    assert e["equity_begin_total"].value is None
+
+
+def test_sce_two_matching_rows_with_different_amounts_is_not_found():
+    differ = synthetic(extra=[_sce(PARENT_DETAIL, "1,000", 1), _sce(PARENT_DETAIL, "1,200", 2)])
+    assert extract(differ, "thstrm")["equity_begin_parent"] == Sourced(None, "", "id")
+    same = synthetic(extra=[_sce(PARENT_DETAIL, "1,000", 1), _sce(PARENT_DETAIL, "1,000", 2)])
+    assert extract(same, "thstrm")["equity_begin_parent"].value == 1000.0
+
+
+def test_sce_blank_amount_is_not_found():
+    fin = synthetic(extra=[_sce(PARENT_DETAIL, "")])
+    assert extract(fin, "thstrm")["equity_begin_parent"].value is None

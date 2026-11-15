@@ -40,6 +40,14 @@ _SPEC: dict[str, tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]] = {
 }
 
 
+# 자본변동표(SCE) 기초자본 줄: 필드 → account_detail (id와 이 글이 정확히 같을 때만)
+_SCE_BEGIN_ID = "dart_EquityAtBeginningOfPeriod"
+_SCE_BEGIN = {
+    "equity_begin_parent": "자본 [구성요소]|지배기업의 소유주에게 귀속되는 지분 [구성요소]",
+    "equity_begin_total": "자본 [구성요소]",
+}
+
+
 @dataclass(frozen=True)
 class Sourced:
     value: float | None
@@ -82,7 +90,7 @@ def _pick(candidates: list[dict], field: str) -> dict:
 
 
 def extract(fin: FinRows, period: str) -> dict[str, Sourced]:
-    """계정 13개를 period("thstrm"·"frmtrm"·"bfefrmtrm") 금액으로 뽑아요. 단위는 보고서 그대로."""
+    """계정 15개를 period("thstrm"·"frmtrm"·"bfefrmtrm") 금액으로 뽑아요. 단위는 보고서 그대로."""
     key = f"{period}_amount"
     out: dict[str, Sourced] = {}
     for field, (statements, ids, names) in _SPEC.items():
@@ -105,4 +113,10 @@ def extract(fin: FinRows, period: str) -> dict[str, Sourced]:
             if found:
                 break
         out[field] = found or Sourced(None, "", "id")
+    for field, detail in _SCE_BEGIN.items():
+        amounts = {parse_amount(r.get(key)) for r in fin.rows
+                   if r.get("sj_div") == "SCE" and r.get("account_id") == _SCE_BEGIN_ID
+                   and (r.get("account_detail") or "").strip() == detail} - {None}
+        value = next(iter(amounts)) if len(amounts) == 1 else None   # 여럿이 서로 다르면 찾지 못한 걸로
+        out[field] = Sourced(value, _SCE_BEGIN_ID, "id") if value is not None else Sourced(None, "", "id")
     return out

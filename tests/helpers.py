@@ -110,11 +110,11 @@ def load_fin(name: str):
 
 
 def fin_row(sj_div: str, account_id: str, account_nm: str, thstrm="", frmtrm="", bfefrmtrm="",
-            ord: int = 1) -> dict:
+            ord: int = 1, account_detail: str = "-") -> dict:
     """fnlttSinglAcntAll 목록 한 줄을 문서화된 모양 그대로 만들어요 (금액은 글자)."""
     return {"rcept_no": "20260310000001", "reprt_code": "11011", "bsns_year": "2025",
             "corp_code": "99000270", "sj_div": sj_div, "account_id": account_id,
-            "account_nm": account_nm, "thstrm_amount": str(thstrm), "frmtrm_amount": str(frmtrm),
+            "account_nm": account_nm, "account_detail": account_detail, "thstrm_amount": str(thstrm), "frmtrm_amount": str(frmtrm),
             "bfefrmtrm_amount": str(bfefrmtrm), "ord": str(ord), "currency": "KRW"}
 
 

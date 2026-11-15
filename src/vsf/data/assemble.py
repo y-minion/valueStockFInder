@@ -203,6 +203,26 @@ def _equity(p: _Period) -> Sourced:
     return p.acc["equity_total" if p.fs == "OFS" else "equity_parent"]
 
 
+def _begin_equity(p: _Period) -> Sourced:
+    """자본변동표의 기초자본. _equity와 같은 기준(지배주주, 별도면 자본 전체)이에요."""
+    return p.acc["equity_begin_total" if p.fs == "OFS" else "equity_begin_parent"]
+
+
+def _sce_consistent(report: dict[int, _Period]) -> bool:
+    """한 보고서의 자본변동표 기초자본이 재무상태표 기말 자본과 맞는지.
+
+    (당기 기초 vs 전기 기말)과 (전기 기초 vs 전전기 기말)이 모두 숫자이고 0.5% 안에서 같아야 해요.
+    """
+    years = sorted(report, reverse=True)
+    if len(years) < 3:
+        return False
+    for newer, older in zip(years, years[1:]):
+        begin, end = _begin_equity(report[newer]).value, _equity(report[older]).value
+        if begin is None or end is None or abs(begin - end) > 0.005 * abs(end):
+            return False
+    return True
+
+
 def _acc(name: str) -> Callable[[_Period], Sourced]:
     return lambda p: p.acc[name]
 
@@ -323,15 +343,30 @@ def _roe(a: dict[int, _Period], b: dict[int, _Period], main: dict[int, _Period],
         roe[y] = None
         if income is None or cur is None:
             continue
-        equity = _equity(cur).value if prev is None else (_equity(cur).value + _equity(prev).value) / 2
+        begin = None   # 전해 말 자본이 보고서에 없으면, 같은 보고서 자본변동표의 기초자본으로 대신해요
+        if prev is None and _begin_equity(cur).value is not None:
+            report = a if any(cur is q for q in a.values()) else b
+            if _sce_consistent(report):
+                begin = _begin_equity(cur).value
+        if prev is not None:
+            equity = (_equity(cur).value + _equity(prev).value) / 2
+        elif begin is not None:
+            equity = (_equity(cur).value + begin) / 2
+        else:
+            equity = _equity(cur).value
         if equity <= 0:
             out.flag(EQUITY_FLAG.format(y=y))
             continue
         roe[y] = excel_round(income / equity * 100, 2)
-        if prev is None:
+        if prev is None and begin is None:
             out.note(ROE_END_NOTE.format(y=y))
-        how = f"{y}년 말 자본" if prev is None else f"{y - 1}·{y}년 말 평균 자본"
-        used = [p, cur] if prev is None else [p, cur, prev]
+        if prev is not None:
+            how = f"{y - 1}·{y}년 말 평균 자본"
+        elif begin is not None:
+            how = f"{y - 1}·{y}년 말 평균 자본({y - 1}년 말은 자본변동표 기초자본)"
+        else:
+            how = f"{y}년 말 자본"
+        used = [p, cur, prev] if prev is not None else [p, cur]
         out.sources[_cell(y, latest, 30)] = f"{_label(*used)} · 순이익 ÷ {how}"
     return roe
 

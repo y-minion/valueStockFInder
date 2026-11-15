@@ -72,12 +72,21 @@ def _receipt(rcept_no: str | None) -> str:
 # ---- 배당 보고서 ----
 
 def _dps_row(rows: list[dict]) -> dict | None:
-    """보통주 '주당 현금배당금' 줄. 없으면 그 줄이 하나뿐이고 우선주가 아닐 때만 그 줄."""
+    """보통주 '주당 현금배당금' 줄.
+
+    - 주식 종류가 '보통'으로 시작하는 줄 (보통주·보통주식).
+    - 종류 칸이 빈 줄('-' 포함)이 정확히 둘이면 첫 줄. 공시 서식이 보통주 줄을 우선주 줄보다 먼저 적어요
+      (한국쉘석유·SK텔레콤·오뚜기 등). 셋 이상이면 어느 줄인지 몰라요.
+    - 그 밖에는 줄이 하나뿐이고 우선주가 아닐 때만 그 줄.
+    """
     per_share = [r for r in rows if "주당현금배당금" in (r.get("se") or "").replace(" ", "")]
-    common = [r for r in per_share if (r.get("stock_knd") or "").strip() == "보통주"]
+    kinds = [(r.get("stock_knd") or "").strip() for r in per_share]
+    common = [r for r, kind in zip(per_share, kinds, strict=True) if kind.startswith("보통")]
     if common:
         return common[0]
-    if len(per_share) == 1 and "우선" not in (per_share[0].get("stock_knd") or ""):
+    if len(per_share) == 2 and all(kind == "" or kind in _DASHES for kind in kinds):
+        return per_share[0]
+    if len(per_share) == 1 and "우선" not in kinds[0]:
         return per_share[0]
     return None
 
@@ -193,9 +202,26 @@ def _periods(fin: FinRows | None, report_year: int) -> dict[int, _Period]:
 
 
 def _net_income(p: _Period) -> Sourced:
-    """지배주주 순이익. 별도 재무제표라 그 줄이 없으면 당기순이익."""
+    """지배주주 순이익. 그 줄이 없으면 당기순이익: 별도 재무제표이거나, 연결이지만 비지배지분이 없을 때 (S-Oil)."""
     s = p.acc["net_income_parent"]
-    return p.acc["profit_loss"] if s.value is None and p.fs == "OFS" else s
+    if s.value is not None:
+        return s
+    if p.fs == "OFS":
+        return p.acc["profit_loss"]
+    total = p.acc["profit_loss"]
+    if total.value is not None and _no_minority(p):
+        return Sourced(total.value, f"{total.account}(비지배지분 없음)", total.how)
+    return s
+
+
+def _no_minority(p: _Period) -> bool:
+    """비지배 순이익 줄이 없거나 0이고, 지배기업 자본이 자본총계와 원 단위까지 같으면 비지배지분이 없는 회사예요.
+
+    비지배지분이 조금이라도 있으면 두 자본이 달라요. 그때 당기순이익을 쓰면 그만큼 부풀어서 쓰지 않아요.
+    """
+    nci = p.acc["net_income_nci"].value
+    parent, total = p.acc["equity_parent"].value, p.acc["equity_total"].value
+    return not nci and parent is not None and parent == total
 
 
 def _equity(p: _Period) -> Sourced:
@@ -251,7 +277,7 @@ def _label(*periods: _Period) -> str:
 
 
 def _account(s: Sourced) -> str:
-    return s.account if s.how == "id" else f"{s.account}(이름으로 찾음)"
+    return s.account if s.how in ("id", "derived") else f"{s.account}(이름으로 찾음)"
 
 
 def _cell(y: int, latest: int, row: int) -> str:

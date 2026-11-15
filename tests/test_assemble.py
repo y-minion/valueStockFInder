@@ -442,7 +442,10 @@ def test_dps_from_report_fallbacks():
     blank = {2025: None, 2024: None, 2023: None}
     assert dps_from_report(only(""), 2025) == {2025: 1000.0, 2024: None, 2023: 0.0}   # 종류 표시 없는 줄 하나뿐
     assert dps_from_report(only("우선주"), 2025) == blank                             # 우선주 줄은 쓰지 않아요
-    assert dps_from_report(only("") + only("-"), 2025) == blank                        # 어느 줄인지 모르면 비워요
+    # 종류 칸이 빈 줄이 둘이면 서식 순서대로 첫 줄이 보통주예요 (한국쉘석유·SK텔레콤·오뚜기 등 실제 공시)
+    assert dps_from_report(only("") + only("-"), 2025) == {2025: 1000.0, 2024: None, 2023: 0.0}
+    assert dps_from_report(only("") * 3, 2025) == blank                                # 셋 이상이면 어느 줄인지 몰라요
+    assert dps_from_report(only("-") + only("우선주"), 2025) == blank                    # 하나만 비어 있어도 몰라요
     assert dps_from_report([], 2025) == blank
 
 
@@ -517,8 +520,8 @@ def test_report_without_common_dps_row_is_flagged():
     blank = {2025: None, 2024: None, 2023: None}
     assert dps_by_year({2025: preferred_only}) == (blank, (flag,))
     assert dps_by_year({2025: []}) == (blank, (flag,))                     # 표가 비어 있어도 마찬가지
-    two_unknown = [{"se": "주당 현금배당금(원)", "stock_knd": "", "thstrm": "1", "frmtrm": "1", "lwfr": "1"}] * 2
-    assert dps_by_year({2025: two_unknown}) == (blank, (flag,))            # 어느 줄인지 모르면
+    three_unknown = [{"se": "주당 현금배당금(원)", "stock_knd": "", "thstrm": "1", "frmtrm": "1", "lwfr": "1"}] * 3
+    assert dps_by_year({2025: three_unknown}) == (blank, (flag,))          # 어느 줄인지 모르면
     co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
     divs = {**divs, 2023: [r for r in divs[2023] if r["stock_knd"] != "보통주"]}
     a = assemble(co, L, fin_a, fin_b, divs, ye, price, d)
@@ -693,3 +696,50 @@ def test_overlap_year_net_income_from_b_feeds_roe():
 def test_overlap_year_stays_blank_when_both_reports_are_blank():
     a = assemble(*_a_blank_b_set(OCF, ""))
     assert a.inputs.years[2].ocf is None and "D34" not in a.sources
+
+
+# ---- 2026-11-15 실제 자료 51곳 기능 시험에서 찾은 모양들 ----
+
+def _dps(knd: str, a: str, b: str, c: str) -> dict:
+    return {"se": "주당 현금배당금(원)", "stock_knd": knd, "thstrm": a, "frmtrm": b, "lwfr": c}
+
+
+def test_dps_common_row_spelled_with_sik_or_left_blank():
+    # 클래시스 2025: '보통주식'·'종류주식'
+    assert dps_from_report([_dps("보통주식", "1,000", "257", "200"), _dps("종류주식", "-", "-", "-")], 2025) == \
+        {2025: 1000.0, 2024: 257.0, 2023: 200.0}
+    # 한국쉘석유 2025: 종류 칸이 모두 '-'이고 보통주 줄이 먼저, 우선주 줄은 모두 '-'
+    shell = [_dps("-", "36,000", "27,000", "25,000"), _dps("-", "-", "-", "-")]
+    assert dps_by_year({2025: shell}) == ({2025: 36000.0, 2024: 27000.0, 2023: 25000.0}, ())
+
+
+def _no_minority(fin, *, nci: bool = False, same_equity: bool = True):
+    """S-Oil 모양: 연결재무제표인데 '지배기업 소유주' 순이익 줄이 없고 지배기업 자본 = 자본총계."""
+    from vsf.data.dart import FinRows
+
+    total = next(r for r in fin.rows if r["account_id"] == "ifrs-full_Equity")
+    amounts = ("thstrm_amount", "frmtrm_amount", "bfefrmtrm_amount")
+    rows = []
+    for r in fin.rows:
+        if r["account_id"] == "ifrs-full_ProfitLossAttributableToOwnersOfParent":
+            continue
+        if same_equity and r["account_id"] == "ifrs-full_EquityAttributableToOwnersOfParent":
+            r = {**r, **{k: total[k] for k in amounts}}
+        rows.append(r)
+    if nci:
+        rows.append(fin_row("IS", "ifrs-full_ProfitLossAttributableToNonControllingInterests", "비지배지분",
+                            "30,000,000,000", "30,000,000,000", "30,000,000,000"))
+    return FinRows(rows=rows, fs=fin.fs, rcept_no=fin.rcept_no)
+
+
+def test_consolidated_without_minority_uses_total_net_income():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    a = assemble(co, L, _no_minority(fin_a), _no_minority(fin_b), divs, ye, price, d)
+    profit = (4_790_000_000_000, 5_440_000_000_000, 8_810_000_000_000, 9_810_000_000_000, 7_600_000_000_000)
+    assert [y.net_income for y in a.inputs.years] == [v / 1e8 for v in profit]
+    assert all(y.roe is not None for y in a.inputs.years) and a.flags == ()
+    assert "비지배지분 없음" in a.sources["F33"]
+    # 비지배 순이익 줄이 있거나, 지배기업 자본이 자본총계와 다르면 지금처럼 비워요
+    for kw in ({"nci": True}, {"same_equity": False}):
+        b = assemble(co, L, _no_minority(fin_a, **kw), _no_minority(fin_b, **kw), divs, ye, price, d)
+        assert all(y.net_income is None for y in b.inputs.years), kw

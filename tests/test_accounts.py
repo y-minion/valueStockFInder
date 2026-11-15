@@ -5,9 +5,11 @@ import pytest
 from helpers import fin_row, load_fin, synthetic
 from vsf.data.accounts import PERIODS, Sourced, extract, parse_amount
 
-FIELDS = {"net_income_parent", "profit_loss", "eps", "equity_parent", "equity_total", "liabilities",
-          "current_assets", "operating_income", "interest_expense", "interest_paid", "ocf", "capex",
+FIELDS = {"net_income_parent", "net_income_nci", "profit_loss", "eps", "equity_parent", "equity_total",
+          "liabilities", "current_assets", "operating_income", "interest_expense", "interest_paid", "ocf", "capex",
           "dividends_paid", "equity_begin_parent", "equity_begin_total"}
+CONT = "ifrs-full_BasicEarningsLossPerShareFromContinuingOperations"
+DISC = "ifrs-full_BasicEarningsLossPerShareFromDiscontinuedOperations"
 NO_ID = "-표준계정코드 미사용-"
 
 
@@ -168,3 +170,64 @@ def test_sce_two_matching_rows_with_different_amounts_is_not_found():
 def test_sce_blank_amount_is_not_found():
     fin = synthetic(extra=[_sce(PARENT_DETAIL, "")])
     assert extract(fin, "thstrm")["equity_begin_parent"].value is None
+
+
+# ---- 2026-11-15 실제 자료 51곳 기능 시험에서 찾은 이름들 ----
+
+def test_eps_names_with_slash_or_son_ik():
+    # LG: 우선주 줄과 함께 "보통주 기본/희석주당순이익" (표준계정코드 없음)
+    lg = synthetic(defaults=False, extra=[fin_row("IS", NO_ID, "구형우선주 기본/희석주당순이익", "4,830"),
+                                          fin_row("IS", NO_ID, "보통주 기본/희석주당순이익", "4,780")])
+    assert extract(lg, "thstrm")["eps"] == Sourced(4780, "보통주 기본/희석주당순이익", "name")
+    # KT&G 2023 보고서: "기본및희석주당손익"
+    ktng = synthetic(defaults=False, extra=[fin_row("CIS", NO_ID, "기본및희석주당손익", "7,843")])
+    assert extract(ktng, "thstrm")["eps"] == Sourced(7843, "기본및희석주당손익", "name")
+
+
+def test_son_ik_reads_as_profit_in_other_names():
+    fin = synthetic(defaults=False, extra=[fin_row("IS", NO_ID, "영업손익", "9"), fin_row("IS", NO_ID, "당기순손익", "7")])
+    e = extract(fin, "thstrm")
+    assert e["operating_income"].value == 9 and e["profit_loss"].value == 7
+
+
+def test_eps_from_continuing_plus_discontinued_when_no_total_row():
+    # 카카오 2025 보고서: 전체 EPS 줄 없이 계속영업·중단영업만 있어요.
+    # 2023년 −2,254 + −61 = −2,315 는 2023 보고서에 적힌 전체 EPS와 같아요.
+    fin = synthetic(defaults=False, extra=[
+        fin_row("CIS", CONT, "계속영업 기본주당순이익", "1,138", "242", "-2,254"),
+        fin_row("CIS", DISC, "중단영업 기본주당순이익", "-20", "-116", "-61"),
+        fin_row("CIS", "ifrs-full_DilutedEarningsLossPerShareFromContinuingOperations", "계속영업희석주당이익(손실)",
+                "1,134", "208", "-2,254")])
+    got = [extract(fin, p)["eps"] for p in PERIODS]
+    assert [g.value for g in got] == [1118, 126, -2315]
+    assert {g.how for g in got} == {"derived"}
+    # NAVER 2023 보고서: 그해 중단영업 칸이 비어 있으면 계속영업 값 그대로예요.
+    naver = synthetic(defaults=False, extra=[
+        fin_row("CIS", CONT, "계속영업기본주당순이익", "6,661", "5,007", "9,977"),
+        fin_row("CIS", DISC, "중단영업기본주당순이익", "", "", "100,877")])
+    assert [extract(naver, p)["eps"].value for p in PERIODS] == [6661, 5007, 110854]
+
+
+def test_total_eps_row_beats_continuing_plus_discontinued():
+    fin = synthetic(defaults=False, extra=[fin_row("CIS", "ifrs-full_BasicEarningsLossPerShare", "기본주당손익", "10,220"),
+                                           fin_row("CIS", CONT, "계속영업 기본주당이익", "10,228"),
+                                           fin_row("CIS", DISC, "중단영업 기본주당손실", "-8")])
+    assert extract(fin, "thstrm")["eps"] == Sourced(10220, "ifrs-full_BasicEarningsLossPerShare", "id")
+
+
+def test_discontinued_eps_alone_is_not_eps():
+    fin = synthetic(defaults=False, extra=[fin_row("CIS", DISC, "중단영업 기본주당손실", "-8")])
+    assert extract(fin, "thstrm")["eps"].value is None
+
+
+def test_combined_ppe_and_investment_property_capex_name():
+    # KT·대한항공: "유형자산및투자부동산의 취득" (표준계정코드 없음)
+    for name in ("유형자산및투자부동산의 취득", "유형자산 및 투자부동산의 취득"):
+        fin = synthetic(defaults=False, extra=[fin_row("CF", NO_ID, name, "-3,596")])
+        assert extract(fin, "thstrm")["capex"] == Sourced(3596, name, "name"), name
+
+
+def test_minority_interest_net_income_field():
+    nci = "ifrs-full_ProfitLossAttributableToNonControllingInterests"
+    fin = synthetic(defaults=False, extra=[fin_row("IS", nci, "비지배지분", "7")])
+    assert extract(fin, "thstrm")["net_income_nci"] == Sourced(7, nci, "id")

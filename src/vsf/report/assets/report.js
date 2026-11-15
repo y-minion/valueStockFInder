@@ -185,16 +185,29 @@ function indexHead(data) {
   return "<h1>주간 배당주 리포트</h1><p class=\"muted\">" + dateKo(r.date) + " 실행 · " + dateKo(r.price_date) + " 종가 기준 · 분석 " +
     fmt(r.analyzed, "won") + "개 / 상장 " + fmt(r.total_listed, "won") + "개 · 제외 " + fmt(n, "won") + "개</p>" + criteriaLine(data);
 }
+// 기준 값의 단위. '적용한 기준' 줄과 같게: 비율 0.1 → "10%", 퍼센트 숫자 8 → "8%", 배수 3 → "3배", 개수 5 → "5개".
+// 비율 항목은 config.py의 _RATE_KEYS와 같아요.
+var CRIT_RATE = ["required_return", "safety_margin", "payout_min", "payout_max", "abnormal_ratio",
+  "isa_weight_max", "watch_range", "near_range"];
+var CRIT_PERCENT = ["roe_min", "debt_ratio_max", "roe_top_percent"];
+var CRIT_TIMES = ["interest_coverage_min", "ocf_to_ni_min", "fcf_to_div_min"];
+function critNumber(key, v) {
+  if (CRIT_RATE.indexOf(key) >= 0) return pctText(v);
+  if (CRIT_PERCENT.indexOf(key) >= 0) return fmt(v, "raw") + "%";
+  if (CRIT_TIMES.indexOf(key) >= 0) return fmt(v, "raw") + "배";
+  if (key === "min_group_size") return fmt(v, "raw") + "개";
+  return fmt(v, "raw");
+}
 // 기준 변경 알림에 넣는 값. 글자 그대로 돌려주고, escape는 banner()가 한 번만 해요.
-// 참/거짓은 켜짐/꺼짐, 표는 "35: roe_min 6"처럼 짧게, 빈 표는 "없음".
-function critValue(v, inner) {
+// 참/거짓은 켜짐/꺼짐, 표는 "35: roe_min 6%"처럼 짧게, 빈 표는 "없음". key는 단위를 고르는 기준 이름이에요.
+function critValue(v, inner, key) {
   if (v == null) return "—";
   if (typeof v === "boolean") return v ? "켜짐" : "꺼짐";
-  if (typeof v === "number") return fmt(v, "raw");
+  if (typeof v === "number") return critNumber(key, v);
   if (typeof v !== "object") return String(v);
   var keys = Object.keys(v);
   if (!keys.length) return "없음";
-  return keys.map(function (k) { return k + (inner ? " " : ": ") + critValue(v[k], true); }).join(inner ? ", " : " / ");
+  return keys.map(function (k) { return k + (inner ? " " : ": ") + critValue(v[k], true, k); }).join(inner ? ", " : " / ");
 }
 function banners(data) {
   var r = data.run, out = "";
@@ -202,7 +215,8 @@ function banners(data) {
   var missing = r.year_end_missing || [];
   if (missing.length) out += banner("연말 주가를 가져오지 못한 해가 있어요: " + missing.join("·") + ". 이 해들의 PER이 비어 적정가 B·C 계산이 빠질 수 있어요.", "warn");
   (r.criteria_changes || []).forEach(function (c) {
-    out += banner("지난 실행과 기준이 달라졌어요: " + c.label + " " + critValue(c.old) + " → " + critValue(c.new), "warn");
+    out += banner("지난 실행과 기준이 달라졌어요: " + c.label + " " + critValue(c.old, false, c.key) + " → " +
+      critValue(c.new, false, c.key), "warn");
   });
   if (r.first_run) out += banner("첫 실행이라 비교할 지난 결과가 없어요", "info");
   return out;

@@ -13,7 +13,7 @@ test('index header and partial banner use fixed wording', () => {
             h.includes('분석 6개 / 상장 2,700개 · 제외 1개'));
   assert.ok(h.includes('전체 2,700개 중 6개만 분석했어요. 내일 다시 실행하면 이어서 받아요.') ||
             h.includes('전체 2700개 중 6개만 분석했어요. 내일 다시 실행하면 이어서 받아요.'));
-  assert.ok(h.includes('요구수익률 0.1 → 0.12'));
+  assert.ok(h.includes('요구수익률 10% → 12%'));
   assert.ok(h.includes('관심 목록 (20% 이내)') && h.includes('매수선까지 10% 이내'));
 });
 test('year-end price banner shows only when some years are missing', () => {
@@ -135,13 +135,18 @@ test('criteria change banner shows booleans and objects and escapes once', () =>
     { key: 'overrides', label: '업종별 기준 덮어쓰기', old: {}, new: { '35': { roe_min: 6 } } },
     { key: 'overrides', label: '업종별 기준 덮어쓰기', old: { '35': { roe_min: 6, debt_ratio_max: 150 }, '20': { roe_min: 9 } }, new: {} },
     { key: 'required_return', label: '요구수익률', old: 0.1, new: 0.09 },
+    { key: 'roe_min', label: 'ROE 최소', old: 8, new: 7.5 },
+    { key: 'interest_coverage_min', label: '이자보상배율 최소', old: 3, new: 2.5 },
+    { key: 'min_group_size', label: '업종 최소 묶음 크기', old: 5, new: 3 },
     { key: 'note', label: 'A&B', old: 'x<y', new: null },
   ] } };
   const banners = [...r.renderIndex(d).matchAll(/<div class="banner warn">([^<]*)<\/div>/g)].map(m => m[1]);
   const prefix = '지난 실행과 기준이 달라졌어요: ';
-  for (const want of ['업종 비교를 판정에 넣기 꺼짐 → 켜짐', '업종별 기준 덮어쓰기 없음 → 35: roe_min 6',
-                      '업종별 기준 덮어쓰기 20: roe_min 9 / 35: roe_min 6, debt_ratio_max 150 → 없음',
-                      '요구수익률 0.1 → 0.09', 'A&amp;B x&lt;y → —'])
+  // 머리의 '적용한 기준' 줄과 같은 단위로 보여줘요 (0.1 → 10%, 8 → 8%, 3 → 3배)
+  for (const want of ['업종 비교를 판정에 넣기 꺼짐 → 켜짐', '업종별 기준 덮어쓰기 없음 → 35: roe_min 6%',
+                      '업종별 기준 덮어쓰기 20: roe_min 9% / 35: roe_min 6%, debt_ratio_max 150% → 없음',
+                      '요구수익률 10% → 9%', 'ROE 최소 8% → 7.5%', '이자보상배율 최소 3배 → 2.5배',
+                      '업종 최소 묶음 크기 5개 → 3개', 'A&amp;B x&lt;y → —'])
     assert.ok(banners.includes(prefix + want), want);
   assert.ok(!banners.join('').includes('&amp;lt;') && !banners.join('').includes('&amp;amp;'));
 });

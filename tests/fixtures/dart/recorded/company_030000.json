@@ -1,0 +1,21 @@
+{
+  "status": "000",
+  "message": "정상",
+  "corp_code": "00148276",
+  "corp_name": "(주)제일기획",
+  "corp_name_eng": "Cheil Worldwide Inc",
+  "stock_name": "제일기획",
+  "stock_code": "030000",
+  "ceo_nm": "김종현",
+  "corp_cls": "Y",
+  "jurir_no": "1101110139017",
+  "bizr_no": "2028145960",
+  "adres": "서울특별시 용산구  이태원로 222 제일기획",
+  "hm_url": "www.cheil.co.kr",
+  "ir_url": "",
+  "phn_no": "02-3780-2114",
+  "fax_no": "02-3780-2462",
+  "induty_code": "71310",
+  "est_dt": "19730117",
+  "acc_mt": "12"
+}

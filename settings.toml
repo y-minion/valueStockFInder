@@ -34,3 +34,9 @@ exports_dir = "exports"
 
 [dart]
 daily_budget = 19000          # OpenDART 하루 호출 한도 안쪽의 사용 예산
+
+[financial]
+include = true              # 금융회사를 금융업 기준으로 분석해요. false면 지금처럼 빼요.
+bank_cet1_min = 9.0         # 은행·금융지주 보통주자본비율 최소(%): 2026년 대형 은행지주(D-SIB) 최저 적립 필요 수준
+insurer_kics_min = 130.0    # 보험 지급여력비율(K-ICS) 최소(%): 금융위원회 권고 기준 (2025-06-11 150%→130%)
+securities_ncr_min = 100.0  # 증권 순자본비율 최소(%): 감독 최소 기준

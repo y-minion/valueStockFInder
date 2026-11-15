@@ -29,9 +29,13 @@ CRITERIA_LABELS: dict[str, str] = {
     "roe_top_percent": "업종 ROE 상위 비율",
     "min_group_size": "업종 최소 묶음 크기",
     "overrides": "업종별 기준 덮어쓰기",
+    "include": "금융회사 포함",
+    "bank_cet1_min": "은행·금융지주 보통주자본비율 최소",
+    "insurer_kics_min": "보험 지급여력비율 최소",
+    "securities_ncr_min": "증권 순자본비율 최소",
 }
 
-_SECTIONS = ("criteria", "report", "industry", "paths", "dart")
+_SECTIONS = ("criteria", "report", "industry", "paths", "dart", "financial")
 
 _RATE_KEYS = {
     "required_return", "safety_margin", "payout_min", "payout_max",
@@ -54,6 +58,14 @@ class IndustrySettings:
 
 
 @dataclass(frozen=True)
+class FinancialSettings:
+    include: bool = True
+    bank_cet1_min: float = 9.0
+    insurer_kics_min: float = 130.0
+    securities_ncr_min: float = 100.0
+
+
+@dataclass(frozen=True)
 class Settings:
     criteria: Criteria
     report: ReportSettings
@@ -63,6 +75,7 @@ class Settings:
     data_dir: Path
     reports_dir: Path
     exports_dir: Path
+    financial: FinancialSettings = FinancialSettings()
 
 
 @dataclass(frozen=True)
@@ -183,8 +196,21 @@ def load_settings(path: Path) -> Settings:
     if isinstance(budget, bool) or not isinstance(budget, int) or budget <= 0:
         raise _bad("[dart]", "daily_budget", f"0보다 큰 정수여야 해요 (지금: {budget!r}).")
 
+    fin_raw = _section(raw, "financial")
+    fin_keys = {"include", "bank_cet1_min", "insurer_kics_min", "securities_ncr_min"}
+    _no_unknown("[financial]", fin_raw, fin_keys)
+    fin_kwargs: dict = {}
+    if "include" in fin_raw:
+        if not isinstance(fin_raw["include"], bool):
+            raise _bad("[financial]", "include", "true 또는 false여야 해요.")
+        fin_kwargs["include"] = fin_raw["include"]
+    for key in fin_keys - {"include"}:
+        if key in fin_raw:
+            fin_kwargs[key] = _checked("[financial]", key, fin_raw[key])
+    financial = FinancialSettings(**fin_kwargs)
+
     return Settings(
-        criteria=criteria, report=report, industry=industry,
+        criteria=criteria, report=report, industry=industry, financial=financial,
         calculator_path=p("calculator", "배당주_분석_계산기.xlsx"),
         dart_daily_budget=budget,
         data_dir=p("data_dir", "data"),
@@ -227,4 +253,5 @@ def settings_fingerprint(s: Settings) -> dict:
         "criteria": asdict(s.criteria),
         "report": asdict(s.report),
         "industry": asdict(s.industry),
+        "financial": asdict(s.financial),
     }

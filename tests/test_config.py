@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from helpers import write_settings
 
-from vsf.config import ConfigError, load_keys, load_settings, settings_fingerprint
+from vsf.config import ConfigError, FinancialSettings, load_keys, load_settings, settings_fingerprint
 from vsf.model import Criteria
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -107,3 +107,30 @@ def test_unknown_top_level_key_is_rejected(tmp_path):
     p.write_text("safety_margin = 0.3\n" + p.read_text(encoding="utf-8"), encoding="utf-8")   # 표 밖에 쓴 값
     with pytest.raises(ConfigError, match="safety_margin"):
         load_settings(p)
+
+
+def test_financial_defaults_and_fingerprint(tmp_path):
+    s = load_settings(write_settings(tmp_path))
+    assert s.financial == FinancialSettings(True, 9.0, 130.0, 100.0)
+    assert settings_fingerprint(s)["financial"] == {
+        "include": True, "bank_cet1_min": 9.0, "insurer_kics_min": 130.0, "securities_ncr_min": 100.0}
+
+
+def test_shipped_settings_have_financial_defaults():
+    assert load_settings(Path("settings.toml")).financial == FinancialSettings()
+
+
+@pytest.mark.parametrize("body,msg", [
+    ('include = "yes"', "true 또는 false여야 해요"),
+    ("bank_cet1_min = 0", "0보다 커야 해요"),
+    ('insurer_kics_min = "130%"', "숫자여야 해요"),
+    ("unknown = 1", "알 수 없는 항목이에요")])
+def test_financial_bad_values(tmp_path, body, msg):
+    path = write_settings(tmp_path)
+    text = path.read_text(encoding="utf-8")
+    # the copied settings.toml already has a [financial] table: replace its body
+    head, _, _ = text.partition("[financial]")
+    path.write_text(head + "[financial]\n" + body + "\n", encoding="utf-8")
+    with pytest.raises(ConfigError) as e:
+        load_settings(path)
+    assert "[financial]" in str(e.value) and msg in str(e.value)

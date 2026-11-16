@@ -1,4 +1,5 @@
 """액면분할·무상증자 감지와 조정 (순수 함수)."""
+import math
 from dataclasses import dataclass
 
 SPLIT_LIKE = 1.5
@@ -26,7 +27,8 @@ def confirmed_split(shares_then: float | None, shares_now: float | None,
     """그때와 지금 사이에 액면분할·무상증자가 있었다고 확인되면 주식 수 배수 r, 아니면 None.
 
     주식 수가 분할 모양으로 바뀌었고(r), 주가도 그만큼 움직였을 때만 확인해요:
-    q = (그때 종가 ÷ 지금 종가) ÷ r 이 SPLIT_PRICE_BAND 안이어야 해요. 유상증자는 주가가 r만큼 움직이지 않아요.
+    q = (그때 종가 ÷ 지금 종가) ÷ r 이 SPLIT_PRICE_BAND 안이고, |ln q| < |ln r| / 2여야 해요
+    (주가가 '그대로'보다 r만큼 움직인 쪽에 더 가까워야 해요). 유상증자는 주가가 r만큼 움직이지 않아요.
     """
     if not shares_then or not shares_now or not close_then or not close_now:
         return None
@@ -34,7 +36,8 @@ def confirmed_split(shares_then: float | None, shares_now: float | None,
     if not is_split_like(r):
         return None
     low, high = SPLIT_PRICE_BAND
-    return r if low <= (close_then / close_now) / r <= high else None
+    q = (close_then / close_now) / r
+    return r if low <= q <= high and abs(math.log(q)) < abs(math.log(r)) / 2 else None
 
 
 def overlap_ratio(newer: float | None, older: float | None) -> float | None:

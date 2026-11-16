@@ -435,6 +435,63 @@ def test_split_after_latest_year_rebases_per_share_values(base):
     assert a.sources["F28"] == base.sources["F28"]
 
 
+YE_CLOSE_2025 = 121_700.0   # 합성 회사 2025년 말 종가
+
+
+def _after_latest(r: float, price_moves: bool = True, before: float | None = None, **knobs) -> tuple:
+    """L년 말 뒤 주식 수 ×r. before: 분할 전 주가(기본은 합성 현재가 97,000원).
+
+    price_moves=False면 주가는 before 그대로예요 (유상증자 모양).
+    """
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company(**knobs)
+    before = price.close if before is None else before
+    close = before / r if price_moves else before
+    return co, L, fin_a, fin_b, divs, ye, replace(price, close=close, shares=price.shares * r), d
+
+
+def test_small_share_jump_with_unchanged_price_is_flagged_not_adjusted(base):
+    a = assemble(*_after_latest(1.5, price_moves=False, before=YE_CLOSE_2025))
+    assert a.flags == (SPLIT_FLAG,) and a.inputs.years == base.inputs.years
+    assert a.inputs.prior_dps == base.inputs.prior_dps
+
+
+def test_small_split_with_price_move_is_adjusted(base):
+    a = assemble(*_after_latest(1.5, before=YE_CLOSE_2025))
+    assert a.flags == () and [r.eps for r in a.inputs.years] == [r.eps / 1.5 for r in base.inputs.years]
+    assert "2025년 말 뒤 주식 수가 1.5배가 돼서 EPS·배당을 지금 주식 수 기준으로 나눴어요" in a.notes
+
+
+def test_split_ratio_is_rounded_for_display(base):
+    r = 1.5123456
+    a = assemble(*_after_latest(r, before=YE_CLOSE_2025))
+    assert "2025년 말 뒤 주식 수가 1.51배가 돼서 EPS·배당을 지금 주식 수 기준으로 나눴어요" in a.notes
+    assert a.sources["F27"] == base.sources["F27"] + " ÷ 1.51(액면분할·무상증자 조정, 2025년 말 뒤)"
+    assert a.inputs.years[4].eps == base.inputs.years[4].eps / r          # 계산은 반올림하지 않은 배수로
+
+
+def test_reverse_split_after_latest_year_multiplies(base):
+    a = assemble(*_after_latest(0.2))                                      # 5주를 1주로 병합
+    assert a.flags == ()
+    assert "2025년 말 뒤 주식 수가 1/5로 줄어서 EPS·배당을 지금 주식 수 기준으로 곱했어요" in a.notes
+    assert a.sources["F27"] == base.sources["F27"] + " × 5(주식 병합 조정, 2025년 말 뒤)"
+    assert [r.eps for r in a.inputs.years] == pytest.approx([r.eps * 5 for r in base.inputs.years])
+    assert [r.per for r in a.inputs.years] == [r.per for r in base.inputs.years]
+
+
+def test_split_already_in_report_eps_is_not_divided_again(base):
+    # 사업보고서 승인 전에 분할이 끝나 A 보고서 EPS가 이미 새 주식 수 기준이에요 (순이익 ÷ EPS ≈ 지금 주식 수).
+    a = assemble(*_after_latest(10, eps=1938.2))
+    assert a.flags == (SPLIT_FLAG,) and not any("주식 수 기준으로" in n for n in a.notes)
+    assert a.inputs.years[4].eps == 1938.2 and a.inputs.years[0].eps == base.inputs.years[0].eps
+    assert [r.dps for r in a.inputs.years] == [r.dps for r in base.inputs.years]
+
+
+def test_split_without_report_share_basis_is_flagged_not_adjusted(base):
+    a = assemble(*_after_latest(10, eps=None))                             # EPS가 없으면 기준을 확인할 수 없어요
+    assert SPLIT_FLAG in a.flags and not any("주식 수 기준으로" in n for n in a.notes)
+    assert [r.dps for r in a.inputs.years] == [r.dps for r in base.inputs.years]
+
+
 def test_split_after_latest_year_keeps_state_and_ratio(base):
     from vsf.config import ReportSettings
     from vsf.engine import watch_state

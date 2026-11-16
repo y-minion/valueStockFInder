@@ -62,3 +62,15 @@ def test_confirmed_split_after_latest_year():
     for args in ((None, 1000, 1, 1), (100, None, 1, 1), (100, 1000, None, 1), (100, 1000, 1, None),
                  (0, 1000, 1, 1), (100, 1000, 1, 0)):
         assert confirmed_split(*args) is None
+
+
+def test_confirmed_split_needs_price_closer_to_r_than_to_unchanged():
+    from vsf.data.splits import confirmed_split
+    # 주가가 그대로면 q = 1/r. r이 1.5–2면 [0.5, 2] 안이라도 분할로 보지 않아요 (|ln q| < |ln r| / 2).
+    assert confirmed_split(100, 150, 100_000, 100_000) is None
+    assert confirmed_split(100, 200, 100_000, 100_000) is None
+    assert confirmed_split(100, 151.2, 2965, 3050) is None            # 한온시스템 018880: 유상증자
+    assert confirmed_split(100, 150, 150_000, 100_000) == 1.5         # 주가도 ÷1.5
+    assert confirmed_split(100, 150, 120_000, 100_000) is None        # q = 0.8: 1.5 쪽보다 '그대로' 쪽에 가까워요
+    assert confirmed_split(100, 150, 125_000, 100_000) == 1.5         # q ≈ 0.83
+    assert confirmed_split(100, 1000, 100_000, 19_000) == 10.0        # r = 10은 [0.5, 2] 그대로

@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
@@ -33,6 +34,8 @@ PER_UNIT_FLAG = "{y}년 연말 PER이 {per:g}배로 비정상적이에요(단위
 OVERLAP_FLAG = "{y}년 {name}이(가) 보고서마다 달라요(정정·재작성 가능성). 확인해 주세요."
 REBASE_NOTE = "{y}년 말 뒤 주식 수가 {r:g}배가 돼서 EPS·배당을 지금 주식 수 기준으로 나눴어요"
 REBASE_SOURCE = " ÷ {r:g}(액면분할·무상증자 조정, {y}년 말 뒤)"
+MERGE_NOTE = "{y}년 말 뒤 주식 수가 1/{n:g}로 줄어서 EPS·배당을 지금 주식 수 기준으로 곱했어요"
+MERGE_SOURCE = " × {n:g}(주식 병합 조정, {y}년 말 뒤)"
 
 NO_INTEREST_COVERAGE = 999.0   # 엑셀 규칙: 이자비용이 0이면 999
 DPS_TOLERANCE = 0.02           # 보고서끼리 같은 해 DPS가 이보다 많이 다르면 확인 표시
@@ -314,12 +317,28 @@ def _split_divisor(a: dict[int, _Period], b: dict[int, _Period], year_end: dict[
     out.flag(*check.flags)
     end = year_end.get(latest)
     after = confirmed_split(end.shares, price.shares, end.close, price.close) if end is not None else None
-    if after is not None:
-        out.note(REBASE_NOTE.format(y=latest, r=after))
+    if after is not None and _report_on_year_end_basis(a.get(latest), end.shares, price.shares):
+        out.note(REBASE_NOTE.format(y=latest, r=round(after, 2)) if after >= 1
+                 else MERGE_NOTE.format(y=latest, n=round(1 / after, 2)))
         return check.eps_divisor_older, after
     if end is not None and close_factor(end.shares, price.shares) != 1.0:
         out.flag(SPLIT_FLAG)   # L년 말 뒤에 주식 수가 크게 바뀌었는데 주가로 확인되지 않아요
     return check.eps_divisor_older, 1.0
+
+
+def _report_on_year_end_basis(p: _Period | None, shares_then: float, shares_now: float) -> bool:
+    """A 보고서 EPS가 L년 말 주식 수 기준인지: 순이익 ÷ EPS(보고서가 쓴 주식 수)가 지금보다 L년 말 주식 수에 가까운지 (로그 거리).
+
+    분할이 사업보고서 승인 전에 끝났으면 EPS가 이미 새 주식 수 기준이라 또 나누면 안 돼요.
+    순이익이나 EPS가 없거나 0 이하면 확인할 수 없어서 False예요.
+    """
+    if p is None:
+        return False
+    income, e = _net_income(p).value, p.acc["eps"].value
+    if income is None or e is None or income <= 0 or e <= 0:
+        return False
+    implied = income / e
+    return abs(math.log(implied / shares_then)) < abs(math.log(implied / shares_now))
 
 
 def _eps(main: dict[int, _Period], b: dict[int, _Period], divisor: float, latest: int,
@@ -358,11 +377,13 @@ def _dps(div_reports: dict[int, list[dict]], latest: int, years: range, out: _Ou
 def _rebase(values: dict[int, float | None], r: float, latest: int, cell: Callable[[int], str],
             out: _Out) -> dict[int, float | None]:
     """L년 말 뒤 분할: 주당 값을 r로 나눠 지금 주식 수 기준으로 맞추고, 그 칸 출처 글에 덧붙여요."""
+    tail = (REBASE_SOURCE.format(r=round(r, 2), y=latest) if r >= 1
+            else MERGE_SOURCE.format(n=round(1 / r, 2), y=latest))
     rebased: dict[int, float | None] = {}
     for y, v in values.items():
         rebased[y] = None if v is None else v / r
         if v is not None and cell(y) in out.sources:
-            out.sources[cell(y)] += REBASE_SOURCE.format(r=r, y=latest)
+            out.sources[cell(y)] += tail
     return rebased
 
 

@@ -1,0 +1,179 @@
+{
+ "result": {
+  "total_count": "34",
+  "err_cd": "000",
+  "err_msg": "Success",
+  "list": [
+   {
+    "finance_cd": "0014674",
+    "finance_nm": "K bank",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Internet Only Banks\\K bank"
+   },
+   {
+    "finance_cd": "0015130",
+    "finance_nm": "KakaoBank of Korea Corp.",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Internet Only Banks\\KakaoBank of Korea Corp."
+   },
+   {
+    "finance_cd": "0017801",
+    "finance_nm": "Toss Bank",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Internet Only Banks\\Toss Bank"
+   },
+   {
+    "finance_cd": "0010003",
+    "finance_nm": "Chohung Bank[closed]",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Chohung Bank[closed]"
+   },
+   {
+    "finance_cd": "0010006",
+    "finance_nm": "Citibank Korea",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Citibank Korea"
+   },
+   {
+    "finance_cd": "0010010",
+    "finance_nm": "Hana Bank(former)[closed]",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Hana Bank(former)[closed]"
+   },
+   {
+    "finance_cd": "0011228",
+    "finance_nm": "Hana Bank[closed]",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Hana Bank[closed]"
+   },
+   {
+    "finance_cd": "0010015",
+    "finance_nm": "Housing & Commercial Bank[closed]",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Housing & Commercial Bank[closed]"
+   },
+   {
+    "finance_cd": "0013909",
+    "finance_nm": "KEB Hana Bank",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\KEB Hana Bank"
+   },
+   {
+    "finance_cd": "0010927",
+    "finance_nm": "Kookmin Bank",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Kookmin Bank"
+   },
+   {
+    "finance_cd": "0010014",
+    "finance_nm": "Kookmin Bank(former)[closed]",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Kookmin Bank(former)[closed]"
+   },
+   {
+    "finance_cd": "0010013",
+    "finance_nm": "Korea Exchange Bank[closed]",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Korea Exchange Bank[closed]"
+   },
+   {
+    "finance_cd": "0010012",
+    "finance_nm": "Pyung Hwa Bank[closed]",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Pyung Hwa Bank[closed]"
+   },
+   {
+    "finance_cd": "0010004",
+    "finance_nm": "Seoul Bank[closed]",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Seoul Bank[closed]"
+   },
+   {
+    "finance_cd": "0010005",
+    "finance_nm": "Shin Han Bank(former)[closed]",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Shin Han Bank(former)[closed]"
+   },
+   {
+    "finance_cd": "0011625",
+    "finance_nm": "Shinhan Bank",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Shinhan Bank"
+   },
+   {
+    "finance_cd": "0010002",
+    "finance_nm": "Standard Chartered Bank Korea Limited",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Standard Chartered Bank Korea Limited"
+   },
+   {
+    "finance_cd": "0010001",
+    "finance_nm": "Woori Bank",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\Woori Bank"
+   },
+   {
+    "finance_cd": "0010016",
+    "finance_nm": "iM Bank",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Nationwide Banks\\iM Bank"
+   },
+   {
+    "finance_cd": "0010017",
+    "finance_nm": "Busan Bank Co., Ltd.",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Regional Banks\\Busan Bank Co., Ltd."
+   },
+   {
+    "finance_cd": "0010025",
+    "finance_nm": "Chung Buk Bank[closed]",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Regional Banks\\Chung Buk Bank[closed]"
+   },
+   {
+    "finance_cd": "0010020",
+    "finance_nm": "Jeju Bank",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Regional Banks\\Jeju Bank"
+   },
+   {
+    "finance_cd": "0010022",
+    "finance_nm": "Jeonbuk Bank",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Regional Banks\\Jeonbuk Bank"
+   },
+   {
+    "finance_cd": "0010023",
+    "finance_nm": "Kangwon Bank[closed]",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Regional Banks\\Kangwon Bank[closed]"
+   },
+   {
+    "finance_cd": "0010019",
+    "finance_nm": "Kwangju Bank",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Regional Banks\\Kwangju Bank"
+   },
+   {
+    "finance_cd": "0010024",
+    "finance_nm": "Kyongnam Bank Co.,Ltd",
+    "finance_path": "Domestic Banks\\Commercial Banks\\Regional Banks\\Kyongnam Bank Co.,Ltd"
+   },
+   {
+    "finance_cd": "0010026",
+    "finance_nm": "Industrial Bank of Korea",
+    "finance_path": "Domestic Banks\\Special Banks\\Industrial Bank of Korea"
+   },
+   {
+    "finance_cd": "0010030",
+    "finance_nm": "Korea Development Bank",
+    "finance_path": "Domestic Banks\\Special Banks\\Korea Development Bank"
+   },
+   {
+    "finance_cd": "0010029",
+    "finance_nm": "Korea Livestock Cooperation Federation[closed]",
+    "finance_path": "Domestic Banks\\Special Banks\\Korea Livestock Cooperation Federation[closed]"
+   },
+   {
+    "finance_cd": "0010027",
+    "finance_nm": "National Agricultural Cooperative Federation [closed]",
+    "finance_path": "Domestic Banks\\Special Banks\\National Agricultural Cooperative Federation [closed]"
+   },
+   {
+    "finance_cd": "0010028",
+    "finance_nm": "National Federation of Fisheries Cooperatives[closed]",
+    "finance_path": "Domestic Banks\\Special Banks\\National Federation of Fisheries Cooperatives[closed]"
+   },
+   {
+    "finance_cd": "0013175",
+    "finance_nm": "NongHyup Bank",
+    "finance_path": "Domestic Banks\\Special Banks\\NongHyup Bank"
+   },
+   {
+    "finance_cd": "0014807",
+    "finance_nm": "Suhyup Bank",
+    "finance_path": "Domestic Banks\\Special Banks\\Suhyup Bank"
+   },
+   {
+    "finance_cd": "0010031",
+    "finance_nm": "The Export-Import Bank of Korea",
+    "finance_path": "Domestic Banks\\Special Banks\\The Export-Import Bank of Korea"
+   }
+  ]
+ }
+}

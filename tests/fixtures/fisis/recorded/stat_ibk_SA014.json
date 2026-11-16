@@ -1,0 +1,353 @@
+{
+ "result": {
+  "err_cd": "000",
+  "err_msg": "정상",
+  "total_count": "42",
+  "description": [
+   {
+    "column_id": "a",
+    "column_nm": "값"
+   }
+  ],
+  "date_of_settlement": "12/31",
+  "unit": "원,%",
+  "list": [
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "A",
+    "account_nm": "BIS기준 자기자본비율",
+    "a": "14.78"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "A1",
+    "account_nm": "기본자본비율",
+    "a": "13.26"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "A2",
+    "account_nm": "보통주자본비율",
+    "a": "11.48"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B",
+    "account_nm": "자기자본합계",
+    "a": "39042670000000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B0",
+    "account_nm": "자기자본합계_보통주자본",
+    "a": "31780628000000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B1",
+    "account_nm": "자기자본합계_기본자본",
+    "a": "36491062000000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B2",
+    "account_nm": "자기자본합계_보완자본",
+    "a": "4013905000000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B3",
+    "account_nm": "자기자본합계_공제항목",
+    "a": "1462297000000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B30",
+    "account_nm": "자기자본합계_보통주자본 공제항목",
+    "a": "1462297000000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B31",
+    "account_nm": "자기자본합계_기본자본 공제항목",
+    "a": "1462297000000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B32",
+    "account_nm": "자기자본합계_보완자본 공제항목",
+    "a": "0"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "C",
+    "account_nm": "위험가중자산합계",
+    "a": "264086475000000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "C1",
+    "account_nm": "위험가중자산합계_시장리스크기준",
+    "a": "264086475000000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "C2",
+    "account_nm": "위험가중자산합계_신용_운영 리스크기준",
+    "a": "257251931000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "A",
+    "account_nm": "BIS기준 자기자본비율",
+    "a": "14.93"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "A1",
+    "account_nm": "기본자본비율",
+    "a": "13.45"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "A2",
+    "account_nm": "보통주자본비율",
+    "a": "11.51"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B",
+    "account_nm": "자기자본합계",
+    "a": "40171602000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B0",
+    "account_nm": "자기자본합계_보통주자본",
+    "a": "31625123000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B1",
+    "account_nm": "자기자본합계_기본자본",
+    "a": "36840454000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B2",
+    "account_nm": "자기자본합계_보완자본",
+    "a": "3973932000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B3",
+    "account_nm": "자기자본합계_공제항목",
+    "a": "642784000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B30",
+    "account_nm": "자기자본합계_보통주자본 공제항목",
+    "a": "642784000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B31",
+    "account_nm": "자기자본합계_기본자본 공제항목",
+    "a": "642784000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B32",
+    "account_nm": "자기자본합계_보완자본 공제항목",
+    "a": "0"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "C",
+    "account_nm": "위험가중자산합계",
+    "a": "269131241000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "C1",
+    "account_nm": "위험가중자산합계_시장리스크기준",
+    "a": "269131241000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "C2",
+    "account_nm": "위험가중자산합계_신용_운영 리스크기준",
+    "a": "261265819000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "A",
+    "account_nm": "BIS기준 자기자본비율",
+    "a": "14.8"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "A1",
+    "account_nm": "기본자본비율",
+    "a": "13.39"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "A2",
+    "account_nm": "보통주자본비율",
+    "a": "11.49"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B",
+    "account_nm": "자기자본합계",
+    "a": "40649540000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B0",
+    "account_nm": "자기자본합계_보통주자본",
+    "a": "32357720000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B1",
+    "account_nm": "자기자본합계_기본자본",
+    "a": "37574382000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B2",
+    "account_nm": "자기자본합계_보완자본",
+    "a": "3865188000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B3",
+    "account_nm": "자기자본합계_공제항목",
+    "a": "790030000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B30",
+    "account_nm": "자기자본합계_보통주자본 공제항목",
+    "a": "790030000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B31",
+    "account_nm": "자기자본합계_기본자본 공제항목",
+    "a": "790030000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "B32",
+    "account_nm": "자기자본합계_보완자본 공제항목",
+    "a": "0"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "C",
+    "account_nm": "위험가중자산합계",
+    "a": "274623818000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "C1",
+    "account_nm": "위험가중자산합계_시장리스크기준",
+    "a": "274623818000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "account_cd": "C2",
+    "account_nm": "위험가중자산합계_신용_운영 리스크기준",
+    "a": "267486257000000"
+   }
+  ]
+ }
+}

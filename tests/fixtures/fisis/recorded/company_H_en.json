@@ -1,0 +1,224 @@
+{
+ "result": {
+  "total_count": "43",
+  "err_cd": "000",
+  "err_msg": "Success",
+  "list": [
+   {
+    "finance_cd": "0010619",
+    "finance_nm": "DB Life Insurance Co., Ltd",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\DB Life Insurance Co., Ltd"
+   },
+   {
+    "finance_cd": "0010600",
+    "finance_nm": "Daeshin Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Daeshin Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0010598",
+    "finance_nm": "Dongah Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Dongah Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0010609",
+    "finance_nm": "Doowon Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Doowon Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0010593",
+    "finance_nm": "HANWHA LIFE INSURANCE CO,. LTD",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\HANWHA LIFE INSURANCE CO,. LTD"
+   },
+   {
+    "finance_cd": "0010618",
+    "finance_nm": "Hana Life Insurance",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Hana Life Insurance"
+   },
+   {
+    "finance_cd": "0010604",
+    "finance_nm": "Handuk Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Handuk Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0010613",
+    "finance_nm": "Hanil Life[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Hanil Life[closed]"
+   },
+   {
+    "finance_cd": "0010596",
+    "finance_nm": "Hungkuk Life Insurance",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Hungkuk Life Insurance"
+   },
+   {
+    "finance_cd": "0010601",
+    "finance_nm": "Hyundai Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Hyundai Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0012455",
+    "finance_nm": "IBK INSURANCE CO., LTD",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\IBK INSURANCE CO., LTD"
+   },
+   {
+    "finance_cd": "0010606",
+    "finance_nm": "Josun Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Josun Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0011388",
+    "finance_nm": "KB Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\KB Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0010607",
+    "finance_nm": "KDB Life Insurance Co., Ltd.",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\KDB Life Insurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0010616",
+    "finance_nm": "Kb Life Insurance",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Kb Life Insurance"
+   },
+   {
+    "finance_cd": "0010603",
+    "finance_nm": "Kookmin Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Kookmin Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0010597",
+    "finance_nm": "Kyobo Life Insurance",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Kyobo Life Insurance"
+   },
+   {
+    "finance_cd": "0013436",
+    "finance_nm": "Kyobo Lifeplanet Insurance Company",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Kyobo Lifeplanet Insurance Company"
+   },
+   {
+    "finance_cd": "0010608",
+    "finance_nm": "Mirae Asset Life Insurance Co.,Ltd",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Mirae Asset Life Insurance Co.,Ltd"
+   },
+   {
+    "finance_cd": "0013173",
+    "finance_nm": "NongHyup Life Insurance Company",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\NongHyup Life Insurance Company"
+   },
+   {
+    "finance_cd": "0010617",
+    "finance_nm": "Orange Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Orange Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0010602",
+    "finance_nm": "Pacific Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Pacific Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0010623",
+    "finance_nm": "Samshin Allstate Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Samshin Allstate Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0010595",
+    "finance_nm": "Samsung Life Insurance",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Samsung Life Insurance"
+   },
+   {
+    "finance_cd": "0010599",
+    "finance_nm": "Shinhan Life Insurance",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\Shinhan Life Insurance"
+   },
+   {
+    "finance_cd": "0010612",
+    "finance_nm": "[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\[closed]"
+   },
+   {
+    "finance_cd": "0011467",
+    "finance_nm": "[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\[closed]"
+   },
+   {
+    "finance_cd": "0010621",
+    "finance_nm": "[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\[closed]"
+   },
+   {
+    "finance_cd": "0010611",
+    "finance_nm": "[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\[closed]"
+   },
+   {
+    "finance_cd": "0010610",
+    "finance_nm": "[closed]",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\[closed]"
+   },
+   {
+    "finance_cd": "0010605",
+    "finance_nm": "iM Life Insurance Co., Ltd.",
+    "finance_path": "Life Insurance Companies\\Domestic Life Insurance\\iM Life Insurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0010594",
+    "finance_nm": "ABL Life Insurance Co., Ltd.",
+    "finance_path": "Life Insurance Companies\\Foreign Life Insurance\\ABL Life Insurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0010615",
+    "finance_nm": "AIA Life Insurance Co. Ltd.",
+    "finance_path": "Life Insurance Companies\\Foreign Life Insurance\\AIA Life Insurance Co. Ltd."
+   },
+   {
+    "finance_cd": "0011226",
+    "finance_nm": "BNP Paribas Cardif Life Insurance Co., Ltd.",
+    "finance_path": "Life Insurance Companies\\Foreign Life Insurance\\BNP Paribas Cardif Life Insurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0010648",
+    "finance_nm": "Cardif Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Foreign Life Insurance\\Cardif Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0010625",
+    "finance_nm": "Chubb Life Insurance Korea Co.,Ltd.",
+    "finance_path": "Life Insurance Companies\\Foreign Life Insurance\\Chubb Life Insurance Korea Co.,Ltd."
+   },
+   {
+    "finance_cd": "0011320",
+    "finance_nm": "Fubon Hyundai Life Insurance Co., Ltd.",
+    "finance_path": "Life Insurance Companies\\Foreign Life Insurance\\Fubon Hyundai Life Insurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0011434",
+    "finance_nm": "LINA Life Insurance",
+    "finance_path": "Life Insurance Companies\\Foreign Life Insurance\\LINA Life Insurance"
+   },
+   {
+    "finance_cd": "0010614",
+    "finance_nm": "LINA Life Insurance Company of Korea[closed]",
+    "finance_path": "Life Insurance Companies\\Foreign Life Insurance\\LINA Life Insurance Company of Korea[closed]"
+   },
+   {
+    "finance_cd": "0010620",
+    "finance_nm": "MetLife Insurance",
+    "finance_path": "Life Insurance Companies\\Foreign Life Insurance\\MetLife Insurance"
+   },
+   {
+    "finance_cd": "0010624",
+    "finance_nm": "PCA Life Insurance[closed]",
+    "finance_path": "Life Insurance Companies\\Foreign Life Insurance\\PCA Life Insurance[closed]"
+   },
+   {
+    "finance_cd": "0010622",
+    "finance_nm": "Tongyang Life Insurance",
+    "finance_path": "Life Insurance Companies\\Foreign Life Insurance\\Tongyang Life Insurance"
+   },
+   {
+    "finance_cd": "0011468",
+    "finance_nm": "[closed]",
+    "finance_path": "Life Insurance Companies\\Foreign Life Insurance\\[closed]"
+   }
+  ]
+ }
+}

@@ -1,0 +1,161 @@
+{
+ "result": {
+  "err_cd": "000",
+  "err_msg": "정상",
+  "total_count": "18",
+  "description": [
+   {
+    "column_id": "a",
+    "column_nm": "값"
+   }
+  ],
+  "date_of_settlement": "12/31",
+  "unit": "원,%",
+  "list": [
+   {
+    "base_month": "202512",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "A",
+    "account_nm": "지급여력비율(경과조치 적용 전)(①/②)",
+    "a": "197.97"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "B",
+    "account_nm": "지급여력금액(경과조치 적용 전)(①)",
+    "a": "65740178442400"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "C",
+    "account_nm": "지급여력기준금액(경과조치 적용 전)(②)",
+    "a": "33207526087208"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "D",
+    "account_nm": "지급여력비율(경과조치 적용 후)(③/④)",
+    "a": "0"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "E",
+    "account_nm": "지급여력금액(경과조치 적용 후)(③)",
+    "a": "0"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "F",
+    "account_nm": "지급여력기준금액(경과조치 적용 후)(④)",
+    "a": "0"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "A",
+    "account_nm": "지급여력비율(경과조치 적용 전)(①/②)",
+    "a": "209.93"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "B",
+    "account_nm": "지급여력금액(경과조치 적용 전)(①)",
+    "a": "82425849706865"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "C",
+    "account_nm": "지급여력기준금액(경과조치 적용 전)(②)",
+    "a": "39264355982512"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "D",
+    "account_nm": "지급여력비율(경과조치 적용 후)(③/④)",
+    "a": "0"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "E",
+    "account_nm": "지급여력금액(경과조치 적용 후)(③)",
+    "a": "0"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "F",
+    "account_nm": "지급여력기준금액(경과조치 적용 후)(④)",
+    "a": "0"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "A",
+    "account_nm": "지급여력비율(경과조치 적용 전)(①/②)",
+    "a": "208.17"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "B",
+    "account_nm": "지급여력금액(경과조치 적용 전)(①)",
+    "a": "129552503413986"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "C",
+    "account_nm": "지급여력기준금액(경과조치 적용 전)(②)",
+    "a": "62235110007593"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "D",
+    "account_nm": "지급여력비율(경과조치 적용 후)(③/④)",
+    "a": "0"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "E",
+    "account_nm": "지급여력금액(경과조치 적용 후)(③)",
+    "a": "0"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010595",
+    "finance_nm": "삼성생명보험주식회사",
+    "account_cd": "F",
+    "account_nm": "지급여력기준금액(경과조치 적용 후)(④)",
+    "a": "0"
+   }
+  ]
+ }
+}

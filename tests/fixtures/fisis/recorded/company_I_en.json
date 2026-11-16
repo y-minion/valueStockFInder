@@ -1,0 +1,279 @@
+{
+ "result": {
+  "total_count": "54",
+  "err_cd": "000",
+  "err_msg": "Success",
+  "list": [
+   {
+    "finance_cd": "0010636",
+    "finance_nm": "DB Insurance Co.,Ltd",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\DB Insurance Co.,Ltd"
+   },
+   {
+    "finance_cd": "0010631",
+    "finance_nm": "First Fire[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\First Fire[closed]"
+   },
+   {
+    "finance_cd": "0010629",
+    "finance_nm": "Green Non-Life Insurance Co., Ltd[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\Green Non-Life Insurance Co., Ltd[closed]"
+   },
+   {
+    "finance_cd": "0011354",
+    "finance_nm": "Hana Insurance Co., Ltd",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\Hana Insurance Co., Ltd"
+   },
+   {
+    "finance_cd": "0010627",
+    "finance_nm": "Hanwha General Insurance Co., Ltd.",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\Hanwha General Insurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0010630",
+    "finance_nm": "Heungkuk Fire and Marine Insurance Co., Ltd.",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\Heungkuk Fire and Marine Insurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0010634",
+    "finance_nm": "Hyundai Marine and Fire Insurance Co., Ltd",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\Hyundai Marine and Fire Insurance Co., Ltd"
+   },
+   {
+    "finance_cd": "0010635",
+    "finance_nm": "KB Insurance Co., Ltd",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\KB Insurance Co., Ltd"
+   },
+   {
+    "finance_cd": "0010628",
+    "finance_nm": "Lotte Non-Life Insurance Co., Ltd.",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\Lotte Non-Life Insurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0013376",
+    "finance_nm": "MG. Non-Life Insurance Co., Ltd.",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\MG. Non-Life Insurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0010626",
+    "finance_nm": "Meritz Fire and Marine Insurance Co., Ltd.",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\Meritz Fire and Marine Insurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0021304",
+    "finance_nm": "MyBrown Inc",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\MyBrown Inc"
+   },
+   {
+    "finance_cd": "0013174",
+    "finance_nm": "NongHyup Property & Casualty Insurace Company",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\NongHyup Property & Casualty Insurace Company"
+   },
+   {
+    "finance_cd": "0010632",
+    "finance_nm": "Regent Fire & Marine Insurance[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\Regent Fire & Marine Insurance[closed]"
+   },
+   {
+    "finance_cd": "0010633",
+    "finance_nm": "Samsung Fire",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\Samsung Fire"
+   },
+   {
+    "finance_cd": "0021388",
+    "finance_nm": "YeByeol Insurance Co., Ltd.",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic General Non-life Insurance\\YeByeol Insurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0017080",
+    "finance_nm": "Carrot General Insurance Co., Ltd.[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic Single-line Non-life Insurance\\Carrot General Insurance Co., Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0011648",
+    "finance_nm": "Hyundai HicarDirect Non-life Insurance Co., Ltd.[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic Single-line Non-life Insurance\\Hyundai HicarDirect Non-life Insurance Co., Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0019399",
+    "finance_nm": "Kakaopay Insurance Corp.",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic Single-line Non-life Insurance\\Kakaopay Insurance Corp."
+   },
+   {
+    "finance_cd": "0013852",
+    "finance_nm": "Korea maritime Guarantee co.,Ltd.[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic Single-line Non-life Insurance\\Korea maritime Guarantee co.,Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0010638",
+    "finance_nm": "Korean Reinsurance Co., Ltd.",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic Single-line Non-life Insurance\\Korean Reinsurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0010637",
+    "finance_nm": "Seoul Guarantee Insurance",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic Single-line Non-life Insurance\\Seoul Guarantee Insurance"
+   },
+   {
+    "finance_cd": "0011353",
+    "finance_nm": "Shinhan EZ General Insurance, Ltd.",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic Single-line Non-life Insurance\\Shinhan EZ General Insurance, Ltd."
+   },
+   {
+    "finance_cd": "0010639",
+    "finance_nm": "[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Domestic Non-life Insurance\\Domestic Single-line Non-life Insurance\\[closed]"
+   },
+   {
+    "finance_cd": "0010641",
+    "finance_nm": "ACE American Fire and Marine Insurance Co. Korea",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\ACE American Fire and Marine Insurance Co. Korea"
+   },
+   {
+    "finance_cd": "0013245",
+    "finance_nm": "AIG Korea Inc",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\AIG Korea Inc"
+   },
+   {
+    "finance_cd": "0011937",
+    "finance_nm": "AIG United Guaranty Insurance Co., Ltd. Korea[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\AIG United Guaranty Insurance Co., Ltd. Korea[closed]"
+   },
+   {
+    "finance_cd": "0010653",
+    "finance_nm": "AXA General Insurance Co., Ltd",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\AXA General Insurance Co., Ltd"
+   },
+   {
+    "finance_cd": "0015326",
+    "finance_nm": "Allianz Global Corporate & Specialty SE Korea Branch",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Allianz Global Corporate & Specialty SE Korea Branch"
+   },
+   {
+    "finance_cd": "0010640",
+    "finance_nm": "American Home Asurance Korea[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\American Home Asurance Korea[closed]"
+   },
+   {
+    "finance_cd": "0014645",
+    "finance_nm": "Asia Capital Reinsurance Pte. Ltd. Korea Branch Office[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Asia Capital Reinsurance Pte. Ltd. Korea Branch Office[closed]"
+   },
+   {
+    "finance_cd": "0013335",
+    "finance_nm": "Asia Capital Reinsurance Pte. Ltd. Korea Branch Office[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Asia Capital Reinsurance Pte. Ltd. Korea Branch Office[closed]"
+   },
+   {
+    "finance_cd": "0012243",
+    "finance_nm": "DAS Legal Expenses Insurance Co., Ltd.[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\DAS Legal Expenses Insurance Co., Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0011326",
+    "finance_nm": "Employers Reinsurance Co.[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Employers Reinsurance Co.[closed]"
+   },
+   {
+    "finance_cd": "0019534",
+    "finance_nm": "Factory Mutual Insurance Company Korea Branch",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Factory Mutual Insurance Company Korea Branch"
+   },
+   {
+    "finance_cd": "0010645",
+    "finance_nm": "Federal Insurance Company Korea Branch[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Federal Insurance Company Korea Branch[closed]"
+   },
+   {
+    "finance_cd": "0010650",
+    "finance_nm": "First American Title Insurance Korea Branch",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\First American Title Insurance Korea Branch"
+   },
+   {
+    "finance_cd": "0010649",
+    "finance_nm": "General Reinsurance AG Seoul Branch",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\General Reinsurance AG Seoul Branch"
+   },
+   {
+    "finance_cd": "0011909",
+    "finance_nm": "Genworth Mortgage Insurance Co., Ltd. Korea Branch[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Genworth Mortgage Insurance Co., Ltd. Korea Branch[closed]"
+   },
+   {
+    "finance_cd": "0011952",
+    "finance_nm": "Hannover Reinsurance AG, Korea Branch",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Hannover Reinsurance AG, Korea Branch"
+   },
+   {
+    "finance_cd": "0011193",
+    "finance_nm": "Korean Alianz Fire & Marine Insurance[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Korean Alianz Fire & Marine Insurance[closed]"
+   },
+   {
+    "finance_cd": "0011219",
+    "finance_nm": "Mitsui Sumitomo Insurance Co., Ltd.",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Mitsui Sumitomo Insurance Co., Ltd."
+   },
+   {
+    "finance_cd": "0010652",
+    "finance_nm": "Munich Reinsurance Co., Ltd. Korea Branch",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Munich Reinsurance Co., Ltd. Korea Branch"
+   },
+   {
+    "finance_cd": "0019874",
+    "finance_nm": "Pacific Life Re International Limited, Korea Branch",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Pacific Life Re International Limited, Korea Branch"
+   },
+   {
+    "finance_cd": "0014077",
+    "finance_nm": "Pacific Life Re Limited, Korea branch[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Pacific Life Re Limited, Korea branch[closed]"
+   },
+   {
+    "finance_cd": "0011525",
+    "finance_nm": "RGA Reinsurance Company, Korea Branch",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\RGA Reinsurance Company, Korea Branch"
+   },
+   {
+    "finance_cd": "0010644",
+    "finance_nm": "RSA[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\RSA[closed]"
+   },
+   {
+    "finance_cd": "0010643",
+    "finance_nm": "Reliance Insurance Company, Korea Branch[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Reliance Insurance Company, Korea Branch[closed]"
+   },
+   {
+    "finance_cd": "0011387",
+    "finance_nm": "Scor Reinsuarnce Asia Pacific PT LTD, Seoul Branch",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Scor Reinsuarnce Asia Pacific PT LTD, Seoul Branch"
+   },
+   {
+    "finance_cd": "0020910",
+    "finance_nm": "Starr International Insurance(Singapore) Pte. Ltd. Korea Branch)",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Starr International Insurance(Singapore) Pte. Ltd. Korea Branch)"
+   },
+   {
+    "finance_cd": "0016602",
+    "finance_nm": "Swiss Re Asia Pte. Ltd., Korea branch",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Swiss Re Asia Pte. Ltd., Korea branch"
+   },
+   {
+    "finance_cd": "0010651",
+    "finance_nm": "Swiss Reinsurance Co., Ltd. Korea Branch[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Swiss Reinsurance Co., Ltd. Korea Branch[closed]"
+   },
+   {
+    "finance_cd": "0011334",
+    "finance_nm": "Tokyo Marine and Nichido Fire Insurance Co., Seoul[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Tokyo Marine and Nichido Fire Insurance Co., Seoul[closed]"
+   },
+   {
+    "finance_cd": "0010642",
+    "finance_nm": "Vigilant[closed]",
+    "finance_path": "Nonlife Insurance Companies\\Foreign Non-life Insurance\\Vigilant[closed]"
+   }
+  ]
+ }
+}

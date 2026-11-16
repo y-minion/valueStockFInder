@@ -1,0 +1,104 @@
+{
+ "result": {
+  "total_count": "19",
+  "err_cd": "000",
+  "err_msg": "Success",
+  "list": [
+   {
+    "finance_cd": "0012710",
+    "finance_nm": "BNK Financial Group Inc.",
+    "finance_path": "Financial Holding Companies\\BNK Financial Group Inc."
+   },
+   {
+    "finance_cd": "0012422",
+    "finance_nm": "Citigroup Korea Inc.[closed]",
+    "finance_path": "Financial Holding Companies\\Citigroup Korea Inc.[closed]"
+   },
+   {
+    "finance_cd": "0012739",
+    "finance_nm": "DGB financial group",
+    "finance_path": "Financial Holding Companies\\DGB financial group"
+   },
+   {
+    "finance_cd": "0011328",
+    "finance_nm": "Dongwon Financial Holding Co.Ltd(former)[closed]",
+    "finance_path": "Financial Holding Companies\\Dongwon Financial Holding Co.Ltd(former)[closed]"
+   },
+   {
+    "finance_cd": "0013557",
+    "finance_nm": "ENG_주식회사 KJB금융지주[closed]",
+    "finance_path": "Financial Holding Companies\\ENG_주식회사 KJB금융지주[closed]"
+   },
+   {
+    "finance_cd": "0013560",
+    "finance_nm": "ENG_주식회사 KNB금융지주[closed]",
+    "finance_path": "Financial Holding Companies\\ENG_주식회사 KNB금융지주[closed]"
+   },
+   {
+    "finance_cd": "0011573",
+    "finance_nm": "Hana Financial Group",
+    "finance_path": "Financial Holding Companies\\Hana Financial Group"
+   },
+   {
+    "finance_cd": "0013406",
+    "finance_nm": "JB Financial Group Inc.",
+    "finance_path": "Financial Holding Companies\\JB Financial Group Inc."
+   },
+   {
+    "finance_cd": "0012028",
+    "finance_nm": "KB FINANCIAL GROUP INC.",
+    "finance_path": "Financial Holding Companies\\KB FINANCIAL GROUP INC."
+   },
+   {
+    "finance_cd": "0012301",
+    "finance_nm": "KDB Financial Group[closed]",
+    "finance_path": "Financial Holding Companies\\KDB Financial Group[closed]"
+   },
+   {
+    "finance_cd": "0012108",
+    "finance_nm": "KOREA INVESTMENT MANAGEMENT HOLDINGS CO., LTD.[closed]",
+    "finance_path": "Financial Holding Companies\\KOREA INVESTMENT MANAGEMENT HOLDINGS CO., LTD.[closed]"
+   },
+   {
+    "finance_cd": "0011441",
+    "finance_nm": "Korea Investment Holdings Co., Ltd.",
+    "finance_path": "Financial Holding Companies\\Korea Investment Holdings Co., Ltd."
+   },
+   {
+    "finance_cd": "0012717",
+    "finance_nm": "Meritz Financial Group Inc.",
+    "finance_path": "Financial Holding Companies\\Meritz Financial Group Inc."
+   },
+   {
+    "finance_cd": "0013188",
+    "finance_nm": "NongHyup Financial Group Inc.",
+    "finance_path": "Financial Holding Companies\\NongHyup Financial Group Inc."
+   },
+   {
+    "finance_cd": "0010921",
+    "finance_nm": "Sejong Financial Holdings Co.[closed]",
+    "finance_path": "Financial Holding Companies\\Sejong Financial Holdings Co.[closed]"
+   },
+   {
+    "finance_cd": "0010926",
+    "finance_nm": "Shinhan Financial Group",
+    "finance_path": "Financial Holding Companies\\Shinhan Financial Group"
+   },
+   {
+    "finance_cd": "0012249",
+    "finance_nm": "Standard Chartered  Korea Ltd.[closed]",
+    "finance_path": "Financial Holding Companies\\Standard Chartered  Korea Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0010920",
+    "finance_nm": "Woori Financial Group Co.[closed]",
+    "finance_path": "Financial Holding Companies\\Woori Financial Group Co.[closed]"
+   },
+   {
+    "finance_cd": "0016619",
+    "finance_nm": "Woori Financial Group Inc.",
+    "finance_path": "Financial Holding Companies\\Woori Financial Group Inc."
+   }
+  ]
+ }
+}

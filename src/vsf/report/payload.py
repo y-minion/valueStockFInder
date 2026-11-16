@@ -5,6 +5,7 @@ from dataclasses import asdict
 from importlib import resources
 from pathlib import Path
 
+from vsf.boundary import boundaries, near_miss_state
 from vsf.changes import Change
 from vsf.evaluate import RunResult, StockResult
 from vsf.extras import Extras
@@ -45,6 +46,7 @@ def _stock(r: StockResult, extras: Extras | None, settings) -> dict:
         "criteria": asdict(r.criteria), "criteria_overridden": r.criteria != settings.criteria,
         "extra_gate1": r.extra_gate1, "extras": _extras(extras),
         "financial": _financial(r),
+        "boundaries": [asdict(b) for b in boundaries(r.cells, r.criteria, r.financial)],
     }
 
 
@@ -53,6 +55,9 @@ def build_payload(run: RunResult, changes: list[Change], crit_changes: list[dict
     c = run.collected
     watch = [(code, r) for code, r in run.results.items() if r.state in ("buy", "watch")]
     watch.sort(key=lambda kv: (kv[1].summary.ratio is None, kv[1].summary.ratio or 0.0, kv[0]))
+    near = [(code, r) for code, r in run.results.items() if r.state == "out" and near_miss_state(
+        r.cells, boundaries(r.cells, r.criteria, r.financial), settings.report) in ("buy", "watch")]
+    near.sort(key=lambda kv: (kv[1].summary.ratio is None, kv[1].summary.ratio or 0.0, kv[0]))
     return {
         "schema": SCHEMA,
         "run": {
@@ -70,6 +75,7 @@ def build_payload(run: RunResult, changes: list[Change], crit_changes: list[dict
         "changes": [{"code": x.code, "name": x.name, "kind": x.kind, "causes": list(x.causes)}
                     for x in changes],
         "watchlist": [code for code, _ in watch],
+        "near_miss": [code for code, _ in near],
         "stocks": {code: _stock(r, extras.get(code), settings) for code, r in run.results.items()},
     }
 

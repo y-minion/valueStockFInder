@@ -188,3 +188,25 @@ test('old data without financial fields still renders', () => {
   assert.doesNotThrow(() => r.renderStock(d, '105560'));
   assert.ok(!r.renderStock(d, '105560').includes('금융업 기준으로 판정'));
 });
+test('boundary chips on the gate tables', () => {
+  const q = r.renderStock(data, 'F');
+  assert.ok(q.includes('경계 · 기준까지 0.4%p'));
+  assert.ok(q.includes('chip warn'));
+  const a = r.renderStock(data, 'A');
+  assert.ok(a.includes('경계 · 기준보다 2%p 여유') && a.includes('chip info">경계'));
+});
+test('near-miss section on the first page', () => {
+  const h = r.renderIndex(data);
+  assert.ok(h.includes('<h2>아깝게 탈락 (기준 한 칸 안쪽)</h2>'));
+  assert.ok(h.includes('ROE 5년 평균 7.6% · 기준까지 0.4%p'));
+  assert.ok(h.indexOf('관심 목록') < h.indexOf('아깝게 탈락'));
+  const d = { ...data, near_miss: [] };
+  assert.ok(!r.renderIndex(d).includes('아깝게 탈락'));
+  const old = { ...data }; delete old.near_miss;
+  assert.ok(!r.renderIndex(old).includes('아깝게 탈락'));
+});
+test('old data without boundaries renders', () => {
+  const d = JSON.parse(JSON.stringify(data));
+  Object.values(d.stocks).forEach((s) => { delete s.boundaries; });
+  assert.doesNotThrow(() => r.renderStock(d, 'Q'));
+});

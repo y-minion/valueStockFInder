@@ -67,7 +67,7 @@ def test_run_section_and_stock_entry_shape():
     s = p["stocks"]["000270"]
     assert set(s) == {"name", "code", "market", "latest_year", "industry", "inputs", "cells", "summary",
                       "state", "near", "flags", "notes", "sources", "quick_fail", "criteria",
-                      "criteria_overridden", "extra_gate1", "extras", "financial"}
+                      "criteria_overridden", "extra_gate1", "extras", "financial", "boundaries"}
     assert s["market"] == "KOSPI" and s["latest_year"] == 2025 and s["industry"] is None
     assert len(s["cells"]) == 152
     assert isinstance(s["flags"], list) and isinstance(s["notes"], list)
@@ -165,3 +165,21 @@ def test_financial_started_only_for_old_snapshot_with_include():
     assert build_payload(RUN_1114, [], [], new, {}, S)["run"]["financial_started"] is False
     off = rep(S, financial=rep(S.financial, include=False))
     assert build_payload(RUN_1114, [], [], old, {}, off)["run"]["financial_started"] is False
+
+
+def test_stock_boundaries_and_near_miss_list():
+    base = RUN_1114.results["000270"]
+    cells = {"B78": 7.6, "D78": "탈락", "D82": "탈락", "D90": "통과", "D110": "통과", "B109": 0.0}
+    results = {}
+    for code, ratio in {"B": 0.9, "A": 0.8, "C": None}.items():
+        company = replace(base.company, code=code, name=f"종목{code}")
+        results[code] = replace(base, company=company, state="out", cells=dict(cells),
+                                criteria=Criteria(), financial=None,
+                                summary=replace(base.summary, ratio=ratio))
+    c = RUN_1114.collected
+    run_ = RunResult(collected=Collected(today=c.today, price_date=c.price_date, total_listed=3),
+                     settings_fp=RUN_1114.settings_fp, results=results)
+    p = build_payload(run_, [], [], None, {}, S)
+    assert p["near_miss"] == ["A", "B", "C"]
+    assert p["stocks"]["A"]["boundaries"][0]["cell"] == "D78"
+    assert p["stocks"]["A"]["boundaries"][0]["passed"] is False

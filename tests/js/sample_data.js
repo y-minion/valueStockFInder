@@ -88,6 +88,8 @@ const stocks = {
   "105560": finStock(),
   Q: stock("Q", "빠른탈락", { state: "out", quick_fail: true, cells: failCells, notes: ["배당 보고서만 받았어요"] }),
 };
+stocks.Q.boundaries = stocks.F.boundaries = [{ cell: "D78", label: "ROE 5년 평균", value: 7.6, threshold: 8, gap: -0.4, unit: "%p", passed: false }];
+stocks.A.boundaries = [{ cell: "D88", label: "배당성향", value: 58, threshold: 60, gap: -2, unit: "%p", passed: true }];
 
 module.exports = {
   schema: 1,
@@ -107,5 +109,6 @@ module.exports = {
     { code: "B", name: "라마바식품", kind: "above_buy", causes: ["기준 변경", "재무 갱신"] },
   ],
   watchlist: ["A", "B", "F", "X"],
+  near_miss: ["Q"],
   stocks,
 };

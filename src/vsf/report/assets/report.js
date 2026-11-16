@@ -258,6 +258,19 @@ function watchTable(data) {
   }).join("");
   return h + wrap("<table><tr><th>종목(업종)</th><th>관문</th><th>주가÷적정가</th><th>매수선까지</th><th>지금 배당수익률</th><th>적정가 방법</th><th>업종 ROE 순위</th><th>경고</th></tr>" + rows + "</table>");
 }
+function nearMissTable(data) {
+  var list = data.near_miss || [];
+  if (!list.length) return "";
+  var rows = list.map(function (code) {
+    var s = data.stocks[code];
+    if (!s) return "";
+    var why = (s.boundaries || []).filter(function (b) { return !b.passed; }).map(function (b) {
+      return esc(b.label) + " " + fmt(b.value, "raw") + esc(String(b.unit || "").replace("p", "")) + " · 기준까지 " + fmt(Math.abs(b.gap), "raw") + esc(b.unit || "");
+    }).join("<br>");
+    return "<tr><td>" + stockLink(code, s.name) + "</td><td>" + why + "</td></tr>";
+  }).join("");
+  return "<h2>아깝게 탈락 (기준 한 칸 안쪽)</h2>" + wrap("<table><tr><th>종목</th><th>기준 바로 옆 항목</th></tr>" + rows + "</table>");
+}
 function searchBox() {
   return '<h2>종목 찾기</h2><input id="q" type="search" placeholder="종목명이나 코드" autocomplete="off" aria-label="종목 검색"><ul id="results" class="results"></ul>';
 }
@@ -279,7 +292,7 @@ function skipLists(data) {
     "<details><summary>다음에 이어서 받을 종목 (" + (r.pending || []).length + ")</summary><p>" + (pe || "없어요") + "</p></details>";
 }
 function renderIndex(data) {
-  return indexHead(data) + banners(data) + tiles(data) + changesTable(data) + watchTable(data) + searchBox() + skipLists(data);
+  return indexHead(data) + banners(data) + tiles(data) + changesTable(data) + watchTable(data) + nearMissTable(data) + searchBox() + skipLists(data);
 }
 
 // ---- 종목 카드 ----
@@ -362,21 +375,34 @@ function priceBox(s) {
     '<p class="next">' + fmt(c.B15) + "</p></div>";
 }
 function crit(c, row) { var k = "C" + row; return fmt(c[k] != null && c[k] !== "" ? c[k] : STATIC_CRIT[k]); }
-function gate1Row(c, g) {
-  return tr([esc(LABELS[g[0]]), fmt(c["B" + g[0]], g[1]), crit(c, g[0]), verdictCell(c["D" + g[0]])]);
+function boundaryOf(s, cell) {
+  var list = s.boundaries || [];
+  for (var i = 0; i < list.length; i++) if (list[i].cell === cell) return list[i];
+  return null;
+}
+// 기준선 바로 옆이면 판정 옆에 '경계' 칩을 달아요 (판정은 그대로)
+function verdictWithMark(s, cell, v) {
+  var b = boundaryOf(s, cell), out = verdictCell(v);
+  if (!b || !isNum(b.gap)) return out;
+  var g = fmt(Math.abs(b.gap), "raw") + (b.unit || "");
+  return out + " " + (b.passed ? chip("경계 · 기준보다 " + g + " 여유", "info") : chip("경계 · 기준까지 " + g, "warn"));
+}
+function gate1Row(s, g) {
+  var c = s.cells;
+  return tr([esc(LABELS[g[0]]), fmt(c["B" + g[0]], g[1]), crit(c, g[0]), verdictWithMark(s, "D" + g[0], c["D" + g[0]])]);
 }
 function gate1Table(s, data) {
   var c = s.cells, fin = s.financial, body, after = "";
   if (fin) {
     var cap = fin.capital;
-    body = [gate1Row(c, [78, "raw"]),
+    body = [gate1Row(s, [78, "raw"]),
       tr(["최근 5년 적자 없음", isNum(c.F_LOSS_B) ? "적자 " + fmt(c.F_LOSS_B, "raw") + "년" : "—", fmt(c.F_LOSS_C), verdictCell(c.F_LOSS_D)]),
       tr([esc(fin.capital_label || "자본비율"), isNum(c.F_CAP_B) ? fmt(c.F_CAP_B, "raw") + "%" + (cap && cap.base_month ? " (" + esc(cap.base_month) + ")" : "") : "—",
-        fmt(c.F_CAP_C), verdictCell(c.F_CAP_D)])];
+        fmt(c.F_CAP_C), verdictWithMark(s, "F_CAP_D", c.F_CAP_D)])];
     [79, 80, 81].forEach(function (row) { body.push(tr([esc(LABELS[row]), "—", "해당 없음", "해당 없음"])); });
     if (c.F_CAP_D === "직접 확인" && c.F_CAP_SRC) after = '<p class="muted">' + esc(c.F_CAP_SRC) + "</p>";
   } else {
-    body = [[78, "raw"], [79, "raw"], [80, "d2"], [81, "d2"]].map(function (g) { return gate1Row(c, g); });
+    body = [[78, "raw"], [79, "raw"], [80, "d2"], [81, "d2"]].map(function (g) { return gate1Row(s, g); });
   }
   if (s.extra_gate1) {
     var ind = s.industry, pct = ((data.run.criteria || {}).industry || {}).roe_top_percent;
@@ -388,7 +414,7 @@ function gate1Table(s, data) {
 }
 function gate2Table(s) {
   var c = s.cells, body = [[86, "raw"], [87, "raw"], [88, "pct"], [89, "d2"]].map(function (g) {
-    return tr([esc(LABELS[g[0]]), fmt(c["B" + g[0]], g[1]), crit(c, g[0]), verdictCell(c["D" + g[0]])]);
+    return tr([esc(LABELS[g[0]]), fmt(c["B" + g[0]], g[1]), crit(c, g[0]), verdictWithMark(s, "D" + g[0], c["D" + g[0]])]);
   });
   body.push(tr(["<b>" + esc(LABELS[90]) + "</b>", "", "", verdictCell(c.D90)]));
   return rowsTable(["항목", "이 회사", "기준", "판정"], body);

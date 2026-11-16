@@ -8,6 +8,7 @@ from pathlib import Path
 from vsf.changes import Change
 from vsf.evaluate import RunResult, StockResult
 from vsf.extras import Extras
+from vsf.financial import CAPITAL_LABELS
 from vsf.model import inputs_to_dict
 from vsf.snapshot import Snapshot, run_counts
 
@@ -23,6 +24,15 @@ def _extras(e: Extras | None) -> dict | None:
     return d
 
 
+def _financial(r: StockResult) -> dict | None:
+    g = r.financial
+    if g is None:
+        return None
+    return {"kind": g.kind, "capital_label": CAPITAL_LABELS.get(g.kind), "capital_min": g.capital_min,
+            "capital": None if g.capital is None else
+            {"value": g.capital.value, "base_month": g.capital.base_month, "source": g.capital.source}}
+
+
 def _stock(r: StockResult, extras: Extras | None, settings) -> dict:
     a = r.assembled
     return {
@@ -34,6 +44,7 @@ def _stock(r: StockResult, extras: Extras | None, settings) -> dict:
         "sources": dict(a.sources), "quick_fail": a.quick_fail,
         "criteria": asdict(r.criteria), "criteria_overridden": r.criteria != settings.criteria,
         "extra_gate1": r.extra_gate1, "extras": _extras(extras),
+        "financial": _financial(r),
     }
 
 
@@ -52,6 +63,8 @@ def build_payload(run: RunResult, changes: list[Change], crit_changes: list[dict
             "partial": bool(c.pending), "first_run": prev is None,
             "year_end_missing": list(c.year_end_missing),
             "criteria": run.settings_fp, "criteria_changes": crit_changes,
+            "financial_started": bool(prev is not None and "financial" not in prev.settings_fp
+                                      and settings.financial.include),
         },
         "summary": {**run_counts(run), "prev": prev.counts if prev else None},
         "changes": [{"code": x.code, "name": x.name, "kind": x.kind, "causes": list(x.causes)}

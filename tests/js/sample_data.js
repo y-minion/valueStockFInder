@@ -55,6 +55,19 @@ function stock(code, name, o) {
   };
 }
 
+function finStock() {
+  const c = cells({
+    B79: null, C79: "해당 없음", D79: "해당 없음", B80: null, C80: "해당 없음", D80: "해당 없음",
+    B81: null, C81: "해당 없음", D81: "해당 없음", B89: null, C89: "해당 없음", D89: "해당 없음",
+    F_LOSS_B: 0, F_LOSS_C: "0년", F_LOSS_D: "통과", F_CAP_B: null, F_CAP_C: "9 이상", F_CAP_D: "직접 확인",
+    F_CAP_SRC: "자본비율은 금감원 금융통계정보시스템(fisis.fss.or.kr)이나 사업보고서 '자본적정성'에서 확인해 주세요.",
+  });
+  const s = stock("105560", "KB금융", { cells: c, state: "watch", ratio: 0.9, drop: 0.1 });
+  s.financial = { kind: "금융지주", capital_label: "보통주자본비율", capital_min: 9, capital: null };
+  s.inputs.years.forEach((y) => { y.debt_ratio = null; y.interest_coverage = null; y.ocf = null; y.capex = null; });
+  return s;
+}
+
 const extras = {
   disclosures: [{ date: "2026-11-10", title: "분기보고서", url: "https://dart.fss.or.kr/x" }],
   news: [{ title: "뉴스 제목 & 요약", url: "https://example.com/n", date: "2026-11-12" }],
@@ -72,6 +85,7 @@ const stocks = {
   "000270": stock("000270", "기아", { state: "out", gate3: "탈락", ratio: 1.3, drop: 0.5 }),
   F: stock("F", "차카타화학", { state: "watch", ratio: 0.85, drop: 0.13, flags: ["2024년 DPS가 보고서마다 달라요."] }),
   X: stock("X", "<script>alert(1)</script>", { state: "watch", ratio: 0.9, drop: 0.2, industry: null }),
+  "105560": finStock(),
   Q: stock("Q", "빠른탈락", { state: "out", quick_fail: true, cells: failCells, notes: ["배당 보고서만 받았어요"] }),
 };
 

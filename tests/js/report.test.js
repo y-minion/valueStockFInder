@@ -171,3 +171,20 @@ test('watchlist industry column shows rank and median', () => {
   d.stocks.A.industry.roe_rank_pct = null;
   assert.ok(r.renderIndex(d).includes('<td class="num">—</td>'));
 });
+
+test('financial card shows sector rows and not-applicable rows', () => {
+  const h = r.renderStock(data, '105560');
+  for (const s of ['금융지주 · 금융업 기준으로 판정했어요', '최근 5년 적자 없음', '보통주자본비율', '해당 없음',
+                   '자본비율은 금감원 금융통계정보시스템']) assert.ok(h.includes(s), s);
+});
+test('financial chip in the watchlist and the start banner', () => {
+  const d = { ...data, run: { ...data.run, financial_started: true }, watchlist: [...data.watchlist, '105560'] };
+  const h = r.renderIndex(d);
+  assert.ok(h.includes('금융회사를 금융업 기준으로 분석하기 시작했어요') && h.includes('chip info">금융<'));
+});
+test('old data without financial fields still renders', () => {
+  const d = JSON.parse(JSON.stringify(data));
+  delete d.stocks['105560'].financial; delete d.run.financial_started;
+  assert.doesNotThrow(() => r.renderStock(d, '105560'));
+  assert.ok(!r.renderStock(d, '105560').includes('금융업 기준으로 판정'));
+});

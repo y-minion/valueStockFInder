@@ -67,7 +67,7 @@ def test_run_section_and_stock_entry_shape():
     s = p["stocks"]["000270"]
     assert set(s) == {"name", "code", "market", "latest_year", "industry", "inputs", "cells", "summary",
                       "state", "near", "flags", "notes", "sources", "quick_fail", "criteria",
-                      "criteria_overridden", "extra_gate1", "extras"}
+                      "criteria_overridden", "extra_gate1", "extras", "financial"}
     assert s["market"] == "KOSPI" and s["latest_year"] == 2025 and s["industry"] is None
     assert len(s["cells"]) == 152
     assert isinstance(s["flags"], list) and isinstance(s["notes"], list)
@@ -136,3 +136,32 @@ def test_nan_raises(tmp_path):
     p["stocks"]["000270"]["summary"]["ratio"] = float("nan")
     with pytest.raises(ValueError):
         write_report(p, tmp_path)
+
+
+def test_financial_dict_and_started_flag():
+    from vsf.financial import CapitalRatio, FinancialGate
+    base = RUN_1114.results["000270"]
+    p = build_payload(RUN_1114, [], [], None, {}, S)
+    assert p["stocks"]["000270"]["financial"] is None
+    g = FinancialGate("보험", CapitalRatio(210.5, "2026-09", "FISIS"), 130.0)
+    r = RunResult(collected=RUN_1114.collected, settings_fp=RUN_1114.settings_fp,
+                  results={"000270": replace(base, financial=g)})
+    f = build_payload(r, [], [], None, {}, S)["stocks"]["000270"]["financial"]
+    assert f == {"kind": "보험", "capital_label": "지급여력비율(K-ICS)", "capital_min": 130.0,
+                 "capital": {"value": 210.5, "base_month": "2026-09", "source": "FISIS"}}
+    g2 = FinancialGate("증권", None, 100.0)
+    r2 = RunResult(collected=RUN_1114.collected, settings_fp=RUN_1114.settings_fp,
+                   results={"000270": replace(base, financial=g2)})
+    assert build_payload(r2, [], [], None, {}, S)["stocks"]["000270"]["financial"]["capital"] is None
+
+
+def test_financial_started_only_for_old_snapshot_with_include():
+    from dataclasses import replace as rep
+    old = snap_only("000270")
+    assert "financial" not in old.settings_fp
+    assert build_payload(RUN_1114, [], [], old, {}, S)["run"]["financial_started"] is True
+    assert build_payload(RUN_1114, [], [], None, {}, S)["run"]["financial_started"] is False
+    new = rep(old, settings_fp={**old.settings_fp, "financial": {}})
+    assert build_payload(RUN_1114, [], [], new, {}, S)["run"]["financial_started"] is False
+    off = rep(S, financial=rep(S.financial, include=False))
+    assert build_payload(RUN_1114, [], [], old, {}, off)["run"]["financial_started"] is False

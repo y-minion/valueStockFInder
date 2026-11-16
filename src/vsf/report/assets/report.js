@@ -189,7 +189,7 @@ function indexHead(data) {
 // 비율 항목은 config.py의 _RATE_KEYS와 같아요.
 var CRIT_RATE = ["required_return", "safety_margin", "payout_min", "payout_max", "abnormal_ratio",
   "isa_weight_max", "watch_range", "near_range"];
-var CRIT_PERCENT = ["roe_min", "debt_ratio_max", "roe_top_percent"];
+var CRIT_PERCENT = ["roe_min", "debt_ratio_max", "roe_top_percent", "bank_cet1_min", "insurer_kics_min", "securities_ncr_min"];
 var CRIT_TIMES = ["interest_coverage_min", "ocf_to_ni_min", "fcf_to_div_min"];
 function critNumber(key, v) {
   if (CRIT_RATE.indexOf(key) >= 0) return pctText(v);
@@ -218,6 +218,7 @@ function banners(data) {
     out += banner("지난 실행과 기준이 달라졌어요: " + c.label + " " + critValue(c.old, false, c.key) + " → " +
       critValue(c.new, false, c.key), "warn");
   });
+  if (r.financial_started) out += banner("금융회사를 금융업 기준으로 분석하기 시작했어요", "info");
   if (r.first_run) out += banner("첫 실행이라 비교할 지난 결과가 없어요", "info");
   return out;
 }
@@ -249,7 +250,7 @@ function watchTable(data) {
   if (!list.length) return h + '<p class="muted">지금 관심 목록에 든 종목이 없어요.</p>';
   var rows = list.map(function (code) {
     var s = data.stocks[code], m = s.summary, ind = s.industry;
-    return "<tr><td>" + stockLink(code, s.name) + flagChip(s) + '<div class="muted">' + esc(ind ? ind.group_name : "업종 정보 없음") + "</div></td><td>" +
+    return "<tr><td>" + stockLink(code, s.name) + flagChip(s) + (s.financial ? " " + chip("금융", "info") : "") + '<div class="muted">' + esc(ind ? ind.group_name : "업종 정보 없음") + "</div></td><td>" +
       gateBadge(1, m.gate1) + " " + gateBadge(2, m.gate2) + " " + gateBadge(3, m.gate3) + '</td><td class="num">' + fmt(m.ratio, "d2") +
       '</td><td class="num">' + fmt(m.drop == null ? null : Math.round(m.drop * 100) / 100, "pct0") + '</td><td class="num">' + fmt(m.yield_now, "pct") +
       "</td><td>" + fmt(m.method) + '</td><td class="num">' + industryRank(ind) +
@@ -303,13 +304,14 @@ function colTable(s, rows, headRow) {
   }));
 }
 function inputTable(s) {
-  var y = s.inputs.years || [], src = s.sources || {};
+  var y = s.inputs.years || [], src = s.sources || {}, fin = !!s.financial;
   var defs = [[27, "eps", "won"], [28, "per", "d2"], [29, "dps", "won"], [30, "roe", "raw"], [31, "debt_ratio", "raw"],
     [32, "interest_coverage", "d2"], [33, "net_income", "raw"], [34, "ocf", "raw"], [35, "capex", "raw"], [36, "dividends_paid", "raw"]];
   var head = [LABELS[26]].concat(y.map(function (v) { return v.year == null ? "—" : String(v.year); }));
   var rows = defs.map(function (d) {
     return "<tr><td>" + esc(LABELS[d[0]]) + "</td>" + COLS.map(function (col, i) {
       var t = src[col + d[0]];
+      if (fin && [31, 32, 34, 35].indexOf(d[0]) >= 0) return '<td class="num">해당 없음</td>';
       return '<td class="num"' + (t ? ' title="' + esc(t) + '"' : "") + ">" + fmt(y[i] ? y[i][d[1]] : null, d[2]) + "</td>";
     }).join("") + "</tr>";
   });
@@ -335,7 +337,8 @@ function sourceTable(s) {
   return "<h4>칸별 출처</h4>" + rowsTable(["칸", "출처"], rows);
 }
 function cardHead(s) {
-  var chips = flagChip(s) + (s.criteria_overridden ? " " + chip("업종 기준 적용", "info") : "");
+  var chips = flagChip(s) + (s.criteria_overridden ? " " + chip("업종 기준 적용", "info") : "") +
+    (s.financial ? " " + chip(s.financial.kind + " · 금융업 기준으로 판정했어요", "info") : "");
   return '<p><a href="index.html">← 첫 페이지</a></p><h1>' + esc(s.name) + " (" + esc(s.code) + ")" + chips + '</h1><p class="muted">' +
     esc(s.industry ? s.industry.group_name : "업종 정보 없음") + " · " + esc(s.market) + " · 최근 연도 " + esc(s.latest_year) + "</p>";
 }
@@ -359,17 +362,29 @@ function priceBox(s) {
     '<p class="next">' + fmt(c.B15) + "</p></div>";
 }
 function crit(c, row) { var k = "C" + row; return fmt(c[k] != null && c[k] !== "" ? c[k] : STATIC_CRIT[k]); }
+function gate1Row(c, g) {
+  return tr([esc(LABELS[g[0]]), fmt(c["B" + g[0]], g[1]), crit(c, g[0]), verdictCell(c["D" + g[0]])]);
+}
 function gate1Table(s, data) {
-  var c = s.cells, body = [[78, "raw"], [79, "raw"], [80, "d2"], [81, "d2"]].map(function (g) {
-    return tr([esc(LABELS[g[0]]), fmt(c["B" + g[0]], g[1]), crit(c, g[0]), verdictCell(c["D" + g[0]])]);
-  });
+  var c = s.cells, fin = s.financial, body, after = "";
+  if (fin) {
+    var cap = fin.capital;
+    body = [gate1Row(c, [78, "raw"]),
+      tr(["최근 5년 적자 없음", isNum(c.F_LOSS_B) ? "적자 " + fmt(c.F_LOSS_B, "raw") + "년" : "—", fmt(c.F_LOSS_C), verdictCell(c.F_LOSS_D)]),
+      tr([esc(fin.capital_label || "자본비율"), isNum(c.F_CAP_B) ? fmt(c.F_CAP_B, "raw") + "%" + (cap && cap.base_month ? " (" + esc(cap.base_month) + ")" : "") : "—",
+        fmt(c.F_CAP_C), verdictCell(c.F_CAP_D)])];
+    [79, 80, 81].forEach(function (row) { body.push(tr([esc(LABELS[row]), "—", "해당 없음", "해당 없음"])); });
+    if (c.F_CAP_D === "직접 확인" && c.F_CAP_SRC) after = '<p class="muted">' + esc(c.F_CAP_SRC) + "</p>";
+  } else {
+    body = [[78, "raw"], [79, "raw"], [80, "d2"], [81, "d2"]].map(function (g) { return gate1Row(c, g); });
+  }
   if (s.extra_gate1) {
     var ind = s.industry, pct = ((data.run.criteria || {}).industry || {}).roe_top_percent;
     body.push(tr(["업종 안 ROE 순위", ind && isNum(ind.roe_rank_pct) ? "상위 " + fmt(ind.roe_rank_pct, "raw") + "%" : "—",
       "상위 " + fmt(pct, "raw") + "% 이내", verdictCell(s.extra_gate1)]));
   }
   body.push(tr(["<b>" + esc(LABELS[82]) + "</b>", "", "", verdictCell(c.D82)]));
-  return rowsTable(["항목", "이 회사", "기준", "판정"], body);
+  return rowsTable(["항목", "이 회사", "기준", "판정"], body) + after;
 }
 function gate2Table(s) {
   var c = s.cells, body = [[86, "raw"], [87, "raw"], [88, "pct"], [89, "d2"]].map(function (g) {

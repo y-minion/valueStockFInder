@@ -94,7 +94,7 @@ def approx_cells(cells: dict, exclude: Iterable[str] = ()) -> dict:
 
 
 RECORDED_DART = ROOT / "tests" / "fixtures" / "dart" / "recorded"
-_RECORDED_FIN = {"kia": "000270", "cheil": "030000"}
+_RECORDED_FIN = {"kia": "000270", "cheil": "030000", "kb": "105560", "samsungfire": "000810", "samsungsec": "016360"}
 _NO_ID = "-표준계정코드 미사용-"
 
 

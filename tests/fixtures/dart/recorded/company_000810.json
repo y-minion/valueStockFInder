@@ -1,0 +1,21 @@
+{
+  "status": "000",
+  "message": "정상",
+  "corp_code": "00139214",
+  "corp_name": "삼성화재해상보험(주)",
+  "corp_name_eng": "SAMSUNG FIRE & MARINE INSURANCE CO.,LTD",
+  "stock_name": "삼성화재해상보험",
+  "stock_code": "000810",
+  "ceo_nm": "이문화",
+  "corp_cls": "Y",
+  "jurir_no": "1101110005078",
+  "bizr_no": "2028145617",
+  "adres": "서울특별시 서초구 서초대로74길 14 (서초동)",
+  "hm_url": "www.samsungfire.com",
+  "ir_url": "",
+  "phn_no": "02-1588-5114",
+  "fax_no": "0505-161-1614",
+  "induty_code": "65121",
+  "est_dt": "19520126",
+  "acc_mt": "12"
+}

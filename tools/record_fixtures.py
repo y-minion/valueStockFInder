@@ -24,7 +24,7 @@ from vsf.data.dart import BASE as DART_BASE  # noqa: E402
 from vsf.data.krx import BASE as KRX_BASE  # noqa: E402
 from vsf.data.krx import BASE_FIELDS, DAILY_FIELDS  # noqa: E402
 
-COMPANIES = {"기아": "000270", "제일기획": "030000"}
+COMPANIES = {"기아": "000270", "제일기획": "030000", "KB금융": "105560", "삼성화재": "000810", "삼성증권": "016360"}
 RAW_FIRST_ROWS = "_raw_first_rows.json"
 
 

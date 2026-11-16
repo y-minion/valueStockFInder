@@ -5,6 +5,8 @@ from vsf.data.accounts import extract
 from vsf.data.dart import FinRows
 from vsf.data.krx import Listed
 
+# 외국 회사 주식. KRX 증권구분 값 (2026-11-16 실제 응답에서 확인). 사용자: "지금은 국내 주식만"
+FOREIGN_GROUPS = ("외국주권", "주식예탁증권")
 HOLDING_PREFIX = "64992"
 FINANCIAL_DIVISIONS = ("64", "65", "66")
 FINANCIAL_KINDS = ("금융지주", "은행", "보험", "증권", "카드·캐피탈")
@@ -27,6 +29,8 @@ def listing_exclusion(item: Listed) -> str | None:
         return "리츠"
     if "스팩" in item.name or "기업인수목적" in item.name:
         return "스팩"
+    if item.group in FOREIGN_GROUPS:
+        return "외국 회사"
     if item.group and "주권" not in item.group:
         return "투자회사 등"
     return None

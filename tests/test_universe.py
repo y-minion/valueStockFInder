@@ -28,7 +28,10 @@ def fin_with(**kw):
     (L(kind="", code="005935"), "우선주"), (L(kind=None, code="005935"), "우선주"),
     (L(kind="", code="005930"), None), (L(kind=None, code="005930"), None),
     # group 비었으면 투자회사 등으로 제외하지 않아요
-    (L(group=""), None), (L(group=None), None)])
+    (L(group=""), None), (L(group=None), None),
+    # 외국 회사 주식(외국주권·주식예탁증권)은 빼요. 사용자: "지금은 국내 주식만"
+    (L(group="외국주권", name="엘브이엠씨홀딩스", code="900140"), "외국 회사"),
+    (L(group="주식예탁증권", name="어떤DR"), "외국 회사")])
 def test_listing_exclusion(item, want):
     assert listing_exclusion(item) == want
 

@@ -1,0 +1,74 @@
+{
+  "OutBlock_1": [
+    {
+      "ISU_CD": "KR7095570008",
+      "ISU_SRT_CD": "095570",
+      "ISU_NM": "AJ네트웍스보통주",
+      "ISU_ABBRV": "AJ네트웍스",
+      "ISU_ENG_NM": "AJ Networks Co.,Ltd.",
+      "LIST_DD": "20150821",
+      "MKT_TP_NM": "KOSPI",
+      "SECUGRP_NM": "주권",
+      "SECT_TP_NM": "",
+      "KIND_STKCERT_TP_NM": "보통주",
+      "PARVAL": "1000",
+      "LIST_SHRS": "45252759"
+    },
+    {
+      "ISU_CD": "KR7001461003",
+      "ISU_SRT_CD": "001465",
+      "ISU_NM": "BYC1우선주",
+      "ISU_ABBRV": "BYC우",
+      "ISU_ENG_NM": "BYC(1P)",
+      "LIST_DD": "19890905",
+      "MKT_TP_NM": "KOSPI",
+      "SECUGRP_NM": "주권",
+      "SECT_TP_NM": "",
+      "KIND_STKCERT_TP_NM": "구형우선주",
+      "PARVAL": "500",
+      "LIST_SHRS": "2153850"
+    },
+    {
+      "ISU_CD": "KR7365550003",
+      "ISU_SRT_CD": "365550",
+      "ISU_NM": "ESR켄달스퀘어리츠보통주",
+      "ISU_ABBRV": "ESR켄달스퀘어리츠",
+      "ISU_ENG_NM": "ESR KENDALL SQUARE REIT",
+      "LIST_DD": "20201223",
+      "MKT_TP_NM": "KOSPI",
+      "SECUGRP_NM": "부동산투자회사",
+      "SECT_TP_NM": "",
+      "KIND_STKCERT_TP_NM": "보통주",
+      "PARVAL": "1000",
+      "LIST_SHRS": "246089000"
+    },
+    {
+      "ISU_CD": "KR7000270009",
+      "ISU_SRT_CD": "000270",
+      "ISU_NM": "기아보통주",
+      "ISU_ABBRV": "기아",
+      "ISU_ENG_NM": "KIA CORPORATION",
+      "LIST_DD": "19730721",
+      "MKT_TP_NM": "KOSPI",
+      "SECUGRP_NM": "주권",
+      "SECT_TP_NM": "",
+      "KIND_STKCERT_TP_NM": "보통주",
+      "PARVAL": "5000",
+      "LIST_SHRS": "390412998"
+    },
+    {
+      "ISU_CD": "KR7030000004",
+      "ISU_SRT_CD": "030000",
+      "ISU_NM": "제일기획보통주",
+      "ISU_ABBRV": "제일기획",
+      "ISU_ENG_NM": "CheilWorldwide",
+      "LIST_DD": "19980303",
+      "MKT_TP_NM": "KOSPI",
+      "SECUGRP_NM": "주권",
+      "SECT_TP_NM": "",
+      "KIND_STKCERT_TP_NM": "보통주",
+      "PARVAL": "200",
+      "LIST_SHRS": "101278725"
+    }
+  ]
+}

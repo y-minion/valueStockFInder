@@ -1,0 +1,18 @@
+{
+  "OutBlock_1": [
+    {
+      "ISU_CD": "KR7482520004",
+      "ISU_SRT_CD": "482520",
+      "ISU_NM": "교보16호기업인수목적",
+      "ISU_ABBRV": "교보16호스팩",
+      "ISU_ENG_NM": "Kyobo 16 Special Purpose Acquisition Company",
+      "LIST_DD": "20240813",
+      "MKT_TP_NM": "KOSDAQ",
+      "SECUGRP_NM": "주권",
+      "SECT_TP_NM": "SPAC(소속부없음)",
+      "KIND_STKCERT_TP_NM": "보통주",
+      "PARVAL": "100",
+      "LIST_SHRS": "6100000"
+    }
+  ]
+}

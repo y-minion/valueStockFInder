@@ -1,6 +1,7 @@
 """금융감독원 금융통계정보시스템(FISIS) OPEN API: 금융회사 자본비율. 오류 메시지에는 인증키를 넣지 않아요."""
 from __future__ import annotations
 
+import math
 import re
 import time
 from collections.abc import Callable
@@ -24,6 +25,7 @@ TABLES: dict[str, list[tuple[str, str, tuple[str, ...]]]] = {
 _AUTH_CODES = {"010", "011", "012", "013"}
 _CLOSED = ("[폐]", "[closed]")
 _KR_DROP = re.compile(r"\(주\)|주식회사|\s+")
+_HANGUL = re.compile(r"[가-힣ㄱ-ㅣ]")
 _EN_DROP = re.compile(r"[^a-z0-9]")
 
 
@@ -48,12 +50,20 @@ def _ym(d: date, back_months: int = 0) -> str:
     return f"{m // 12:04d}{m % 12 + 1:02d}"
 
 
+def _rows(result: dict) -> list[dict]:
+    """응답의 list를 검사해요. 목록이 아니거나 항목이 객체가 아니면 FisisError."""
+    rows = result.get("list") or []
+    if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
+        raise FisisError("금감원 FISIS 응답 형식이 달라요")
+    return rows
+
+
 def _positive(v) -> float | None:
     try:
         x = float(str(v).replace(",", "").strip())
     except ValueError:
         return None
-    return x if x > 0 else None
+    return x if math.isfinite(x) and x > 0 else None
 
 
 class FisisClient:
@@ -106,7 +116,7 @@ class FisisClient:
         cached = self._store.get_json(key)
         if cached is None:
             result = self._call("companySearch", {"lang": lang, "partDiv": part_div})
-            rows = result.get("list") or []
+            rows = _rows(result)
             try:
                 cached = [[r["finance_cd"], r["finance_nm"]] for r in rows
                           if not any(t in r["finance_nm"] for t in _CLOSED)]
@@ -117,7 +127,8 @@ class FisisClient:
 
     def _match(self, part_div: str, names: tuple[str, ...]) -> str | None:
         for lang, norm in (("kr", _kr), ("en", _en)):
-            wanted = {norm(n) for n in names if n} - {""}
+            # 영문 목록에는 한글이 없는 이름(corp_name_eng)만 비교해요. 한글 이름이 "kb"처럼 줄어 잘못 맞는 걸 막아요.
+            wanted = {norm(n) for n in names if n and (lang == "kr" or not _HANGUL.search(n))} - {""}
             for code, name in self.companies(part_div, lang):
                 if norm(name) in wanted:
                     return code
@@ -132,17 +143,17 @@ class FisisClient:
         result = self._call("statisticsInfoSearch", {
             "lang": "kr", "financeCd": finance_cd, "listNo": list_no, "term": "Q",
             "startBaseMm": _ym(today, 12), "endBaseMm": _ym(today)})
-        rows = result.get("list") or []
+        rows = _rows(result)
         found: CapitalRatio | None = None
-        for acc in accounts:
-            good = [(str(r.get("base_month", "")), v, r) for r in rows
-                    if r.get("account_cd") == acc and (v := _positive(r.get("a"))) is not None]
-            if good:
-                month, value, row = max(good, key=lambda t: t[0])
-                found = CapitalRatio(
-                    value=value, base_month=f"{month[:4]}-{month[4:6]}",
-                    source=f"금감원 금융통계정보시스템 {list_no}·{row.get('account_nm') or acc}")
-                break
+        good = [(str(r.get("base_month", "")), accounts.index(r["account_cd"]), v, r) for r in rows
+                if r.get("account_cd") in accounts and (v := _positive(r.get("a"))) is not None]
+        if good:        # 값이 있는 가장 최근 달을 먼저 고르고, 그 달 안에서 계정 우선순위를 따라요
+            month = max(g[0] for g in good)
+            _, pref, value, row = min((g for g in good if g[0] == month), key=lambda g: g[1])
+            acc = accounts[pref]
+            found = CapitalRatio(
+                value=value, base_month=f"{month[:4]}-{month[4:6]}",
+                source=f"금감원 금융통계정보시스템 {list_no}·{row.get('account_nm') or acc}")
         self._store.put_json(key, {"value": found.value, "base_month": found.base_month,
                                    "source": found.source} if found else {})
         return found

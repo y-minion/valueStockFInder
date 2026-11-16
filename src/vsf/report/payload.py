@@ -57,7 +57,7 @@ def build_payload(run: RunResult, changes: list[Change], crit_changes: list[dict
     watch = [(code, r) for code, r in run.results.items() if r.state in ("buy", "watch")]
     watch.sort(key=lambda kv: (kv[1].summary.ratio is None, kv[1].summary.ratio or 0.0, kv[0]))
     near = [(code, r) for code, r in run.results.items() if r.state == "out" and near_miss_state(
-        r.cells, boundaries(r.cells, r.criteria, r.financial), settings.report) in ("buy", "watch")]
+        r.cells, boundaries(r.cells, r.criteria, r.financial), settings.report, r.extra_gate1) in ("buy", "watch")]
     near.sort(key=lambda kv: (kv[1].summary.ratio is None, kv[1].summary.ratio or 0.0, kv[0]))
     return {
         "schema": SCHEMA,

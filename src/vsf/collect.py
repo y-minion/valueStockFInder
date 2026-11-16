@@ -157,6 +157,9 @@ def _capital(ctx: _Context, info: CompanyInfo, raw: dict, item: Listed) -> tuple
         return None, (FISIS_KEY_NOTE,)
     except (FisisError, NetworkError):
         return None, (FISIS_FAIL_NOTE,)
+    except Exception:                         # FISIS 때문에 종목이 빠지면 안 돼요
+        log.exception("FISIS 자본비율 처리 중 예기치 못한 오류 (%s)", item.code)
+        return None, (FISIS_FAIL_NOTE,)
 
 
 def _defer(result: Collected, items: list[Listed]) -> None:

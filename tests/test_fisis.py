@@ -155,3 +155,61 @@ def test_calls_are_counted():
     c, fake = client()
     c.companies("L", "kr")
     assert c._store.count_calls("fisis", TODAY) == 1
+
+
+def _rows_client(stat_rows, kind_part="H"):
+    """통계 응답을 직접 지정한 클라이언트. 회사 목록은 녹화본을 써요."""
+    def handler(request):
+        q = request.url.params
+        if request.url.path.endswith("companySearch.json"):
+            return httpx.Response(200, json=_load(f"company_{q['partDiv']}_{q['lang']}"))
+        return httpx.Response(200, json={"result": {"err_cd": "000", "err_msg": "정상", "list": stat_rows}})
+    return FisisClient(KEY, mem_store(), http=httpx.Client(transport=httpx.MockTransport(handler)),
+                       today=lambda: TODAY, min_interval=0, sleep=lambda s: None)
+
+
+def _life_cd():
+    c, _ = client()
+    return next(cd for cd, nm in c.companies("H", "kr") if "삼성생명" in nm)
+
+
+def _row(month, acc, a, nm="지급여력비율"):
+    return {"base_month": month, "account_cd": acc, "account_nm": nm, "a": a, "finance_cd": "x"}
+
+
+@pytest.mark.parametrize("bad", [{"result": {"err_cd": "000", "list": "oops"}},
+                                 {"result": {"err_cd": "000", "list": ["x", 3]}},
+                                 {"result": {"err_cd": "000", "list": [None]}}])
+def test_malformed_list_raises_fisis_error(bad):
+    def handler(request):
+        return httpx.Response(200, json=bad)
+    c = FisisClient(KEY, mem_store(), http=httpx.Client(transport=httpx.MockTransport(handler)),
+                    today=lambda: TODAY, min_interval=0, sleep=lambda s: None)
+    with pytest.raises(FisisError):
+        c.companies("L", "kr")
+    with pytest.raises(FisisError):
+        c._latest("0012028", "SL008", ("C2",))
+
+
+def test_insurer_fallback_uses_latest_month_with_any_positive_account():
+    rows = [_row("202512", "D", "120"), _row("202606", "D", "0"), _row("202606", "A", "208")]
+    got = _rows_client(rows)._latest(_life_cd(), "SH021", ("D", "A"))
+    assert got.value == 208.0 and got.base_month == "2026-06"
+
+
+def test_korean_names_never_match_english_list():
+    c, _ = client()
+    en_names = {nm for _, nm in c.companies("L", "en")}
+    assert en_names
+    # 한글 이름은 영문 목록과 비교하지 않아요: 영문 목록에 있는 이름이 "kb"로 줄어드는 상황을 만들어요
+    c._store.put_json(f"fisis:companies:L:en:{'202611'}", [["EN1", "KB"]])
+    c._store.put_json(f"fisis:companies:L:kr:{'202611'}", [["KR1", "다른회사"]])
+    assert c._match("L", ("KB금융", "", "")) is None
+    assert c._match("L", ("DB손해보험(주)", "", "")) is None
+    assert c._match("L", ("", "KB", "")) == "EN1"
+
+
+def test_non_finite_value_is_rejected():
+    from vsf.data.fisis import _positive
+    assert _positive("inf") is None and _positive("nan") is None and _positive("1e999") is None
+    assert _positive("1,234.5") == 1234.5

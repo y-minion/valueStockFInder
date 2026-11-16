@@ -96,7 +96,7 @@ def test_include_false_keeps_old_exclusions():
 
 def test_holding_without_statements_fails_instead_of_general_verdict():
     c = run(FakeDart.with_company("000270", induty_code="64992", fin={}))
-    # 030000 is in the fake KRX list but not in this one-company fake DART, so it fails too
+    # 030000은 가짜 KRX 목록에는 있지만 회사 한 곳뿐인 가짜 DART에는 없어서 함께 실패해요
     assert [f for f in c.failed if f[0] == "000270"] == [("000270", "기아", NO_FIN.format(year=2025))]
     assert "000270" not in c.records
 
@@ -276,12 +276,19 @@ def test_fisis_is_not_called_for_non_financial_or_card_stocks():
     fake = FakeFisis(CapitalRatio(1.0, "2026-06", "x"))
     c = collect(FakeDart.default(), FakeKrx.default(), mem_store(), D, progress=noop, fisis=fake)
     assert fake.calls == [] and c.records["000270"][1].capital is None
-    cards = FakeDart({"000270": FakeDart.entry(induty_code="64921")})
+    cards = FakeDart({"000270": FakeDart.entry(induty_code="64911")})
     collect(cards, FakeKrx.default(), mem_store(), D, progress=noop, fisis=fake)
-    assert all(k != "카드·캐피탈" for k, _ in fake.calls)
+    assert fake.calls == []
 
 
 def test_collect_one_passes_fisis():
     cap = CapitalRatio(13.2, "2026-06", "x")
     got = collect_one(two_banks(), FakeKrx.default(), mem_store(), D, "000270", fisis=FakeFisis(cap))
     assert got[1].capital == cap
+
+
+def test_unexpected_fisis_exception_still_analyzes_stock_with_note():
+    bad = FakeFisis(error=AttributeError("boom"))
+    c = collect(two_banks(), FakeKrx.default(), mem_store(), D, progress=noop, fisis=bad)
+    a = c.records["000270"][1]
+    assert a.capital is None and FISIS_FAIL_NOTE in a.notes and c.failed == [] and len(c.records) == 2

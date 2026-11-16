@@ -57,7 +57,10 @@ def boundaries(cells: SheetValues, criteria: Criteria, financial: FinancialGate 
     return tuple(b for b in out if b is not None)
 
 
-def near_miss_state(cells: SheetValues, bounds: tuple[Boundary, ...], report: ReportSettings) -> str | None:
+def near_miss_state(cells: SheetValues, bounds: tuple[Boundary, ...], report: ReportSettings,
+                    extra_gate1: str | None = None) -> str | None:
+    if extra_gate1 == "탈락":        # 업종 안 ROE 순위로 떨어진 종목은 경계 근처가 아니에요
+        return None
     if "탈락" not in (cells.get("D82"), cells.get("D90")):
         return None
     failed = {b.cell for b in bounds if not b.passed}

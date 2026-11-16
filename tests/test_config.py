@@ -117,7 +117,7 @@ def test_financial_defaults_and_fingerprint(tmp_path):
 
 
 def test_shipped_settings_have_financial_defaults():
-    assert load_settings(Path("settings.toml")).financial == FinancialSettings()
+    assert load_settings(ROOT / "settings.toml").financial == FinancialSettings()
 
 
 @pytest.mark.parametrize("body,msg", [

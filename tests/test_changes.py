@@ -77,3 +77,50 @@ def test_change_cause_uses_sector_verdict():
     assert state == "buy"
     ch = detect_changes(prev, replace(r, results={"000270": res}), rep)
     assert ch == [Change("000270", "기아", "new_buy", ("재무 갱신",))]
+
+
+def _financial_run(r, gate, rep):
+    from dataclasses import replace
+
+    from vsf.engine import compute, is_near, summarize, watch_state
+    cur = r.results["000270"]
+    cells = compute(cur.assembled.inputs, Criteria(), None, financial=gate)
+    summary = summarize(cells)
+    state = watch_state(summary, rep)
+    res = replace(cur, cells=cells, summary=summary, state=state, financial=gate,
+                  near=state != "out" and is_near(summary, rep))
+    return replace(r, results={"000270": res}), state
+
+
+def _prev_with(gate, state):
+    from dataclasses import replace
+
+    from helpers import _kia_inputs
+    from vsf.snapshot import SnapStock
+    prev0 = snap(kia_price=60000)
+    return replace(prev0, stocks={"000270": SnapStock(
+        name="기아", inputs=_kia_inputs(60000.0), criteria=Criteria(), extra_gate1=None,
+        state=state, near=False, financial=gate)})
+
+
+def test_capital_min_change_is_criteria_cause():
+    from vsf.financial import CapitalRatio, FinancialGate
+    rep = ReportSettings()
+    cap = CapitalRatio(140.0, "2026-06", "x")
+    old, new = FinancialGate("보험", cap, 130.0), FinancialGate("보험", cap, 150.0)
+    _, s_old = _financial_run(run(kia_price=60000), old, rep)
+    cur, s_new = _financial_run(run(kia_price=60000), new, rep)
+    assert s_old == "buy" and s_new == "out"
+    ch = detect_changes(_prev_with(old, s_old), cur, rep)
+    assert ch == [Change("000270", "기아", "left", ("기준 변경",))]
+
+
+def test_previous_week_without_financial_uses_current_gate():
+    from vsf.financial import CapitalRatio, FinancialGate
+    rep = ReportSettings()
+    gate = FinancialGate("보험", CapitalRatio(100.0, "2026-06", "x"), 130.0)
+    cur, state = _financial_run(run(kia_price=60000), gate, rep)
+    assert state == "out"
+    prev = snap(kia_price=60000)
+    assert prev.stocks["000270"].financial is None and prev.stocks["000270"].state == "buy"
+    assert detect_changes(prev, cur, rep) == [Change("000270", "기아", "left", ("기준 변경",))]

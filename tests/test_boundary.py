@@ -43,3 +43,11 @@ def test_near_miss_watch_and_out():
     assert near_miss_state(cells, b, ReportSettings()) == "watch"
     cells["B109"] = 0.5
     assert near_miss_state(cells, b, ReportSettings()) == "out"
+
+
+def test_near_miss_is_none_when_industry_verdict_failed():
+    cells = {"B78": 7.6, "D78": "탈락", "D82": "탈락", "D110": "통과", "B109": 0.0}
+    b = boundaries(cells, Criteria(), None)
+    assert near_miss_state(cells, b, ReportSettings()) == "buy"
+    assert near_miss_state(cells, b, ReportSettings(), extra_gate1="탈락") is None
+    assert near_miss_state(cells, b, ReportSettings(), extra_gate1="통과") == "buy"

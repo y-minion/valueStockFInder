@@ -226,3 +226,13 @@ test('criteria page without data shows fallback', () => {
   const d = { ...data }; delete d.criteria_check;
   assert.ok(r.renderCriteria(d).includes('이 리포트에는 기준 점검 자료가 없어요'));
 });
+
+test('capital row shows value, base month and source when a ratio is present', () => {
+  const d = JSON.parse(JSON.stringify(data));
+  const s = d.stocks['105560'];
+  const src = '금감원 금융통계정보시스템 SL008·보통주자본비율 (2026-06 기준)';
+  Object.assign(s.cells, { F_CAP_B: 13.2, F_CAP_D: '통과', F_CAP_SRC: src });
+  s.financial.capital = { value: 13.2, base_month: '2026-06', source: '금감원 금융통계정보시스템 SL008·보통주자본비율' };
+  const h = r.renderStock(d, '105560');
+  for (const t of ['13.2%', '2026-06', '금감원 금융통계정보시스템 SL008']) assert.ok(h.includes(t), t);
+});

@@ -205,7 +205,7 @@ def load_settings(path: Path) -> Settings:
         if not isinstance(fin_raw["include"], bool):
             raise _bad("[financial]", "include", "true 또는 false여야 해요.")
         fin_kwargs["include"] = fin_raw["include"]
-    for key in fin_keys - {"include"}:
+    for key in ("bank_cet1_min", "insurer_kics_min", "securities_ncr_min"):
         if key in fin_raw:
             fin_kwargs[key] = _checked("[financial]", key, fin_raw[key])
     financial = FinancialSettings(**fin_kwargs)

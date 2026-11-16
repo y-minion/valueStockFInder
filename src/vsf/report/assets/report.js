@@ -401,7 +401,7 @@ function gate1Table(s, data) {
       tr([esc(fin.capital_label || "자본비율"), isNum(c.F_CAP_B) ? fmt(c.F_CAP_B, "raw") + "%" + (cap && cap.base_month ? " (" + esc(cap.base_month) + ")" : "") : "—",
         fmt(c.F_CAP_C), verdictWithMark(s, "F_CAP_D", c.F_CAP_D)])];
     [79, 80, 81].forEach(function (row) { body.push(tr([esc(LABELS[row]), "—", "해당 없음", "해당 없음"])); });
-    if (c.F_CAP_D === "직접 확인" && c.F_CAP_SRC) after = '<p class="muted">' + esc(c.F_CAP_SRC) + "</p>";
+    if (c.F_CAP_SRC) after = '<p class="muted">' + esc(c.F_CAP_SRC) + "</p>";
   } else {
     body = [[78, "raw"], [79, "raw"], [80, "d2"], [81, "d2"]].map(function (g) { return gate1Row(s, g); });
   }

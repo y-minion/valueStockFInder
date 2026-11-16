@@ -11,7 +11,7 @@ from datetime import date
 
 from vsf.data.accounts import PERIODS, Sourced, extract, parse_amount
 from vsf.data.dart import FinRows
-from vsf.data.splits import SPLIT_FLAG, check_splits, close_factor
+from vsf.data.splits import SPLIT_FLAG, check_splits, close_factor, confirmed_split
 from vsf.data.store import PriceRow
 from vsf.excelfn import excel_round
 from vsf.financial import CapitalRatio
@@ -31,6 +31,8 @@ EQUITY_FLAG = "{y}년 자본이 0 이하예요. ROE·부채비율을 확인해 �
 SIGN_FLAG = "{y}년 EPS와 순이익의 부호가 달라요. 숫자를 확인해 주세요."
 PER_UNIT_FLAG = "{y}년 연말 PER이 {per:g}배로 비정상적이에요(단위 오류 가능성). 숫자를 확인해 주세요."
 OVERLAP_FLAG = "{y}년 {name}이(가) 보고서마다 달라요(정정·재작성 가능성). 확인해 주세요."
+REBASE_NOTE = "{y}년 말 뒤 주식 수가 {r:g}배가 돼서 EPS·배당을 지금 주식 수 기준으로 나눴어요"
+REBASE_SOURCE = " ÷ {r:g}(액면분할·무상증자 조정, {y}년 말 뒤)"
 
 NO_INTEREST_COVERAGE = 999.0   # 엑셀 규칙: 이자비용이 0이면 999
 DPS_TOLERANCE = 0.02           # 보고서끼리 같은 해 DPS가 이보다 많이 다르면 확인 표시
@@ -299,17 +301,25 @@ def _currency(fins: list[FinRows], out: _Out) -> None:
 
 
 def _split_divisor(a: dict[int, _Period], b: dict[int, _Period], year_end: dict[int, PriceRow],
-                   price: PriceRow, latest: int, out: _Out) -> float:
-    """B 보고서 EPS를 나눌 배수. 주식 수가 크게 바뀐 해가 있으면 확인 표시를 달아요."""
+                   price: PriceRow, latest: int, out: _Out) -> tuple[float, float]:
+    """(B 보고서 EPS를 나눌 배수, L년 말 뒤 분할 배수). 주식 수가 크게 바뀐 해가 있으면 확인 표시를 달아요.
+
+    L년 말 뒤 분할이 주가로도 확인되면 표시 대신 메모를 남기고, 주당 값을 지금 주식 수 기준으로 나눌 배수를 돌려줘요.
+    확인되지 않으면 그 배수는 1이고 확인 표시를 달아요.
+    """
     newer = a[latest - 2].acc["eps"].value if latest - 2 in a else None
     older = b[latest - 2].acc["eps"].value if latest - 2 in b else None
     shares = {y: year_end[y].shares for y in range(latest - 9, latest + 1) if y in year_end}
     check = check_splits(newer, older, shares, latest)
     out.flag(*check.flags)
     end = year_end.get(latest)
+    after = confirmed_split(end.shares, price.shares, end.close, price.close) if end is not None else None
+    if after is not None:
+        out.note(REBASE_NOTE.format(y=latest, r=after))
+        return check.eps_divisor_older, after
     if end is not None and close_factor(end.shares, price.shares) != 1.0:
-        out.flag(SPLIT_FLAG)   # L년 말 뒤에 주식 수가 크게 바뀌어 현재가와 EPS의 기준이 달라요
-    return check.eps_divisor_older
+        out.flag(SPLIT_FLAG)   # L년 말 뒤에 주식 수가 크게 바뀌었는데 주가로 확인되지 않아요
+    return check.eps_divisor_older, 1.0
 
 
 def _eps(main: dict[int, _Period], b: dict[int, _Period], divisor: float, latest: int,
@@ -330,15 +340,30 @@ def _eps(main: dict[int, _Period], b: dict[int, _Period], divisor: float, latest
     return eps
 
 
+def _dps_cell(y: int, latest: int) -> str:
+    """y년 DPS 칸: 29행(최근 5년) 또는 42행(그 이전 5년)."""
+    return _cell(y, latest, 29) if y > latest - 5 else f"{_COLS[y - latest + 9]}42"
+
+
 def _dps(div_reports: dict[int, list[dict]], latest: int, years: range, out: _Out) -> dict[int, float | None]:
     """years의 DPS. 출처는 29행(최근 5년)과 42행(그 이전 5년)에 남겨요."""
     values, origin, flags = _merge_dps(div_reports)
     out.flag(*flags)
     for y in years:
         if values.get(y) is not None:
-            addr = _cell(y, latest, 29) if y > latest - 5 else f"{_COLS[y - latest + 9]}42"
-            out.sources[addr] = origin[y]
+            out.sources[_dps_cell(y, latest)] = origin[y]
     return {y: values.get(y) for y in years}
+
+
+def _rebase(values: dict[int, float | None], r: float, latest: int, cell: Callable[[int], str],
+            out: _Out) -> dict[int, float | None]:
+    """L년 말 뒤 분할: 주당 값을 r로 나눠 지금 주식 수 기준으로 맞추고, 그 칸 출처 글에 덧붙여요."""
+    rebased: dict[int, float | None] = {}
+    for y, v in values.items():
+        rebased[y] = None if v is None else v / r
+        if v is not None and cell(y) in out.sources:
+            out.sources[cell(y)] += REBASE_SOURCE.format(r=r, y=latest)
+    return rebased
 
 
 def _per(eps: dict[int, float | None], year_end: dict[int, PriceRow], latest: int,
@@ -544,9 +569,13 @@ def assemble(company: CompanyInfo, latest_year: int, fin_a: FinRows | None, fin_
     if any(p.fs == "OFS" for p in main.values()):
         out.note(OFS_NOTE)
     _currency([fin for fin, used in ((fin_a, a), (fin_b, b)) if used], out)
-    eps = _eps(main, b, _split_divisor(a, b, year_end, price, L, out), L, out)
+    divisor, after = _split_divisor(a, b, year_end, price, L, out)
+    eps = _eps(main, b, divisor, L, out)
     dps = _dps(div_reports, L, range(L - 9, L + 1), out)
-    per = _per(eps, year_end, L, out)
+    per = _per(eps, year_end, L, out)        # 연말 종가와 같은 (L년 말) 기준 EPS로 — PER은 주식 수 기준과 무관해요
+    if after != 1.0:                         # L년 말 뒤 분할: 주당 값을 현재가·현재 주식 수 기준으로 맞춰요
+        eps = _rebase(eps, after, L, lambda y: _cell(y, L, 27), out)
+        dps = _rebase(dps, after, L, lambda y: _dps_cell(y, L), out)
     roe = _roe(a, b, main, L, out)
     years_range = range(L - 4, L + 1)
     if company.financial_kind is None:

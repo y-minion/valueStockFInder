@@ -292,3 +292,37 @@ def test_unexpected_fisis_exception_still_analyzes_stock_with_note():
     c = collect(two_banks(), FakeKrx.default(), mem_store(), D, progress=noop, fisis=bad)
     a = c.records["000270"][1]
     assert a.capital is None and FISIS_FAIL_NOTE in a.notes and c.failed == [] and len(c.records) == 2
+
+
+# ---- DART가 큰 분류 코드만 주는 회사 ----
+
+def _coarse(induty_code: str, corp_name: str = "기아", fin=None) -> FakeDart:
+    entry = FakeDart.entry(induty_code=induty_code, fin=fin)
+    entry["company"] = {**entry["company"], "corp_name": corp_name, "stock_name": corp_name}
+    return FakeDart({"000270": entry})
+
+
+def test_coarse_649_with_current_assets_is_a_general_company():
+    c = run(_coarse("649"))                         # 기본 합성 재무제표에는 유동자산이 있어요
+    assert c.records["000270"][0].financial_kind is None and c.excluded == {}
+
+
+def test_coarse_649_without_current_assets_is_a_financial_holding():
+    holding = synthetic(defaults=False)
+    for code in ("649", "64999", "64991"):
+        c = run(_coarse(code, fin={2025: holding, 2023: holding}))
+        assert c.records["000270"][0].financial_kind == "금융지주" and c.excluded == {}
+
+
+def test_coarse_661_broker_by_name_else_general():
+    assert run(_coarse("661", "다올투자증권")).records["000270"][0].financial_kind == "증권"
+    assert run(_coarse("661", "NHN KCP")).records["000270"][0].financial_kind is None
+    assert run(_coarse("66202", "에이플러스에셋")).records["000270"][0].financial_kind is None
+
+
+def test_coarse_codes_still_excluded_when_financials_are_off():
+    holding = synthetic(defaults=False)
+    for dart in (_coarse("649"), _coarse("649", fin={2025: holding, 2023: holding}),
+                 _coarse("661", "다올투자증권"), _coarse("661", "NHN KCP"), _coarse("66202")):
+        c = collect(dart, FakeKrx.default(), mem_store(), D, progress=noop, include_financial=False)
+        assert c.excluded == {"금융회사": [("000270", "기아")]} and "000270" not in c.records

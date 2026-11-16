@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 
 SPLIT_LIKE = 1.5
+SPLIT_PRICE_BAND = (0.5, 2.0)   # 분할이면 주가도 주식 수 배수만큼 움직여요
 SPLIT_FLAG = "주식 수가 크게 바뀐 해가 있어요(액면분할·무상증자 가능성). 옛날 EPS·DPS를 확인해 주세요."
 RESTATE_FLAG = "같은 해 EPS가 보고서마다 달라요(정정·재작성 가능성). EPS를 확인해 주세요."
 
@@ -18,6 +19,22 @@ def close_factor(shares_then: float | None, shares_now: float | None) -> float:
     if is_split_like(shares_now / shares_then):
         return shares_then / shares_now
     return 1.0
+
+
+def confirmed_split(shares_then: float | None, shares_now: float | None,
+                    close_then: float | None, close_now: float | None) -> float | None:
+    """그때와 지금 사이에 액면분할·무상증자가 있었다고 확인되면 주식 수 배수 r, 아니면 None.
+
+    주식 수가 분할 모양으로 바뀌었고(r), 주가도 그만큼 움직였을 때만 확인해요:
+    q = (그때 종가 ÷ 지금 종가) ÷ r 이 SPLIT_PRICE_BAND 안이어야 해요. 유상증자는 주가가 r만큼 움직이지 않아요.
+    """
+    if not shares_then or not shares_now or not close_then or not close_now:
+        return None
+    r = shares_now / shares_then
+    if not is_split_like(r):
+        return None
+    low, high = SPLIT_PRICE_BAND
+    return r if low <= (close_then / close_now) / r <= high else None
 
 
 def overlap_ratio(newer: float | None, older: float | None) -> float | None:

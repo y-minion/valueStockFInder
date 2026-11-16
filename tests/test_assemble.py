@@ -405,10 +405,45 @@ def test_share_jump_in_older_dps_years_is_flagged():
     assert a.flags == (SPLIT_FLAG,) and [r.eps for r in a.inputs.years] == [11874, 13495, 22168, 24893, 19382]
 
 
-def test_split_after_latest_year_is_flagged():
+def test_share_jump_after_latest_year_without_price_move_is_flagged_not_adjusted(base):
+    # 유상증자처럼 주식 수만 늘고 주가는 그대로면 분할로 보지 않아요: 숫자는 그대로, 확인 표시만 달아요.
     co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
-    a = assemble(co, L, fin_a, fin_b, divs, ye, replace(price, close=19_400.0, shares=SYN_SHARES * 5.0), d)
-    assert a.flags == (SPLIT_FLAG,)   # 현재가는 새 주식 수 기준인데 EPS는 옛 기준이에요
+    a = assemble(co, L, fin_a, fin_b, divs, ye, replace(price, shares=SYN_SHARES * 10.0), d)
+    assert a.flags == (SPLIT_FLAG,)
+    assert a.inputs.years == base.inputs.years and a.inputs.prior_dps == base.inputs.prior_dps
+    assert not any("주식 수 기준으로 나눴어요" in n for n in a.notes)
+
+
+def _split_after_latest(r: float) -> tuple:
+    """L년(2025) 말 뒤에 r:1 액면분할한 합성 회사: 현재가 ÷r, 현재 주식 수 ×r. 연말 자료는 옛 기준 그대로예요."""
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    return co, L, fin_a, fin_b, divs, ye, replace(price, close=price.close / r, shares=price.shares * r), d
+
+
+def test_split_after_latest_year_rebases_per_share_values(base):
+    a = assemble(*_split_after_latest(10))
+    assert [r.eps for r in a.inputs.years] == [r.eps / 10 for r in base.inputs.years]
+    assert [r.dps for r in a.inputs.years] == [r.dps / 10 for r in base.inputs.years]
+    assert list(a.inputs.prior_dps) == [v / 10 for v in base.inputs.prior_dps]
+    assert [r.per for r in a.inputs.years] == [r.per for r in base.inputs.years]   # PER은 주식 수 기준과 무관해요
+    assert a.inputs.pbr == base.inputs.pbr == 0.65                                   # BPS도 지금 기준이에요
+    assert a.flags == () and SPLIT_FLAG not in a.inputs.memo
+    assert "2025년 말 뒤 주식 수가 10배가 돼서 EPS·배당을 지금 주식 수 기준으로 나눴어요" in a.notes
+    tail = " ÷ 10(액면분할·무상증자 조정, 2025년 말 뒤)"
+    for addr in ("B27", "F27", "B29", "F29", "B42", "F42"):
+        assert a.sources[addr] == base.sources[addr] + tail
+    assert a.sources["F28"] == base.sources["F28"]
+
+
+def test_split_after_latest_year_keeps_state_and_ratio(base):
+    from vsf.config import ReportSettings
+    from vsf.engine import watch_state
+
+    want, got = (summarize(compute(x.inputs, Criteria())) for x in (base, assemble(*_split_after_latest(10))))
+    assert (got.gate1, got.gate2, got.gate3, got.gate4) == (want.gate1, want.gate2, want.gate3, want.gate4)
+    assert watch_state(got, ReportSettings()) == watch_state(want, ReportSettings())
+    assert got.ratio == pytest.approx(want.ratio, rel=1e-9) and got.drop == pytest.approx(want.drop, rel=1e-9)
+    assert got.fair_value == pytest.approx(want.fair_value / 10, rel=1e-9)
 
 
 def test_non_positive_equity_leaves_roe_and_debt_blank_with_flag():
@@ -633,7 +668,7 @@ def test_split_after_latest_year_keeps_per_on_base_share_basis(base):
     a = assemble(co, L, fin_a, fin_b, divs, ye, replace(price, close=19_400.0, shares=SYN_SHARES * 5.0), d)
     assert [r.per for r in a.inputs.years] == [r.per for r in base.inputs.years]
     assert [r.per for r in a.inputs.years] == [6.96, 4.39, 4.51, 4.05, 6.28]
-    assert a.flags == (SPLIT_FLAG,)
+    assert a.flags == () and "2025년 말 뒤 주식 수가 5배가 돼서 EPS·배당을 지금 주식 수 기준으로 나눴어요" in a.notes
 
 
 def test_cfs_without_parent_net_income_does_not_fall_back_to_profit_loss():

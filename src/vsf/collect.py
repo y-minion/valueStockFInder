@@ -13,7 +13,7 @@ from vsf.data.fisis import TABLES, FisisAuthError, FisisError
 from vsf.data.http import NetworkError
 from vsf.data.krx import KrxError, Listed
 from vsf.data.store import PriceRow, Store
-from vsf.data.universe import (company_exclusion, financial_kind, is_financial_holding, is_holding,
+from vsf.data.universe import (company_exclusion, financial_kind, is_financial_holding, is_holding_like,
                                listing_exclusion)
 from vsf.financial import CapitalRatio
 
@@ -124,7 +124,7 @@ def _process(ctx: _Context, item: Listed) -> tuple[CompanyInfo, Assembled]:
     fin_a = dart.financials(corp, latest)
     if fin_a is None:
         raise _Failed(NO_FIN.format(year=latest))
-    if is_holding(raw):
+    if is_holding_like(raw):     # 64992와 큰 분류 649…: 유동자산이 없으면 금융지주, 있으면 일반 회사
         if is_financial_holding(fin_a):
             if not ctx.include_financial:
                 raise _Excluded("금융지주")

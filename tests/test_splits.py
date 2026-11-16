@@ -47,3 +47,18 @@ def test_helpers():
     assert is_split_like(1.5) and is_split_like(1 / 1.5) and not is_split_like(1.2) and not is_split_like(None)
     assert overlap_ratio(50, 100) == 2.0
     assert overlap_ratio(0, 100) is None and overlap_ratio(None, 1) is None and overlap_ratio(-1, 1) is None
+
+
+def test_confirmed_split_after_latest_year():
+    from vsf.data.splits import confirmed_split
+    # 10:1 액면분할: 주식 수 ×10, 주가 ÷10 → 확인돼요 (q = (100,000 / 10,000) / 10 = 1)
+    assert confirmed_split(100, 1000, 100_000, 10_000) == 10.0
+    assert confirmed_split(100, 1000, 100_000, 19_000) == 10.0           # q = 0.53, 0.5–2 안이에요
+    assert confirmed_split(1000, 100, 10_000, 100_000) == 0.1            # 주식 병합도 같아요
+    # 유상증자: 주식 수는 늘었는데 주가는 그대로 → q = 0.1이라 확인 안 돼요
+    assert confirmed_split(100, 1000, 100_000, 100_000) is None
+    assert confirmed_split(100, 1000, 100_000, 21_000) is None           # q = 0.48
+    assert confirmed_split(100, 120, 100_000, 83_000) is None            # 1.2배는 분할 모양이 아니에요
+    for args in ((None, 1000, 1, 1), (100, None, 1, 1), (100, 1000, None, 1), (100, 1000, 1, None),
+                 (0, 1000, 1, 1), (100, 1000, 1, 0)):
+        assert confirmed_split(*args) is None

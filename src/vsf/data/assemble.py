@@ -14,6 +14,7 @@ from vsf.data.dart import FinRows
 from vsf.data.splits import SPLIT_FLAG, check_splits, close_factor
 from vsf.data.store import PriceRow
 from vsf.excelfn import excel_round
+from vsf.financial import CapitalRatio
 from vsf.model import StockInputs, YearRow
 
 QUICK_FAIL_NOTE = "최근 3년 중 배당을 안 준 해가 있어 관문 ②에서 탈락이라, 나머지 숫자는 받지 않았어요."
@@ -62,6 +63,7 @@ class Assembled:
     sources: dict[str, str]       # 입력 칸 주소 → 출처 글
     quick_fail: bool
     latest_year: int
+    capital: CapitalRatio | None = None
 
 
 def _receipt(rcept_no: str | None) -> str:
@@ -529,7 +531,7 @@ def _memo(latest: int, report_years: list[int], div_reports: dict[int, list[dict
 
 def assemble(company: CompanyInfo, latest_year: int, fin_a: FinRows | None, fin_b: FinRows | None,
              div_reports: dict[int, list[dict]], year_end: dict[int, PriceRow], price: PriceRow,
-             price_date: date) -> Assembled:
+             price_date: date, capital: CapitalRatio | None = None) -> Assembled:
     """L년(fin_a)·L−2년(fin_b) 사업보고서, 배당 보고서들, KRX 주가로 계산기 입력을 만들어요.
 
     fin_a가 없으면 재무 숫자는 모두 비워요 (B만으로는 최근 기준과 맞춰 볼 수 없어요). 실패로 볼지는 부르는 쪽이 정해요.
@@ -569,7 +571,7 @@ def assemble(company: CompanyInfo, latest_year: int, fin_a: FinRows | None, fin_
     inputs = StockInputs(name=company.name, code=company.code, price=price.close, price_date=price_date,
                          pbr=pbr, memo=memo, years=years, prior_years=tuple(prior),
                          prior_dps=tuple(dps[y] for y in prior))
-    return Assembled(inputs, tuple(out.flags), tuple(out.notes), out.sources, False, L)
+    return Assembled(inputs, tuple(out.flags), tuple(out.notes), out.sources, False, L, capital)
 
 
 def assemble_quick_fail(company: CompanyInfo, latest_year: int, div_reports: dict[int, list[dict]],

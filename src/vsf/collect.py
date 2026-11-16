@@ -9,11 +9,13 @@ from datetime import date
 from vsf.data.assemble import (Assembled, CompanyInfo, assemble, assemble_quick_fail,
                                quick_fail_check)
 from vsf.data.dart import DartError, DartQuotaExceeded
+from vsf.data.fisis import TABLES, FisisAuthError, FisisError
 from vsf.data.http import NetworkError
 from vsf.data.krx import KrxError, Listed
 from vsf.data.store import PriceRow, Store
 from vsf.data.universe import (company_exclusion, financial_kind, is_financial_holding, is_holding,
                                listing_exclusion)
+from vsf.financial import CapitalRatio
 
 FIRST_DIV_YEAR = 2015
 PROGRESS_EVERY = 50
@@ -21,6 +23,8 @@ YEAR_END_YEARS = 10
 NO_CORP = "DART에서 회사 정보를 찾지 못했어요"
 NO_PRICE = "주가 자료가 없어요"
 NO_FIN = "{year}년 사업보고서 재무제표가 없어요"
+FISIS_KEY_NOTE = "금감원 FISIS 인증키가 맞지 않아 자본비율을 가져오지 못했어요. keys.toml의 [fisis] 값을 확인해 주세요."
+FISIS_FAIL_NOTE = "자본비율을 금감원 FISIS에서 받지 못했어요"
 UNEXPECTED = "예상하지 못한 오류: {kind}: {error}"
 
 log = logging.getLogger("vsf.collect")
@@ -55,6 +59,8 @@ class _Context:
     corp: dict[str, str]
     year_ends: dict[int, dict[str, PriceRow]]
     include_financial: bool = True
+    fisis: object = None
+    fisis_key_bad: bool = False
 
 
 PER_BANNER_YEARS = 6
@@ -130,7 +136,27 @@ def _process(ctx: _Context, item: Listed) -> tuple[CompanyInfo, Assembled]:
             if rows is not None:
                 div_reports[y] = rows
     year_end = {y: rows[code] for y, rows in ctx.year_ends.items() if code in rows}
-    return info, assemble(info, latest, fin_a, fin_b, div_reports, year_end, price, ctx.price_date)
+    capital, notes = _capital(ctx, info, raw, item)
+    got = assemble(info, latest, fin_a, fin_b, div_reports, year_end, price, ctx.price_date, capital)
+    if notes:
+        got = replace(got, notes=got.notes + notes)
+    return info, got
+
+
+def _capital(ctx: _Context, info: CompanyInfo, raw: dict, item: Listed) -> tuple[CapitalRatio | None, tuple[str, ...]]:
+    """금융회사 자본비율을 FISIS에서. 못 받아도 종목은 그대로 분석하고 메모만 남겨요."""
+    if ctx.fisis is None or info.financial_kind not in TABLES:
+        return None, ()
+    if ctx.fisis_key_bad:
+        return None, (FISIS_KEY_NOTE,)
+    try:
+        return ctx.fisis.capital_ratio(info.financial_kind, (str(raw.get("corp_name") or ""),
+                                                              str(raw.get("corp_name_eng") or ""), item.name)), ()
+    except FisisAuthError:
+        ctx.fisis_key_bad = True              # 남은 종목은 FISIS를 부르지 않아요
+        return None, (FISIS_KEY_NOTE,)
+    except (FisisError, NetworkError):
+        return None, (FISIS_FAIL_NOTE,)
 
 
 def _defer(result: Collected, items: list[Listed]) -> None:
@@ -155,7 +181,7 @@ def _check_filings(dart, store: Store, today: date) -> None:
 
 
 def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None] = print,
-            *, include_financial: bool = True) -> Collected:
+            *, include_financial: bool = True, fisis=None) -> Collected:
     price_date = krx.latest_trading_day(today)
     prices = krx.daily(price_date)
     listed = krx.listed(price_date)
@@ -168,7 +194,7 @@ def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None
         progress(f"0/{len(listed)} 종목 처리 중 (오늘 DART 호출 {dart.calls_today:,}회)")
         return result
     year_ends, result.year_end_missing = _year_ends(krx, today)
-    ctx = _Context(dart, today, price_date, prices, corp, year_ends, include_financial)
+    ctx = _Context(dart, today, price_date, prices, corp, year_ends, include_financial, fisis)
 
     def report(done: int) -> None:
         progress(f"{done}/{len(listed)} 종목 처리 중 (오늘 DART 호출 {dart.calls_today:,}회)")
@@ -198,7 +224,7 @@ def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None
 
 
 def collect_one(dart, krx, store: Store, today: date, code: str, *,
-                include_financial: bool = True) -> tuple[CompanyInfo, Assembled] | str:
+                include_financial: bool = True, fisis=None) -> tuple[CompanyInfo, Assembled] | str:
     """종목 하나만 받아요 (엑셀 내보내기용). 못 받으면 한국어 사유 글을 돌려줘요."""
     price_date = krx.latest_trading_day(today)
     prices = krx.daily(price_date)
@@ -207,7 +233,7 @@ def collect_one(dart, krx, store: Store, today: date, code: str, *,
         return f"{code} 종목을 찾지 못했어요"
     try:
         ctx = _Context(dart, today, price_date, prices, dart.corp_codes(), _year_ends(krx, today)[0],
-                       include_financial)
+                       include_financial, fisis)
         return _process(ctx, item)
     except _Excluded as e:
         return f"{code}은(는) 분석 대상이 아니에요: {e}"

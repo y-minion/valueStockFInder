@@ -65,7 +65,7 @@ def evaluate_one(company: CompanyInfo, assembled: Assembled, settings: Settings,
                  industry: IndustryInfo | None) -> StockResult:
     criteria = effective_criteria(settings.criteria, company.induty_code, settings.industry.overrides)
     extra = extra_gate1(industry, settings.industry)
-    fin = financial_gate(company.financial_kind, None, settings.financial)
+    fin = financial_gate(company.financial_kind, assembled.capital, settings.financial)
     cells = compute(assembled.inputs, criteria, extra, financial=fin)
     summary = summarize(cells)
     state = watch_state(summary, settings.report)

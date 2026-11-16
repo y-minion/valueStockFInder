@@ -4,8 +4,10 @@ from datetime import date
 
 from fakes import D, KIA_CORP, FakeDart, FakeKrx, mem_store, noop
 from helpers import div_rows, synthetic
-from vsf.collect import NO_FIN, collect, collect_one
+from vsf.collect import FISIS_FAIL_NOTE, FISIS_KEY_NOTE, NO_FIN, collect, collect_one
 from vsf.data.dart import DartError, DartQuotaExceeded
+from vsf.data.fisis import FisisAuthError, FisisError
+from vsf.financial import CapitalRatio
 from vsf.data.http import NetworkError
 from vsf.data.krx import KrxError
 
@@ -230,3 +232,56 @@ def test_collect_one_excluded_code_says_why():
 def test_collect_one_failure_is_a_reason_text():
     dart = FakeDart.default(raise_for={"000270": NetworkError("연결이 끊겼어요")})
     assert collect_one(dart, FakeKrx.default(), mem_store(), D, "000270") == "연결이 끊겼어요"
+
+
+class FakeFisis:
+    def __init__(self, result=None, error=None):
+        self.result, self.error, self.calls = result, error, []
+
+    def capital_ratio(self, kind, names):
+        self.calls.append((kind, names))
+        if self.error:
+            raise self.error
+        return self.result
+
+
+def two_banks():
+    return FakeDart({"000270": FakeDart.entry(induty_code="64121"), "030000": FakeDart.entry(induty_code="64121")})
+
+
+def test_collect_sets_capital_and_survives_fisis_failures():
+    cap = CapitalRatio(13.2, "2026-06", "금감원 금융통계정보시스템 SA014·보통주자본비율")
+    fake = FakeFisis(cap)
+    c = collect(two_banks(), FakeKrx.default(), mem_store(), D, progress=noop, fisis=fake)
+    assert c.records["000270"][1].capital == cap and fake.calls[0][0] == "은행"
+    assert fake.calls[0][1][2] == c.records["000270"][0].name
+
+    bad = FakeFisis(error=FisisError("x"))
+    c = collect(two_banks(), FakeKrx.default(), mem_store(), D, progress=noop, fisis=bad)
+    a = c.records["000270"][1]
+    assert a.capital is None and FISIS_FAIL_NOTE in a.notes and c.failed == [] and len(c.records) == 2
+    net = collect(two_banks(), FakeKrx.default(), mem_store(), D, progress=noop,
+                  fisis=FakeFisis(error=NetworkError("x")))
+    assert FISIS_FAIL_NOTE in net.records["000270"][1].notes
+
+
+def test_fisis_auth_error_stops_calls_and_notes_every_financial_stock():
+    fake = FakeFisis(error=FisisAuthError("금감원 FISIS 인증키가 맞지 않아요 (011)"))
+    c = collect(two_banks(), FakeKrx.default(), mem_store(), D, progress=noop, fisis=fake)
+    assert len(fake.calls) == 1 and len(c.records) == 2
+    assert all(FISIS_KEY_NOTE in a.notes and a.capital is None for _, a in c.records.values())
+
+
+def test_fisis_is_not_called_for_non_financial_or_card_stocks():
+    fake = FakeFisis(CapitalRatio(1.0, "2026-06", "x"))
+    c = collect(FakeDart.default(), FakeKrx.default(), mem_store(), D, progress=noop, fisis=fake)
+    assert fake.calls == [] and c.records["000270"][1].capital is None
+    cards = FakeDart({"000270": FakeDart.entry(induty_code="64921")})
+    collect(cards, FakeKrx.default(), mem_store(), D, progress=noop, fisis=fake)
+    assert all(k != "카드·캐피탈" for k, _ in fake.calls)
+
+
+def test_collect_one_passes_fisis():
+    cap = CapitalRatio(13.2, "2026-06", "x")
+    got = collect_one(two_banks(), FakeKrx.default(), mem_store(), D, "000270", fisis=FakeFisis(cap))
+    assert got[1].capital == cap

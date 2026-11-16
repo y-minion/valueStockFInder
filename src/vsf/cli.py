@@ -17,6 +17,7 @@ from vsf.changes import criteria_changes, detect_changes
 from vsf.collect import Collected, collect, collect_one
 from vsf.config import ConfigError, Keys, Settings, load_keys, load_settings
 from vsf.data.dart import DartClient
+from vsf.data.fisis import FisisClient
 from vsf.data.http import NetworkError
 from vsf.data.krx import KrxClient, KrxError
 from vsf.data.naver import NaverNews
@@ -46,6 +47,8 @@ class Deps:
     make_krx: Callable[[Keys, Store], object] = lambda keys, store: KrxClient(keys.krx, store)
     make_naver: Callable[[Keys], NaverNews | None] = lambda keys: (
         NaverNews(keys.naver_id, keys.naver_secret) if keys.naver_id and keys.naver_secret else None)
+    make_fisis: Callable[[Keys, Store], FisisClient | None] = lambda keys, store: (
+        FisisClient(keys.fisis, store) if keys.fisis else None)
     today: Callable[[], date] = date.today
     open_path: Callable[[Path], None] = _open
     keep_awake: Callable[[], None] = _keep_awake
@@ -70,7 +73,7 @@ def _run_log(path: Path, keys: Keys) -> Iterator[None]:
     """실행하는 동안 vsf 로거 기록(트레이스백 포함)을 path에 남겨요. 남길 기록이 없으면 파일을 만들지 않아요."""
     path.parent.mkdir(parents=True, exist_ok=True)
     handler = logging.FileHandler(path, encoding="utf-8", delay=True)
-    handler.setFormatter(RedactingFormatter((keys.dart, keys.krx, keys.naver_id, keys.naver_secret)))
+    handler.setFormatter(RedactingFormatter((keys.dart, keys.krx, keys.naver_id, keys.naver_secret, keys.fisis)))
     logger = logging.getLogger("vsf")
     logger.addHandler(handler)
     try:
@@ -96,7 +99,8 @@ def _print_pending(collected: Collected) -> None:
 def _weekly_run(settings: Settings, keys: Keys, store: Store, deps: Deps, today: date,
                 runs_dir: Path, no_open: bool) -> int:
     dart, krx, naver = deps.make_dart(keys, store, settings), deps.make_krx(keys, store), deps.make_naver(keys)
-    collected = collect(dart, krx, store, today, include_financial=settings.financial.include)
+    collected = collect(dart, krx, store, today, include_financial=settings.financial.include,
+                        fisis=deps.make_fisis(keys, store))
     run = evaluate(collected, settings)
     prev = load_previous(runs_dir, today)
     index = settings.reports_dir / collected.today.isoformat() / "index.html"
@@ -143,7 +147,7 @@ def _excel(code: str, settings: Settings, keys: Keys, store: Store, deps: Deps, 
         made_from = f"{snap.date.isoformat()} 실행 결과(주가 {price_date} 기준)로 만들었어요."
     else:
         got = collect_one(deps.make_dart(keys, store, settings), deps.make_krx(keys, store), store, today, code,
-                          include_financial=settings.financial.include)
+                          include_financial=settings.financial.include, fisis=deps.make_fisis(keys, store))
         if isinstance(got, str):
             print(got)
             return 1

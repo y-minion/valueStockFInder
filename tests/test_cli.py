@@ -31,6 +31,7 @@ def fake_deps(tmp_path: Path, quota_after: int | None = None) -> FakeDeps:
     d.make_dart = lambda keys, store, settings: d.dart
     d.make_krx = lambda keys, store: FakeKrx.default()
     d.make_naver = lambda keys: None
+    d.make_fisis = lambda keys, store: None
     d.today = lambda: D
     d.open_path = d.opened.append
     d.keep_awake = lambda: d.awake.append(1)
@@ -374,3 +375,27 @@ def test_partial_week_carries_pending_stocks_into_snapshot(tmp_path):
     week1 = load_previous(tmp_path / "data" / "runs", D + timedelta(days=1))
     assert week2.date == D + timedelta(days=7) and set(week2.stocks) == {"000270", "030000"}
     assert week2.stocks["030000"] == week1.stocks["030000"]
+
+
+def test_weekly_run_passes_fisis_capital_into_the_snapshot(tmp_path):
+    from vsf.financial import CapitalRatio
+
+    class Fisis:
+        def capital_ratio(self, kind, names):
+            return CapitalRatio(13.2, "2026-06", "x")
+
+    d = fake_deps(tmp_path)
+    d.dart = FakeDart({"000270": FakeDart.entry(induty_code="64121")})
+    d.make_fisis = lambda keys, store: Fisis()
+    assert run(tmp_path, d) == 0
+    gate = load_previous(tmp_path / "data" / "runs", D + timedelta(days=1)).stocks["000270"].financial
+    assert gate.capital == CapitalRatio(13.2, "2026-06", "x")
+
+
+def test_default_make_fisis_needs_a_key():
+    from vsf.config import Keys
+    from vsf.data.fisis import FisisClient
+    from fakes import mem_store
+    base = Deps()
+    assert base.make_fisis(Keys("d", "k", None, None), mem_store()) is None
+    assert isinstance(base.make_fisis(Keys("d", "k", None, None, "f"), mem_store()), FisisClient)

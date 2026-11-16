@@ -84,6 +84,7 @@ class Keys:
     krx: str | None
     naver_id: str | None
     naver_secret: str | None
+    fisis: str | None = None
 
 
 def _bad(where: str, key: str, why: str) -> ConfigError:
@@ -244,7 +245,8 @@ def load_keys(path: Path, *, require_krx: bool = True) -> Keys:
     krx = get("krx", "auth_key")
     if not krx and require_krx:
         raise ConfigError("keys.toml에 KRX 인증키가 없어요. [krx] auth_key에 KRX OPEN API 인증키를 넣어 주세요.")
-    return Keys(dart=dart, krx=krx, naver_id=get("naver", "client_id"), naver_secret=get("naver", "client_secret"))
+    return Keys(dart=dart, krx=krx, naver_id=get("naver", "client_id"), naver_secret=get("naver", "client_secret"),
+                fisis=get("fisis", "auth_key"))
 
 
 def settings_fingerprint(s: Settings) -> dict:

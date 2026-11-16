@@ -6,3 +6,5 @@ auth_key = ""       # KRX OPEN API 인증키 (필수)
 [naver]
 client_id = ""      # NAVER API HUB(네이버 클라우드) 검색 API의 Client ID (선택, 비워두면 뉴스는 링크만)
 client_secret = ""  # 같은 화면의 Client Secret. 네이버 개발자센터는 2026-07-31부터 검색 API 새 키를 안 내줘요
+[fisis]
+auth_key = ""       # 금감원 금융통계정보시스템 OPEN API 인증키 (선택, 비워두면 금융회사 자본비율은 '직접 확인')

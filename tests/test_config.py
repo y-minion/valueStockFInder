@@ -134,3 +134,12 @@ def test_financial_bad_values(tmp_path, body, msg):
     with pytest.raises(ConfigError) as e:
         load_settings(path)
     assert "[financial]" in str(e.value) and msg in str(e.value)
+
+
+def test_fisis_key_is_optional(tmp_path):
+    (tmp_path / "keys.toml").write_text('[dart]\napi_key = "d"\n[krx]\nauth_key = "k"\n')
+    assert load_keys(tmp_path / "keys.toml").fisis is None
+    (tmp_path / "keys.toml").write_text('[dart]\napi_key = "d"\n[krx]\nauth_key = "k"\n[fisis]\nauth_key = "  "\n')
+    assert load_keys(tmp_path / "keys.toml").fisis is None
+    (tmp_path / "keys.toml").write_text('[dart]\napi_key = "d"\n[krx]\nauth_key = "k"\n[fisis]\nauth_key = "f"\n')
+    assert load_keys(tmp_path / "keys.toml").fisis == "f"

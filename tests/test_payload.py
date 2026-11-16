@@ -120,11 +120,11 @@ def test_write_report_files_and_overwrite(tmp_path):
     idx = write_report(p, tmp_path)
     assert idx == tmp_path / "2026-11-14" / "index.html"
     assert {f.name for f in idx.parent.iterdir()} == {"index.html", "stock.html", "report.js",
-                                                      "report.css", "data.js"}
+                                                      "report.css", "data.js", "criteria.html"}
     text = (idx.parent / "data.js").read_text(encoding="utf-8")
     assert text.startswith("window.VSF_DATA = {") and text.endswith(";")
     assert json.loads(text.removeprefix("window.VSF_DATA = ").removesuffix(";"))["schema"] == 1
-    for page in ("index.html", "stock.html"):
+    for page in ("index.html", "stock.html", "criteria.html"):
         html = (idx.parent / page).read_text(encoding="utf-8")
         assert '<meta charset="utf-8">' in html and 'id="app"' in html
         assert html.index('<script src="data.js">') < html.index('<script src="report.js">')
@@ -183,3 +183,10 @@ def test_stock_boundaries_and_near_miss_list():
     assert p["near_miss"] == ["A", "B", "C"]
     assert p["stocks"]["A"]["boundaries"][0]["cell"] == "D78"
     assert p["stocks"]["A"]["boundaries"][0]["passed"] is False
+
+
+def test_payload_has_criteria_check():
+    p = build_payload(RUN_1114, [], [], None, {}, S)
+    cc = p["criteria_check"]
+    assert cc["partial"] is False and cc["groups"][0]["group"] == "일반 회사"
+    json.dumps(cc, allow_nan=False)

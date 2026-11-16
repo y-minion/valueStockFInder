@@ -177,7 +177,8 @@ function criteriaLine(data) {
   if (isNum(c.interest_coverage_min)) parts.push("이자보상배율 ≥ " + fmt(c.interest_coverage_min, "raw") + "배");
   if (isNum(c.payout_min) && isNum(c.payout_max)) parts.push("배당성향 " + pctText(c.payout_min) + "~" + pctText(c.payout_max));
   if (isNum(rep.watch_range)) parts.push("관심 목록 " + pctText(rep.watch_range) + " 이내");
-  return parts.length ? '<p class="muted">' + esc("적용한 기준: " + parts.join(" · ")) + "</p>" : "";
+  var lk = '<a href="criteria.html">기준 점검</a>';
+  return '<p class="muted">' + (parts.length ? esc("적용한 기준: " + parts.join(" · ")) + " · " : "") + lk + "</p>";
 }
 function indexHead(data) {
   var r = data.run, n = 0;
@@ -496,6 +497,55 @@ function renderStock(data, code) {
     '<p class="muted">엑셀로 보려면 <code>uv run run.py --excel ' + esc(s.code) + "</code></p>";
 }
 
+// ---- 기준 점검 ----
+var NO_CHECK = "이 리포트에는 기준 점검 자료가 없어요";
+function unitNum(v, unit) { return isNum(v) ? fmt(v, "raw") + unit : "—"; }
+function variantCell(v, unit) {
+  if (!v) return "계산 안 함";
+  return esc(unitNum(v.threshold, unit)) + (isNum(v.pass) ? " · 통과 " + fmt(v.pass, "won") + "곳" : "") +
+    " · 관심 목록 +" + v.watch_in.length + "/−" + v.watch_out.length;
+}
+function distCell(d) {
+  return d ? esc(fmt(d.p25, "raw") + " · " + fmt(d.median, "raw") + " · " + fmt(d.p75, "raw") + " (" + fmt(d.n, "won") + "곳)") : "—";
+}
+function namesList(v) {
+  var ins = v.watch_in.map(function (x) { return stockLink(x[0], x[1]); }).join(", ") || "없음";
+  var outs = v.watch_out.map(function (x) { return stockLink(x[0], x[1]); }).join(", ") || "없음";
+  return "들어옴: " + ins + " / 빠짐: " + outs;
+}
+function changeLists(g) {
+  var items = [];
+  g.rows.forEach(function (r) {
+    [["stricter", "한 칸 엄하게"], ["looser", "한 칸 느슨하게"]].forEach(function (p) {
+      var v = r[p[0]];
+      if (v && (v.watch_in.length || v.watch_out.length)) items.push("<li><b>" + esc(r.label + " · " + p[1]) + "</b> " + namesList(v) + "</li>");
+    });
+  });
+  return items.length ? "<ul>" + items.join("") + "</ul>" : '<p class="muted">한 칸 바꿔도 관심 목록은 달라지지 않아요.</p>';
+}
+function criteriaGroup(g) {
+  var rows = g.rows.map(function (r) {
+    return tr([esc(r.label), esc(unitNum(r.threshold, r.unit)), distCell(r.dist), isNum(r.pass_now) ? fmt(r.pass_now, "won") + "곳" : "—",
+      variantCell(r.stricter, r.unit), variantCell(r.looser, r.unit)]);
+  });
+  return "<h2>" + esc(g.group) + " (" + fmt(g.n, "won") + "곳)</h2>" +
+    rowsTable(["기준", "지금 기준", "분포 (25%·중간·75%)", "통과", "한 칸 엄하게", "한 칸 느슨하게"], rows) + changeLists(g);
+}
+function industryCheck(list) {
+  if (!list || !list.length) return "";
+  return "<h2>업종 묶음 (참고)</h2>" + rowsTable(["업종", "종목 수", "ROE 중간값"], list.map(function (i) {
+    return tr([esc(i.group_name), fmt(i.size, "won"), esc(unitNum(i.roe_median, "%"))]);
+  }));
+}
+function renderCriteria(data) {
+  var head = '<p><a href="index.html">← 첫 페이지</a></p><h1>기준 점검</h1>';
+  var c = data.criteria_check;
+  if (!c) return head + '<div class="banner warn">' + esc(NO_CHECK) + "</div>";
+  return head + '<p class="muted">기준을 한 칸 바꾸면 통과 수와 관심 목록이 어떻게 달라지는지 보여줘요. 판정은 바꾸지 않아요.</p>' +
+    (c.partial ? banner("일부만 분석해서 참고만 하세요", "warn") : "") +
+    (c.groups || []).map(criteriaGroup).join("") + industryCheck(c.industry);
+}
+
 // ---- 브라우저 부트스트랩 ----
 function bootIndex(data, doc) {
   var app = doc.getElementById("app");
@@ -516,9 +566,10 @@ function bootStock(data, win) {
   show();
 }
 if (typeof window !== "undefined" && window.VSF_DATA) {
-  if (/stock\.html$/.test(window.location.pathname)) bootStock(window.VSF_DATA, window);
+  if (/criteria\.html$/.test(window.location.pathname)) window.document.getElementById("app").innerHTML = renderCriteria(window.VSF_DATA);
+  else if (/stock\.html$/.test(window.location.pathname)) bootStock(window.VSF_DATA, window);
   else bootIndex(window.VSF_DATA, window.document);
 }
 if (typeof module !== "undefined") {
-  module.exports = { esc: esc, fmt: fmt, renderIndex: renderIndex, renderStock: renderStock, searchStocks: searchStocks, renderResults: renderResults };
+  module.exports = { esc: esc, fmt: fmt, renderIndex: renderIndex, renderStock: renderStock, searchStocks: searchStocks, renderResults: renderResults, renderCriteria: renderCriteria };
 }

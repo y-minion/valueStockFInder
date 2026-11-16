@@ -111,4 +111,24 @@ module.exports = {
   watchlist: ["A", "B", "F", "X"],
   near_miss: ["Q"],
   stocks,
+  criteria_check: {
+    partial: true,
+    groups: [
+      { group: "일반 회사", n: 5, rows: [
+        { key: "roe_min", label: "ROE 최소", threshold: 8, unit: "%", dist: { n: 5, p25: 6, median: 8.5, p75: 12 }, pass_now: 3,
+          stricter: { threshold: 9, pass: 2, watch_in: [], watch_out: [["A", "가나다산업"]] },
+          looser: { threshold: 7, pass: 4, watch_in: [["F", "차카타화학"]], watch_out: [] } },
+        { key: "payout_min", label: "배당성향 하한", threshold: 55, unit: "%", dist: null, pass_now: 0, stricter: null,
+          looser: { threshold: 50, pass: 0, watch_in: [], watch_out: [] } },
+        { key: "required_return", label: "요구수익률", threshold: 10, unit: "%", dist: null, pass_now: null,
+          stricter: { threshold: 11, pass: null, watch_in: [], watch_out: [] }, looser: null },
+      ] },
+      { group: "금융회사", n: 1, rows: [
+        { key: "bank_cet1_min", label: "은행·금융지주 보통주자본비율 최소", threshold: 9, unit: "%",
+          dist: { n: 1, p25: 13.2, median: 13.2, p75: 13.2 }, pass_now: 1,
+          stricter: { threshold: 10, pass: 1, watch_in: [], watch_out: [] }, looser: { threshold: 8, pass: 1, watch_in: [], watch_out: [] } },
+      ] },
+    ],
+    industry: [{ group_name: "자동차", size: 5, roe_median: 9.1 }],
+  },
 };

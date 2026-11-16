@@ -154,7 +154,7 @@ test('header shows the applied criteria in one line', () => {
   const line = '적용한 기준: 요구수익률 10% · 안전마진 25% · ROE ≥ 8% · 부채비율 &lt; 200% · 이자보상배율 ≥ 3배 · ' +
     '배당성향 20%~60% · 관심 목록 20% 이내';
   const h = r.renderIndex(data);
-  assert.ok(h.includes('<p class="muted">' + line + '</p>'));
+  assert.ok(h.includes('<p class="muted">' + line + ' · <a href="criteria.html">기준 점검</a></p>'));
   assert.ok(h.indexOf('적용한 기준') < h.indexOf('banner'));            // 머리 안, 알림보다 위
   const d = JSON.parse(JSON.stringify(data));
   Object.assign(d.run.criteria.criteria, { required_return: 0.095, roe_min: 7.5, payout_max: 0.65 });
@@ -209,4 +209,20 @@ test('old data without boundaries renders', () => {
   const d = JSON.parse(JSON.stringify(data));
   Object.values(d.stocks).forEach((s) => { delete s.boundaries; });
   assert.doesNotThrow(() => r.renderStock(d, 'Q'));
+});
+
+test('criteria page renders both groups and per-variant lists', () => {
+  const h = r.renderCriteria(data);
+  for (const t of ['일반 회사', '금융회사', '한 칸 엄하게', '한 칸 느슨하게', '분포 (25%·중간·75%)', '+1/−0', '+0/−1', '차카타화학', '자동차']) assert.ok(h.includes(t), t);
+  assert.ok(r.renderIndex(data).includes('<a href="criteria.html">기준 점검</a>'));
+});
+test('criteria page partial banner and missing variant', () => {
+  assert.ok(r.renderCriteria(data).includes('일부만 분석해서 참고만 하세요'));
+  assert.ok(r.renderCriteria(data).includes('계산 안 함'));
+  const d = { ...data, criteria_check: { ...data.criteria_check, partial: false } };
+  assert.ok(!r.renderCriteria(d).includes('일부만 분석해서'));
+});
+test('criteria page without data shows fallback', () => {
+  const d = { ...data }; delete d.criteria_check;
+  assert.ok(r.renderCriteria(d).includes('이 리포트에는 기준 점검 자료가 없어요'));
 });

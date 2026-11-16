@@ -7,6 +7,7 @@ from pathlib import Path
 
 from vsf.boundary import boundaries, near_miss_state
 from vsf.changes import Change
+from vsf.criteria_check import criteria_check
 from vsf.evaluate import RunResult, StockResult
 from vsf.extras import Extras
 from vsf.financial import CAPITAL_LABELS
@@ -77,6 +78,7 @@ def build_payload(run: RunResult, changes: list[Change], crit_changes: list[dict
         "watchlist": [code for code, _ in watch],
         "near_miss": [code for code, _ in near],
         "stocks": {code: _stock(r, extras.get(code), settings) for code, r in run.results.items()},
+        "criteria_check": criteria_check(run.results, settings, partial=bool(c.pending)),
     }
 
 

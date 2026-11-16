@@ -540,7 +540,7 @@ function industryCheck(list) {
 function renderCriteria(data) {
   var head = '<p><a href="index.html">← 첫 페이지</a></p><h1>기준 점검</h1>';
   var c = data.criteria_check;
-  if (!c) return head + '<div class="banner warn">' + esc(NO_CHECK) + "</div>";
+  if (!c) return head + banner(NO_CHECK, "warn");
   return head + '<p class="muted">기준을 한 칸 바꾸면 통과 수와 관심 목록이 어떻게 달라지는지 보여줘요. 판정은 바꾸지 않아요.</p>' +
     (c.partial ? banner("일부만 분석해서 참고만 하세요", "warn") : "") +
     (c.groups || []).map(criteriaGroup).join("") + industryCheck(c.industry);

@@ -78,3 +78,60 @@ def test_empty_group_omitted_and_industry():
     s = settings_with()
     check = criteria_check({}, s, False)
     assert check == {"partial": False, "groups": [], "industry": []}
+
+
+def test_industry_override_is_judged_with_effective_criteria():
+    s = settings_with({"30": {"roe_min": 9.0}})
+    r = _result("000001", "가", _roe(_kia_inputs(60000.0), 9.5), s)
+    assert r.criteria.roe_min == 9.0
+    row = _row(criteria_check({"000001": r}, s, False), "일반 회사", "roe_min")
+    assert row["pass_now"] == 1 and row["threshold"] == 8.0
+    # 설정값(8+1=9)으로 보면 통과지만, 이 종목의 실제 기준(9+1=10)으로는 탈락이어야 해요
+    assert row["stricter"]["threshold"] == 9.0 and row["stricter"]["pass"] == 0
+    assert row["looser"]["pass"] == 1
+
+
+def test_upper_bound_keys_move_the_other_way():
+    s = settings_with()
+    res = {"000001": _result("000001", "가", replace(_kia_inputs(60000.0), years=tuple(
+        replace(y, debt_ratio=210.0) for y in _kia_inputs(60000.0).years)), s)}
+    row = _row(criteria_check(res, s, False), "일반 회사", "debt_ratio_max")
+    assert row["threshold"] == 200.0 and row["pass_now"] == 0
+    assert row["stricter"]["threshold"] == 175.0 and row["stricter"]["pass"] == 0
+    assert row["looser"]["threshold"] == 225.0 and row["looser"]["pass"] == 1
+    b88 = res["000001"].cells["B88"]
+    pct = round(b88 * 100)
+    s2 = Settings(**{**s.__dict__, "criteria": Criteria(payout_max=(pct + 2) / 100)})
+    res2 = {"000001": _result("000001", "가", _kia_inputs(60000.0), s2)}
+    p = _row(criteria_check(res2, s2, False), "일반 회사", "payout_max")
+    assert p["pass_now"] == 1
+    assert p["stricter"]["threshold"] == pct + 2 - 5 and p["stricter"]["pass"] == 0
+    assert p["looser"]["threshold"] == pct + 2 + 5 and p["looser"]["pass"] == 1
+
+
+def test_capital_variants_use_step_and_flip_pass():
+    s = settings_with()
+
+    def row(value):
+        res = {"105560": _result("105560", "은행", _kia_inputs(60000.0), s, "은행",
+                                 capital=CapitalRatio(value, "2026-09", "x"))}
+        return _row(criteria_check(res, s, False), "금융회사", "bank_cet1_min")
+    r = row(13.2)
+    assert r["threshold"] == 9.0 and r["stricter"]["threshold"] == 10.0 and r["looser"]["threshold"] == 8.0
+    r = row(9.5)
+    assert r["pass_now"] == 1 and r["stricter"]["pass"] == 0 and r["looser"]["pass"] == 1
+
+
+def test_industry_list_dedupes_and_sorts():
+    from vsf.industry import IndustryInfo
+    s = settings_with()
+
+    def info(code, name, size):
+        return IndustryInfo(code, name, size, 9.0, None, None, None)
+    res = {}
+    for code, ind in (("000001", info("A", "가업", 5)), ("000002", info("A", "가업", 5)),
+                      ("000003", info("B", "나업", 9)), ("000004", info("C", "다업", 5))):
+        res[code] = replace(_result(code, code, _kia_inputs(60000.0), s), industry=ind)
+    out = criteria_check(res, s, False)["industry"]
+    assert [i["group_name"] for i in out] == ["나업", "가업", "다업"]
+    assert out[0] == {"group_name": "나업", "size": 9, "roe_median": 9.0}

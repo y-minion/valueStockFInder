@@ -190,3 +190,8 @@ def test_payload_has_criteria_check():
     cc = p["criteria_check"]
     assert cc["partial"] is False and cc["groups"][0]["group"] == "일반 회사"
     json.dumps(cc, allow_nan=False)
+
+
+def test_criteria_check_partial_follows_pending():
+    r = _multi({"000270": ("buy", 0.7)}, pending=[("222222", "대기")])
+    assert build_payload(r, [], [], None, {}, S)["criteria_check"]["partial"] is True

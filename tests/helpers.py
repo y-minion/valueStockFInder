@@ -209,8 +209,11 @@ def load_price(name: str, day: date):
     return _recorded_prices(_RECORDED_FIN[name])[day]
 
 
-def div_rows(thstrm: str, frmtrm: str, lwfr: str, year: int = 2025) -> list[dict]:
+def div_rows(thstrm: str, frmtrm: str, lwfr: str, year: int = 2025,
+             face: tuple[str, str, str] = ("5,000", "5,000", "5,000")) -> list[dict]:
     """alotMatter 목록 (문서화된 모양). 보통주 '주당 현금배당금(원)' 줄이 당기·전기·전전기 값을 가져요.
+
+    face는 '주당액면가액(원)' 줄의 당기·전기·전전기 값이에요.
 
     실제 응답처럼 보통주 배당수익률 줄이 먼저 오고, 값이 없는 우선주 줄도 같이 와요.
     """
@@ -219,7 +222,7 @@ def div_rows(thstrm: str, frmtrm: str, lwfr: str, year: int = 2025) -> list[dict
                 "corp_name": "기아", "se": se, "stock_knd": knd, "thstrm": a, "frmtrm": b, "lwfr": c,
                 "stlm_dt": f"{year}-12-31"}
 
-    return [row("주당액면가액(원)", "", "5,000", "5,000", "5,000"),
+    return [row("주당액면가액(원)", "", *face),
             row("현금배당성향(%)", "", "35.1", "26.1", "25.3"),
             row("현금배당수익률(%)", "보통주", "5.6", "6.4", "5.6"),
             row("현금배당수익률(%)", "우선주", "-", "-", "-"),

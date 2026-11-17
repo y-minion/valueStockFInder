@@ -856,3 +856,80 @@ def test_financial_company_has_no_cash_flow_overlap_flag():
     assert not any("영업활동현금흐름" in f for f in bank.flags)
     general = assemble(co, L, fin_a, ocf_3pct, divs, ye, price, d)
     assert any("영업활동현금흐름" in f for f in general.flags)
+
+
+# ---- 옛 배당 보고서의 액면분할 (주당액면가액으로 지금 기준에 맞춰요) ----
+
+_F100 = ("100", "100", "100")
+_F5000 = ("5,000", "5,000", "5,000")
+
+
+def _samsung_like_divs() -> dict[int, list[dict]]:
+    """2018년에 50:1 액면분할한 회사(삼성전자 실제 공시 모양): 2017 보고서는 액면가 5,000원 기준, 그 뒤는 100원 기준."""
+    return {2025: div_rows("1,668", "1,446", "1,444", year=2025, face=_F100),
+            2023: div_rows("1,444", "1,444", "1,444", year=2023, face=_F100),
+            2021: div_rows("1,444", "2,994", "1,416", year=2021, face=_F100),
+            2019: div_rows("1,416", "1,416", "850", year=2019, face=_F100),
+            2017: div_rows("42,500", "28,500", "21,000", year=2017, face=_F5000)}
+
+
+def test_older_report_on_old_face_value_is_scaled_to_current_basis():
+    values, flags = dps_by_year(_samsung_like_divs())
+    assert values[2016] == 570 and values[2015] == 420     # 28,500 × 100/5,000, 21,000 × 100/5,000
+    assert values[2017] == 850 and values[2020] == 2994
+    assert flags == ()                                      # 2017년 42,500 ÷ 50 = 850: 두 보고서가 맞아요
+
+
+def test_face_value_is_read_per_column_within_one_report():
+    # 한 보고서 안에서 해마다 액면가를 따로 적은 실제 공시 모양: 전전기만 옛 액면가 기준이에요.
+    values, flags = dps_by_year({2025: div_rows("400", "350", "3,000", face=("500", "500", "5,000"))})
+    assert values == {2025: 400, 2024: 350, 2023: 300} and flags == ()
+
+
+@pytest.mark.parametrize("old_face", [("-", "-", "-"), ("", "", ""), ("무액면", "무액면", "무액면")])
+def test_unknown_face_value_leaves_dps_unchanged(old_face):
+    values, _ = dps_by_year({2025: div_rows("1,668", "1,446", "1,444", face=_F100),
+                             2023: div_rows("1,444", "28,500", "21,000", year=2023, face=old_face)})
+    assert values[2022] == 28500 and values[2021] == 21000
+
+
+def test_unknown_current_face_value_leaves_dps_unchanged():
+    values, _ = dps_by_year({2025: div_rows("1,668", "1,446", "1,444", face=("-", "-", "-")),
+                             2023: div_rows("1,444", "28,500", "21,000", year=2023, face=_F5000)})
+    assert values[2022] == 28500
+
+
+def test_face_value_scaling_is_noted_and_sourced():
+    co, L, fin_a, fin_b, _, ye, price, d = synthetic_company()
+    a = assemble(co, L, fin_a, fin_b, _samsung_like_divs(), ye, price, d)
+    assert a.inputs.prior_dps == (570, 850, 1416, 1416, 2994)   # 2016–2020년
+    assert "액면가 5,000원 기준이라 지금 액면가 100원 기준으로 맞췄어요" in " ".join(a.notes)
+    assert a.sources["B42"].endswith(" × 100/5,000(액면분할 조정)")   # 2016년: 2017 보고서 값
+    assert "액면" not in a.sources["C42"]                               # 2017년: 2019 보고서(100원 기준) 값
+
+
+def test_old_share_jump_explained_by_face_value_is_not_flagged():
+    # 2018년 50:1 분할: 2016·2017년 말 주식 수는 1/50이지만 액면가 변화로 설명돼요.
+    co, L, fin_a, fin_b, _, ye, price, d = synthetic_company()
+    old = {y: PriceRow(date(y, 12, 28), "000270", "기아", "KOSPI", 2_000_000.0, SYN_SHARES / 50)
+           for y in (2016, 2017)}
+    a = assemble(co, L, fin_a, fin_b, _samsung_like_divs(), {**ye, **old}, price, d)
+    assert SPLIT_FLAG not in a.flags
+
+
+def test_old_share_jump_without_face_value_change_is_still_flagged():
+    co, L, fin_a, fin_b, _, ye, price, d = synthetic_company()
+    divs = {y: div_rows("1,000", "1,000", "1,000", year=y, face=_F100) for y in (2025, 2023, 2021, 2019, 2017)}
+    old = {2017: PriceRow(date(2017, 12, 28), "000270", "기아", "KOSPI", 2_000_000.0, SYN_SHARES / 50)}
+    a = assemble(co, L, fin_a, fin_b, divs, {**ye, **old}, price, d)
+    assert SPLIT_FLAG in a.flags
+
+
+def test_recent_share_jump_stays_flagged_even_with_face_value_change():
+    # 최근 5년 안의 분할은 EPS도 걸려 있어서, 액면가로 배당을 맞춰도 확인 표시는 그대로예요.
+    co, L, fin_a, fin_b, _, ye, price, d = synthetic_company()
+    divs = _samsung_like_divs()
+    divs[2023] = div_rows("1,444", "1,444", "72,200", year=2023, face=("100", "100", "5,000"))
+    ye = {**ye, 2021: replace(ye[2021], shares=SYN_SHARES / 50)}
+    a = assemble(co, L, fin_a, fin_b, divs, ye, price, d)
+    assert SPLIT_FLAG in a.flags and a.inputs.years[0].dps == 1444

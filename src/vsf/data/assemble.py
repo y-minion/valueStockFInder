@@ -36,6 +36,8 @@ REBASE_NOTE = "{y}년 말 뒤 주식 수가 {r:g}배가 돼서 EPS·배당을 �
 REBASE_SOURCE = " ÷ {r:g}(액면분할·무상증자 조정, {y}년 말 뒤)"
 MERGE_NOTE = "{y}년 말 뒤 주식 수가 1/{n:g}로 줄어서 EPS·배당을 지금 주식 수 기준으로 곱했어요"
 MERGE_SOURCE = " × {n:g}(주식 병합 조정, {y}년 말 뒤)"
+FACE_NOTE = "{years}년 배당은 액면가 {old:,.0f}원 기준이라 지금 액면가 {now:,.0f}원 기준으로 맞췄어요"
+FACE_SOURCE = " × {now:,.0f}/{old:,.0f}(액면분할 조정)"
 
 NO_INTEREST_COVERAGE = 999.0   # 엑셀 규칙: 이자비용이 0이면 999
 DPS_TOLERANCE = 0.02           # 보고서끼리 같은 해 DPS가 이보다 많이 다르면 확인 표시
@@ -117,21 +119,55 @@ def _dps_values(row: dict | None, year: int) -> tuple[dict[int, float | None], l
     return out, unreadable
 
 
+def _face_values(rows: list[dict], year: int) -> dict[int, float | None]:
+    """배당 보고서 하나의 해별 '주당액면가액'. 줄이 없거나, 대시·무액면처럼 0보다 큰 숫자가 아니면 None.
+
+    공시는 해마다 칸을 따로 적어요. 분할 전 해를 옛 액면가로 적은 보고서는 그 칸의 DPS도 옛 기준이에요.
+    """
+    row = next((r for r in rows or [] if "액면가액" in (r.get("se") or "").replace(" ", "")
+                and ((r.get("stock_knd") or "").strip() in ("", *_DASHES)
+                     or (r.get("stock_knd") or "").strip().startswith("보통"))), None)
+    faces: dict[int, float | None] = {}
+    for back, column in enumerate(_DPS_COLUMNS):
+        text = "" if row is None or row.get(column) is None else str(row.get(column)).strip()
+        value = None if text in _DASHES else parse_amount(text)
+        faces[year - back] = value if value is not None and value > 0 else None
+    return faces
+
+
+def _faces(div_reports: dict[int, list[dict]]) -> tuple[float | None, dict[int, float]]:
+    """(지금 액면가, 해 → 그해 말 액면가). 지금 액면가는 가장 최근 보고서의 당기 값이에요.
+
+    그해 말 액면가는 그해를 담은 가장 이른 보고서 값이에요 (나중 보고서는 분할 뒤 기준으로 고쳐 적어요).
+    """
+    reports = sorted(y for y, rows in div_reports.items() if rows)
+    now = _face_values(div_reports[reports[-1]], reports[-1])[reports[-1]] if reports else None
+    at_year: dict[int, float] = {}
+    for report_year in reports:
+        for y, face in _face_values(div_reports[report_year], report_year).items():
+            if face is not None and y not in at_year:
+                at_year[y] = face
+    return now, at_year
+
+
 def dps_from_report(rows: list[dict], year: int) -> dict[int, float | None]:
     """배당 보고서 하나 → {year: 당기, year−1: 전기, year−2: 전전기}. 대시는 0.0, 값이 없거나 못 읽으면 None."""
     return _dps_values(_dps_row(rows or []), year)[0]
 
 
 def _merge_dps(div_reports: dict[int, list[dict]]
-               ) -> tuple[dict[int, float | None], dict[int, str], list[str]]:
-    """해마다 DPS, 그 값의 출처 글, 플래그. 겹치는 해는 더 최근 보고서 값이 먼저예요.
+               ) -> tuple[dict[int, float | None], dict[int, str], list[str], dict[int, float]]:
+    """해마다 DPS, 그 값의 출처 글, 플래그, {해: 맞추기 전 액면가}. 겹치는 해는 더 최근 보고서 값이 먼저예요.
 
     값을 못 읽은 칸과, 보통주 주당 현금배당금 줄이 없는 보고서는 확인 표시를 달아요.
     그대로 두면 배당을 거른 해가 빈칸이 되어 관문 ②에서 조용히 빠져요.
+    칸의 액면가가 지금 액면가와 다르면(액면분할·병합) DPS를 지금 액면가 기준으로 맞춘 뒤 비교해요.
     """
     values: dict[int, float | None] = {}
     origin: dict[int, str] = {}
     flags: list[str] = []
+    scaled: dict[int, float] = {}
+    now, _ = _faces(div_reports)
 
     def flag(text: str) -> None:
         if text not in flags:
@@ -148,19 +184,27 @@ def _merge_dps(div_reports: dict[int, list[dict]]
         for y, text in unreadable:
             flag(DPS_TEXT_FLAG.format(y=y, text=text))
         receipt = _receipt((row or {}).get("rcept_no"))
+        faces = _face_values(rows, report_year)
         for y, v in read.items():
+            old = faces.get(y)
+            rescale = v is not None and now is not None and old is not None and old != now
+            if rescale:
+                v = v * now / old
             kept = values.get(y)
             if kept is None:            # 처음 보는 해이거나, 더 최근 보고서에 값이 없던 해
                 values[y] = v
                 if v is not None:
                     origin[y] = f"{report_year} 사업보고서 배당에 관한 사항(보통주{receipt})"
+                    if rescale:
+                        origin[y] += FACE_SOURCE.format(now=now, old=old)
+                        scaled[y] = old
             elif v is not None and abs(v - kept) > DPS_TOLERANCE * abs(kept):
                 flag(DPS_FLAG.format(y=y))
-    return values, origin, flags
+    return values, origin, flags, scaled
 
 
 def dps_by_year(div_reports: dict[int, list[dict]]) -> tuple[dict[int, float | None], tuple[str, ...]]:
-    values, _, flags = _merge_dps(div_reports)
+    values, _, flags, _ = _merge_dps(div_reports)
     return values, tuple(flags)
 
 
@@ -304,7 +348,8 @@ def _currency(fins: list[FinRows], out: _Out) -> None:
 
 
 def _split_divisor(a: dict[int, _Period], b: dict[int, _Period], year_end: dict[int, PriceRow],
-                   price: PriceRow, latest: int, out: _Out) -> tuple[float, float]:
+                   price: PriceRow, latest: int, out: _Out,
+                   faces: tuple[float | None, dict[int, float]] = (None, {})) -> tuple[float, float]:
     """(B 보고서 EPS를 나눌 배수, L년 말 뒤 분할 배수). 주식 수가 크게 바뀐 해가 있으면 확인 표시를 달아요.
 
     L년 말 뒤 분할이 주가로도 확인되면 표시 대신 메모를 남기고, 주당 값을 지금 주식 수 기준으로 나눌 배수를 돌려줘요.
@@ -313,6 +358,10 @@ def _split_divisor(a: dict[int, _Period], b: dict[int, _Period], year_end: dict[
     newer = a[latest - 2].acc["eps"].value if latest - 2 in a else None
     older = b[latest - 2].acc["eps"].value if latest - 2 in b else None
     shares = {y: year_end[y].shares for y in range(latest - 9, latest + 1) if y in year_end}
+    now_face, face_at = faces
+    for y in range(latest - 9, latest - 4):   # 배당만 쓰는 옛 5년: 액면가 변화로 설명되는 주식 수 변화는 이미 배당에 맞췄어요
+        if shares.get(y) and now_face and face_at.get(y):
+            shares[y] = shares[y] * face_at[y] / now_face
     check = check_splits(newer, older, shares, latest)
     out.flag(*check.flags)
     end = year_end.get(latest)
@@ -366,11 +415,15 @@ def _dps_cell(y: int, latest: int) -> str:
 
 def _dps(div_reports: dict[int, list[dict]], latest: int, years: range, out: _Out) -> dict[int, float | None]:
     """years의 DPS. 출처는 29행(최근 5년)과 42행(그 이전 5년)에 남겨요."""
-    values, origin, flags = _merge_dps(div_reports)
+    values, origin, flags, scaled = _merge_dps(div_reports)
     out.flag(*flags)
     for y in years:
         if values.get(y) is not None:
             out.sources[_dps_cell(y, latest)] = origin[y]
+    now, _ = _faces(div_reports)
+    for old in sorted({scaled[y] for y in years if y in scaled}, reverse=True):
+        shown = "·".join(str(y) for y in years if scaled.get(y) == old)
+        out.note(FACE_NOTE.format(years=shown, old=old, now=now))
     return {y: values.get(y) for y in years}
 
 
@@ -590,7 +643,7 @@ def assemble(company: CompanyInfo, latest_year: int, fin_a: FinRows | None, fin_
     if any(p.fs == "OFS" for p in main.values()):
         out.note(OFS_NOTE)
     _currency([fin for fin, used in ((fin_a, a), (fin_b, b)) if used], out)
-    divisor, after = _split_divisor(a, b, year_end, price, L, out)
+    divisor, after = _split_divisor(a, b, year_end, price, L, out, _faces(div_reports))
     eps = _eps(main, b, divisor, L, out)
     dps = _dps(div_reports, L, range(L - 9, L + 1), out)
     per = _per(eps, year_end, L, out)        # 연말 종가와 같은 (L년 말) 기준 EPS로 — PER은 주식 수 기준과 무관해요

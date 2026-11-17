@@ -236,3 +236,22 @@ test('capital row shows value, base month and source when a ratio is present', (
   const h = r.renderStock(d, '105560');
   for (const t of ['13.2%', '2026-06', '금감원 금융통계정보시스템 SL008']) assert.ok(h.includes(t), t);
 });
+test('recent four quarters row sits in the 5-4 table and warns when it is not cheap', () => {
+  const d = JSON.parse(JSON.stringify(data));
+  const warning = '최근 4분기 EPS 452원으로 보면 매수선이 3,390원이라 지금 주가 3,790원보다 낮아요. 계산기는 연간 실적만 봐서 아직 반영하지 못했어요.';
+  d.stocks.A.extras.recent = { label: '최근 4분기 (2025년 4분기~2026년 3분기)', eps: 452, fair: 4520, buy_line: 3390,
+                               ratio: 0.8385, verdict: '제값', warning };
+  const h = r.renderStock(d, 'A');
+  const at = h.indexOf('최근 4분기 (2025년 4분기~2026년 3분기)');
+  assert.ok(h.indexOf('최근 해(F열)') < at && at < h.indexOf('최근 5년 중 가장 좋은 해'));
+  for (const s of ['3,390', '4,520', '0.84', warning, '최근 실적 미달']) assert.ok(h.includes(s), s);
+  assert.ok(r.renderIndex(d).includes('최근 실적 미달'));
+  d.stocks.A.extras.recent.warning = null;
+  assert.ok(r.renderStock(d, 'A').includes('최근 4분기 (2025년'));
+  assert.ok(!r.renderStock(d, 'A').includes('최근 실적 미달') && !r.renderIndex(d).includes('최근 실적 미달'));
+});
+test('old data without the recent row renders', () => {
+  assert.ok(!('recent' in data.stocks.A.extras));
+  assert.ok(!r.renderStock(data, 'A').includes('최근 4분기'));
+  assert.ok(!r.renderStock(data, 'B').includes('최근 4분기'));
+});

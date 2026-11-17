@@ -84,6 +84,8 @@ function gateBadge(n, verdict) {
   return badge(mark + " " + (verdict == null || verdict === "" ? "—" : verdict), verdict);
 }
 function flagChip(s) { return s.flags && s.flags.length ? " " + chip("숫자 확인 필요", "flag") : ""; }
+function recentOf(s) { return (s.extras && s.extras.recent) || null; }
+function recentChip(s) { var q = recentOf(s); return q && q.warning ? " " + chip("최근 실적 미달", "flag") : ""; }
 function stockLink(code, name) { return '<a href="stock.html#' + encodeURIComponent(code) + '">' + esc(name) + "</a>"; }
 
 function searchStocks(data, query) {
@@ -251,7 +253,7 @@ function watchTable(data) {
   if (!list.length) return h + '<p class="muted">지금 관심 목록에 든 종목이 없어요.</p>';
   var rows = list.map(function (code) {
     var s = data.stocks[code], m = s.summary, ind = s.industry;
-    return "<tr><td>" + stockLink(code, s.name) + flagChip(s) + (s.financial ? " " + chip("금융", "info") : "") + '<div class="muted">' + esc(ind ? ind.group_name : "업종 정보 없음") + "</div></td><td>" +
+    return "<tr><td>" + stockLink(code, s.name) + flagChip(s) + recentChip(s) + (s.financial ? " " + chip("금융", "info") : "") + '<div class="muted">' + esc(ind ? ind.group_name : "업종 정보 없음") + "</div></td><td>" +
       gateBadge(1, m.gate1) + " " + gateBadge(2, m.gate2) + " " + gateBadge(3, m.gate3) + '</td><td class="num">' + fmt(m.ratio, "d2") +
       '</td><td class="num">' + fmt(m.drop == null ? null : Math.round(m.drop * 100) / 100, "pct0") + '</td><td class="num">' + fmt(m.yield_now, "pct") +
       "</td><td>" + fmt(m.method) + '</td><td class="num">' + industryRank(ind) +
@@ -351,7 +353,7 @@ function sourceTable(s) {
   return "<h4>칸별 출처</h4>" + rowsTable(["칸", "출처"], rows);
 }
 function cardHead(s) {
-  var chips = flagChip(s) + (s.criteria_overridden ? " " + chip("업종 기준 적용", "info") : "") +
+  var chips = flagChip(s) + recentChip(s) + (s.criteria_overridden ? " " + chip("업종 기준 적용", "info") : "") +
     (s.financial ? " " + chip(s.financial.kind + " · 금융업 기준으로 판정했어요", "info") : "");
   return '<p><a href="index.html">← 첫 페이지</a></p><h1>' + esc(s.name) + " (" + esc(s.code) + ")" + chips + '</h1><p class="muted">' +
     esc(s.industry ? s.industry.group_name : "업종 정보 없음") + " · " + esc(s.market) + " · 최근 연도 " + esc(s.latest_year) + "</p>";
@@ -432,10 +434,18 @@ function fairTable(c) {
   var kinds = { 102: "won", 103: "won", 104: "won", 105: "won", 106: "text", 107: "won", 108: "d2", 109: "pct0" };
   return rowsTable(["적정가 세 가지와 매수선", "값"], Object.keys(kinds).map(function (r) { return tr([esc(LABELS[r]), fmt(c["B" + r], kinds[r])]); }));
 }
-function table54(c) {
-  return rowsTable(["5-4. 정상 EPS 가정을 바꾸면", "정상 EPS", "적정가", "매수선", "주가÷적정가", "판단"], [120, 121, 122, 123, 124, 125, 126].map(function (r) {
+function table54(c, recent) {
+  var rows = [120, 121, 122, 123, 124, 125, 126].map(function (r) {
     return tr([esc(LABELS[r]), fmt(c["B" + r], "won"), fmt(c["C" + r], "won"), fmt(c["D" + r], "won"), fmt(c["E" + r], "d2"), verdictCell(c["F" + r])]);
-  }));
+  });
+  // 최근 4분기 줄은 엑셀에 없는 참고 줄이라 '최근 해' 바로 밑에 끼워 보여줘요.
+  if (recent) rows.splice(4, 0, tr([esc(recent.label) + ' <span class="muted">(참고, 엑셀에는 없어요)</span>', fmt(recent.eps, "won"),
+    fmt(recent.fair, "won"), fmt(recent.buy_line, "won"), fmt(recent.ratio, "d2"), verdictCell(recent.verdict)]));
+  return rowsTable(["5-4. 정상 EPS 가정을 바꾸면", "정상 EPS", "적정가", "매수선", "주가÷적정가", "판단"], rows);
+}
+function recentBanner(s) {
+  var q = recentOf(s);
+  return q && q.warning ? '<div class="banner warn"><b>최근 실적 확인</b> ' + esc(q.warning) + "</div>" : "";
 }
 function industryBox(s) {
   var i = s.industry;
@@ -483,13 +493,13 @@ function renderStock(data, code) {
   if (!s) return '<p><a href="index.html">← 첫 페이지</a></p><div class="banner warn">' + esc(NO_FIGURES) + "</div>";
   if (s.quick_fail) return quickFailCard(s);
   var c = s.cells;
-  return cardHead(s) + noteList(s.notes) + flagList(s) + gateBadges(s) + priceBox(s) +
+  return cardHead(s) + noteList(s.notes) + flagList(s) + gateBadges(s) + priceBox(s) + recentBanner(s) +
     "<h3>적정가 A·B·C</h3>" + fairTable(c) +
     "<h3>관문 ① 좋은 회사인가</h3>" + gate1Table(s, data) +
     "<h3>관문 ② 배당이 오래 갈까</h3>" + gate2Table(s) +
     "<h3>관문 ③ 지금 싼가</h3>" + gate3Table(c) + "<h4>5-1. 계산에 쓰는 평균값</h4>" + kvTable(c, [[94, "won"], [96, "won"], [97, "d2"], [98, "pct"], [99, "pct"], [100, "won"]]) +
     "<h4>5-3. 지금 주가가 예상하는 것</h4>" + kvTable(c, [[112, "won"], [113, "d2"], [114, "d2"], [115, "pct"], [116, "pct"], [117, "pct"], [118, "d2"]]) +
-    table54(c) +
+    table54(c, recentOf(s)) +
     "<h3>5년 입력 숫자</h3>" + inputTable(s) +
     "<h4>해마다 계산한 값</h4>" + colTable(s, [[47, "won"], [48, "pct"], [49, "pct"], [50, "pct"], [51, "raw"], [52, "raw"], [53, "text"], [54, "text"], [55, "won"]], 46) +
     sourceTable(s) + "<h3>그래프</h3>" + charts(s) +

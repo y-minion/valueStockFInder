@@ -8,6 +8,7 @@ from vsf.data.dart import DartError, DartQuotaExceeded, FinRows
 from vsf.data.http import NetworkError
 from vsf.data.krx import KrxError
 from vsf.data.naver import NaverAuthError, NaverNews
+from vsf.engine import eps_scenario
 from vsf.evaluate import RunResult
 from vsf.excelfn import excel_round
 
@@ -19,6 +20,8 @@ _NAVER_KEY_NOTE = "네이버 검색 키가 맞지 않아 뉴스를 가져오지 
 _NO_QUARTER = "올해 분기 실적이 아직 없어요"
 _REPORTS = ("11014", "11012", "11013")  # 3분기 누적, 반기 누적, 1분기
 _LABELS = {"11014": "3분기 누적", "11012": "반기 누적", "11013": "1분기"}
+_QUARTER = {"11014": 3, "11012": 2, "11013": 1}
+_RECENT_TAIL = "계산기는 연간 실적만 봐서 아직 반영하지 못했어요."
 
 
 @dataclass(frozen=True)
@@ -29,6 +32,7 @@ class Extras:
     quarterly: dict | None
     weekly_closes: list[tuple[str, float]]
     notes: tuple[str, ...]
+    recent: dict | None = None    # 최근 4분기 EPS로 본 5-4 표 한 줄 (참고, 판정은 안 바꿔요)
 
 
 def _eok(v: float | None) -> float | None:
@@ -49,7 +53,34 @@ def quarterly_summary(fin: FinRows, year: int, report: str) -> dict:
             "net_income": pick(now, "net_income_parent"),
             "net_income_prev": pick(before, "net_income_parent"),
             "op_income": pick(now, "operating_income"),
-            "op_income_prev": pick(before, "operating_income")}
+            "op_income_prev": pick(before, "operating_income"),
+            "eps": now["eps"].value, "eps_prev": before["eps"].value,   # 누적 EPS (원)
+            "year": year, "quarter": _QUARTER[report]}
+
+
+def recent_row(q: dict | None, *, latest_year: int | None, latest_eps, b118, price,
+               safety_margin: float, gate3: str | None) -> dict | None:
+    """최근 4분기 EPS = 최근 해 EPS + 올해 누적 EPS − 작년 같은 때 누적 EPS. 5-4 표와 같은 식으로 매수선을 구해요.
+
+    연간 보고서 바로 다음 해의 분기 보고서일 때만 이어 붙여요. 관문 ③을 통과했는데
+    이 기준으로는 '싸요'가 아니면 경고 문장을 붙여요."""
+    if q is None or latest_year is None or q.get("year") != latest_year + 1:
+        return None
+    parts = (latest_eps, q.get("eps"), q.get("eps_prev"), b118, price)
+    if not all(isinstance(x, (int, float)) for x in parts):
+        return None
+    eps = latest_eps + q["eps"] - q["eps_prev"]
+    fair, buy, ratio, verdict = eps_scenario(eps, b118, price, safety_margin)
+    n = q["quarter"]
+    label = f"최근 4분기 ({latest_year}년 {n + 1}분기~{q['year']}년 {n}분기)"
+    warning = None
+    if gate3 == "통과" and verdict != "싸요":
+        warning = (f"최근 4분기 EPS가 −{-eps:,.0f}원(적자)이라 이 기준으로는 매수선이 없어요. {_RECENT_TAIL}"
+                   if eps <= 0 else
+                   f"최근 4분기 EPS {eps:,.0f}원으로 보면 매수선이 {buy:,.0f}원이라 "
+                   f"지금 주가 {price:,.0f}원보다 낮아요. {_RECENT_TAIL}")
+    return {"label": label, "eps": eps, "fair": fair, "buy_line": buy, "ratio": ratio,
+            "verdict": verdict, "warning": warning}
 
 
 def _disclosures(dart, corp: str, today: date) -> list[dict]:
@@ -99,9 +130,11 @@ def gather_extras(codes, run: RunResult, dart, krx, naver: NaverNews | None,
         except _CAUGHT as e:
             failed(e, "최근 공시를 가져오지 못했어요")
 
+        latest_year = result.assembled.latest_year
         quarterly = None
         try:
-            quarterly = _quarterly(dart, company.corp_code, today.year)
+            # 사업보고서 바로 다음 해의 분기 보고서. 1~3월엔 아직 지난해 3분기 누적이 가장 최근이에요.
+            quarterly = _quarterly(dart, company.corp_code, latest_year + 1 if latest_year else today.year)
             if quarterly is None:
                 note(_NO_QUARTER)
         except _CAUGHT as e:
@@ -133,7 +166,11 @@ def gather_extras(codes, run: RunResult, dart, krx, naver: NaverNews | None,
             except _CAUGHT:
                 note("뉴스를 가져오지 못했어요")
 
+        cells = result.cells
+        recent = recent_row(quarterly, latest_year=latest_year, latest_eps=cells.get("B123"),
+                            b118=cells.get("B118"), price=result.assembled.inputs.price,
+                            safety_margin=result.criteria.safety_margin, gate3=cells.get("D110"))
         out[code] = Extras(disclosures=disclosures, news=news,
                            news_link=_NEWS_LINK.format(quote(company.name)),
-                           quarterly=quarterly, weekly_closes=closes, notes=tuple(notes))
+                           quarterly=quarterly, weekly_closes=closes, notes=tuple(notes), recent=recent)
     return out

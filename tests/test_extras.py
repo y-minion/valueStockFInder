@@ -66,7 +66,8 @@ def news_item(title: str, pub: str = "Fri, 13 Nov 2026 10:30:00 +0900", link: st
 def test_quarterly_label_and_values():
     q = quarterly_summary(fin_q3(), 2026, "11014")
     assert q == {"label": "2026년 3분기 누적", "net_income": 1.5, "net_income_prev": 1.0,
-                 "op_income": 2.5, "op_income_prev": 2.0}
+                 "op_income": 2.5, "op_income_prev": 2.0, "eps": None, "eps_prev": None,
+                 "year": 2026, "quarter": 3}
 
 
 def test_quarterly_half_and_first_quarter_labels_and_fields():
@@ -75,7 +76,8 @@ def test_quarterly_half_and_first_quarter_labels_and_fields():
     first = quarterly_summary(fin_q("11013", "300,000,000", "100,000,000", "-50,000,000", "70,000,000", q1=True),
                               2026, "11013")
     assert first == {"label": "2026년 1분기", "net_income": 3.0, "net_income_prev": 1.0,
-                     "op_income": -0.5, "op_income_prev": 0.7}
+                     "op_income": -0.5, "op_income_prev": 0.7, "eps": None, "eps_prev": None,
+                     "year": 2026, "quarter": 1}
 
 
 def test_no_naver_key_gives_link_only():
@@ -288,3 +290,90 @@ def test_notes_in_stable_order():
 def test_code_missing_from_run_is_skipped():
     out = go(codes=("999999", KIA))
     assert list(out) == [KIA]
+
+
+# ---- 최근 4분기 EPS로 본 매수선 (판정은 안 바꾸고 경고만) ----
+
+from vsf.extras import recent_row  # noqa: E402
+
+
+def fin_q_eps(eps: str, eps_prev: str, q1: bool = False) -> FinRows:
+    """분기 보고서에 기본주당이익 줄을 더한 것 (파트론 2026년 3분기: 누적 185원, 작년 같은 때 407원)."""
+    fin = fin_q("11014", "9,166,000,000", "20,436,000,000", "22,364,000,000", "29,234,000,000", q1=q1)
+    cur, prev = ("thstrm_amount", "frmtrm_q_amount") if q1 else ("thstrm_add_amount", "frmtrm_add_amount")
+    row = fin_row("IS", "ifrs-full_BasicEarningsLossPerShare", "기본주당이익")
+    row.update({cur: eps, prev: eps_prev})
+    return FinRows(fin.rows + [row], fin.fs, fin.rcept_no)
+
+
+def partron_q3() -> dict:
+    return quarterly_summary(fin_q_eps("185", "407"), 2026, "11014")
+
+
+def test_quarterly_summary_reads_cumulative_eps_and_period():
+    q = partron_q3()
+    assert (q["eps"], q["eps_prev"], q["year"], q["quarter"]) == (185.0, 407.0, 2026, 3)
+    first = quarterly_summary(fin_q_eps("203", "136", q1=True), 2026, "11013")
+    assert (first["eps"], first["eps_prev"], first["quarter"]) == (203.0, 136.0, 1)
+    assert quarterly_summary(fin_q3(), 2026, "11012")["quarter"] == 2
+
+
+def test_recent_row_uses_last_four_quarters_like_the_eps_table():
+    # 2025년 EPS 674 + 2026년 1~3분기 185 − 2025년 1~3분기 407 = 452
+    r = recent_row(partron_q3(), latest_year=2025, latest_eps=674.0, b118=10.0, price=3790.0,
+                   safety_margin=0.25, gate3="통과")
+    assert r["label"] == "최근 4분기 (2025년 4분기~2026년 3분기)"
+    assert r["eps"] == 452.0 and r["fair"] == 4520.0 and r["buy_line"] == 3390.0
+    assert r["ratio"] == pytest.approx(3790 / 4520) and r["verdict"] == "제값"
+    assert r["warning"] == ("최근 4분기 EPS 452원으로 보면 매수선이 3,390원이라 지금 주가 3,790원보다 낮아요. "
+                            "계산기는 연간 실적만 봐서 아직 반영하지 못했어요.")
+
+
+def test_recent_row_span_for_half_and_first_quarter():
+    half = dict(partron_q3(), quarter=2)
+    first = dict(partron_q3(), quarter=1)
+    kw = dict(latest_year=2025, latest_eps=674.0, b118=10.0, price=3790.0, safety_margin=0.25, gate3="통과")
+    assert recent_row(half, **kw)["label"] == "최근 4분기 (2025년 3분기~2026년 2분기)"
+    assert recent_row(first, **kw)["label"] == "최근 4분기 (2025년 2분기~2026년 1분기)"
+
+
+def test_no_warning_when_still_cheap_or_gate3_not_passed():
+    kw = dict(latest_year=2025, latest_eps=674.0, b118=10.0, safety_margin=0.25)
+    cheap = recent_row(partron_q3(), price=3000.0, gate3="통과", **kw)
+    assert cheap["verdict"] == "싸요" and cheap["warning"] is None
+    assert recent_row(partron_q3(), price=3790.0, gate3="탈락", **kw)["warning"] is None
+
+
+def test_loss_over_four_quarters_has_no_fair_value_and_warns():
+    q = dict(partron_q3(), eps=-900.0)       # 674 − 900 − 407 = −633
+    r = recent_row(q, latest_year=2025, latest_eps=674.0, b118=10.0, price=3790.0,
+                   safety_margin=0.25, gate3="통과")
+    assert r["eps"] == -633.0 and r["ratio"] is None and r["verdict"] is None
+    assert r["warning"] == ("최근 4분기 EPS가 −633원(적자)이라 이 기준으로는 매수선이 없어요. "
+                            "계산기는 연간 실적만 봐서 아직 반영하지 못했어요.")
+
+
+@pytest.mark.parametrize("change", [
+    dict(latest_year=2024),                  # 연간 보고서와 분기 보고서 사이에 빈 해가 있으면 이어 붙일 수 없어요
+    dict(latest_eps=None), dict(b118=None), dict(price=None),
+])
+def test_recent_row_needs_adjacent_years_and_numbers(change):
+    kw = dict(latest_year=2025, latest_eps=674.0, b118=10.0, price=3790.0, safety_margin=0.25, gate3="통과")
+    assert recent_row(partron_q3(), **(kw | change)) is None
+    assert recent_row(dict(partron_q3(), eps=None), **kw) is None
+    assert recent_row(None, **kw) is None
+
+
+def test_gather_extras_attaches_recent_row():
+    e = go(dart=QuarterDart(reports={(2026, "11014"): fin_q_eps("15,000", "14,000")}))[KIA]
+    kia = RUN.results[KIA]
+    assert e.recent["eps"] == kia.cells["B123"] + 1000
+    assert e.recent["verdict"] == "싸요" and e.recent["warning"] is None
+    assert go()[KIA].recent is None          # EPS 줄이 없는 분기 보고서
+
+
+def test_quarter_year_follows_the_latest_annual_report():
+    """2027년 2월엔 2026년 사업보고서가 아직 없으니 2026년 3분기 누적을 써요."""
+    dart = QuarterDart(reports={(2026, "11014"): fin_q_eps("15,000", "14,000")})
+    e = gather_extras([KIA], RUN, dart, FakeKrx.default(), None, date(2027, 2, 10))[KIA]
+    assert e.quarterly["label"] == "2026년 3분기 누적" and e.recent is not None

@@ -237,14 +237,19 @@ def _scenarios(v: Cells, c: Criteria) -> None:
     v["B126"] = (price / (b118 * (1 - c.safety_margin))
                  if _num(price, b118) and b118 > 0 else None)
     for row in range(120, 127):
-        b = v.get(f"B{row}")
-        cc = b * b118 if _num(b, b118) else None
-        d = cc * (1 - c.safety_margin) if is_num(cc) else None
-        e = price / cc if _num(cc, price) and cc > 0 else None
-        v[f"C{row}"], v[f"D{row}"], v[f"E{row}"] = cc, d, e
-        v[f"F{row}"] = (None if not is_num(e)
-                        else "싸요" if e <= 1 - c.safety_margin + 0.0000001
-                        else "제값" if e <= 1 else "비싸요")
+        v[f"C{row}"], v[f"D{row}"], v[f"E{row}"], v[f"F{row}"] = \
+            eps_scenario(v.get(f"B{row}"), b118, price, c.safety_margin)
+
+
+def eps_scenario(eps, b118, price, safety_margin: float) -> tuple:
+    """5-4 표 한 줄: 정상 EPS 가정 → (적정가, 매수선, 주가÷적정가, 판단)."""
+    cc = eps * b118 if _num(eps, b118) else None
+    d = cc * (1 - safety_margin) if is_num(cc) else None
+    e = price / cc if _num(cc, price) and cc > 0 else None
+    f = (None if not is_num(e)
+         else "싸요" if e <= 1 - safety_margin + 0.0000001
+         else "제값" if e <= 1 else "비싸요")
+    return cc, d, e, f
 
 
 def _num_text(x) -> str:

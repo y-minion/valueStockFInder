@@ -1,0 +1,584 @@
+{
+ "result": {
+  "total_count": "115",
+  "err_cd": "000",
+  "err_msg": "Success",
+  "list": [
+   {
+    "finance_cd": "0011985",
+    "finance_nm": "Apple Investment[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Apple Investment[closed]"
+   },
+   {
+    "finance_cd": "0012334",
+    "finance_nm": "BNK Securities Co.,Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\BNK Securities Co.,Ltd."
+   },
+   {
+    "finance_cd": "0011221",
+    "finance_nm": "BNP Paribas Securities Korea Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\BNP Paribas Securities Korea Co., Ltd."
+   },
+   {
+    "finance_cd": "0012000",
+    "finance_nm": "BOS Securities Korea Co., Ltd.[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\BOS Securities Korea Co., Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0010134",
+    "finance_nm": "B[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\B[closed]"
+   },
+   {
+    "finance_cd": "0010102",
+    "finance_nm": "Bookook Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Bookook Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0011978",
+    "finance_nm": "CAPE Investment & Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\CAPE Investment & Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0011238",
+    "finance_nm": "CLSA Securities Korea Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\CLSA Securities Korea Ltd."
+   },
+   {
+    "finance_cd": "0015363",
+    "finance_nm": "China Merchants Securities (Korea) Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\China Merchants Securities (Korea) Co., Ltd."
+   },
+   {
+    "finance_cd": "0010123",
+    "finance_nm": "Citigroup Global Markets Korea Securities Limited",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Citigroup Global Markets Korea Securities Limited"
+   },
+   {
+    "finance_cd": "0010120",
+    "finance_nm": "DB Securities",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\DB Securities"
+   },
+   {
+    "finance_cd": "0011980",
+    "finance_nm": "DS Investment & Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\DS Investment & Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010093",
+    "finance_nm": "Daishin Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Daishin Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0013003",
+    "finance_nm": "Daiwa Scurities Capital Markets Korea Co., LTD.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Daiwa Scurities Capital Markets Korea Co., LTD."
+   },
+   {
+    "finance_cd": "0011981",
+    "finance_nm": "Daol Investment & Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Daol Investment & Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010169",
+    "finance_nm": "Deutsche Securities Korea Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Deutsche Securities Korea Co., Ltd."
+   },
+   {
+    "finance_cd": "0010092",
+    "finance_nm": "Dongwon Securities Co., Ltd.[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Dongwon Securities Co., Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0010097",
+    "finance_nm": "Eugene Investment & Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Eugene Investment & Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010658",
+    "finance_nm": "Getmore Securities & Brokerage Company[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Getmore Securities & Brokerage Company[closed]"
+   },
+   {
+    "finance_cd": "0010105",
+    "finance_nm": "Hana Securities Co., Ltd.[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Hana Securities Co., Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0010130",
+    "finance_nm": "Hana Securities co.,Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Hana Securities co.,Ltd."
+   },
+   {
+    "finance_cd": "0010110",
+    "finance_nm": "Hanhwa Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Hanhwa Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010898",
+    "finance_nm": "Hanmag Securities Corp[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Hanmag Securities Corp[closed]"
+   },
+   {
+    "finance_cd": "0010126",
+    "finance_nm": "Hanwha Investment and Securities Co., Ltd.[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Hanwha Investment and Securities Co., Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0010098",
+    "finance_nm": "Hanyang Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Hanyang Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010139",
+    "finance_nm": "Heungkuk Securities Co.,Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Heungkuk Securities Co.,Ltd."
+   },
+   {
+    "finance_cd": "0010111",
+    "finance_nm": "Hyundai Motor Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Hyundai Motor Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0012001",
+    "finance_nm": "IBK Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\IBK Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010118",
+    "finance_nm": "ILEUN Securities[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\ILEUN Securities[closed]"
+   },
+   {
+    "finance_cd": "0017993",
+    "finance_nm": "IMC Korea Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\IMC Korea Co., Ltd."
+   },
+   {
+    "finance_cd": "0010122",
+    "finance_nm": "KB Investment and Securities Co., Ltd.[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\KB Investment and Securities Co., Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0010106",
+    "finance_nm": "KB Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\KB Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010116",
+    "finance_nm": "KGI Securities korea Co., Ltd.[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\KGI Securities korea Co., Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0010659",
+    "finance_nm": "KIDB Fixed Income Brokerage Co.,Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\KIDB Fixed Income Brokerage Co.,Ltd."
+   },
+   {
+    "finance_cd": "0010897",
+    "finance_nm": "KR Investment & Securities Co.,Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\KR Investment & Securities Co.,Ltd."
+   },
+   {
+    "finance_cd": "0010100",
+    "finance_nm": "Keon Seol Securities[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Keon Seol Securities[closed]"
+   },
+   {
+    "finance_cd": "0010136",
+    "finance_nm": "Kiwoom.com Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Kiwoom.com Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010138",
+    "finance_nm": "Korea Asset Investment Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Korea Asset Investment Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010129",
+    "finance_nm": "Korea Investment & Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Korea Investment & Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010090",
+    "finance_nm": "Kyobo Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Kyobo Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010137",
+    "finance_nm": "LS SECURITIES Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\LS SECURITIES Co., Ltd."
+   },
+   {
+    "finance_cd": "0010132",
+    "finance_nm": "Leading Investment & Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Leading Investment & Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0011611",
+    "finance_nm": "Macquarie Securities Korea Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Macquarie Securities Korea Ltd."
+   },
+   {
+    "finance_cd": "0010099",
+    "finance_nm": "Meritz Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Meritz Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010094",
+    "finance_nm": "Mirae Asset Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Mirae Asset Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010133",
+    "finance_nm": "Mirae Asset Securities Co., Ltd.[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Mirae Asset Securities Co., Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0010135",
+    "finance_nm": "More Securities Brokerage Company[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\More Securities Brokerage Company[closed]"
+   },
+   {
+    "finance_cd": "0010899",
+    "finance_nm": "NEXT SECURITIES CORPORATION",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\NEXT SECURITIES CORPORATION"
+   },
+   {
+    "finance_cd": "0010117",
+    "finance_nm": "NH INVESTMENT&SECURITIES CO., LTD [closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\NH INVESTMENT&SECURITIES CO., LTD [closed]"
+   },
+   {
+    "finance_cd": "0010101",
+    "finance_nm": "NH investment & securities co.,Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\NH investment & securities co.,Ltd."
+   },
+   {
+    "finance_cd": "0012390",
+    "finance_nm": "Nomura Financial Investment (Korea) Co.,Ltd",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Nomura Financial Investment (Korea) Co.,Ltd"
+   },
+   {
+    "finance_cd": "0013414",
+    "finance_nm": "SG Securities Korea Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\SG Securities Korea Co., Ltd."
+   },
+   {
+    "finance_cd": "0010114",
+    "finance_nm": "SK Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\SK Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010119",
+    "finance_nm": "Samsung Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Samsung Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010104",
+    "finance_nm": "Sangsangin Investment & Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Sangsangin Investment & Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010091",
+    "finance_nm": "Shinhan Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Shinhan Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010103",
+    "finance_nm": "Shinhan Securities Company[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Shinhan Securities Company[closed]"
+   },
+   {
+    "finance_cd": "0010095",
+    "finance_nm": "Shinyoung Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Shinyoung Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0012002",
+    "finance_nm": "Standard Chartered Securities Korea Limited",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Standard Chartered Securities Korea Limited"
+   },
+   {
+    "finance_cd": "0010131",
+    "finance_nm": "Tong Yang Orion Investment Securities Co., Ltd.[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Tong Yang Orion Investment Securities Co., Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0017713",
+    "finance_nm": "Toss Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Toss Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0013515",
+    "finance_nm": "Woori Investment Securities Co.,Ltd..",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Woori Investment Securities Co.,Ltd.."
+   },
+   {
+    "finance_cd": "0010108",
+    "finance_nm": "Woori Securities[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Woori Securities[closed]"
+   },
+   {
+    "finance_cd": "0010113",
+    "finance_nm": "Yuanta Securities Korea Co., Ltd",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Yuanta Securities Korea Co., Ltd"
+   },
+   {
+    "finance_cd": "0010112",
+    "finance_nm": "Yuhwa Securities Co., Ltd.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\Yuhwa Securities Co., Ltd."
+   },
+   {
+    "finance_cd": "0010121",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010096",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010109",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010115",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0011033",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010124",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010127",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010125",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010107",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010128",
+    "finance_nm": "iM SECURITIES CO., LTD.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\iM SECURITIES CO., LTD."
+   },
+   {
+    "finance_cd": "0011982",
+    "finance_nm": "kakaopay securities Corp.",
+    "finance_path": "Securities Companies\\Domestic Securities Companies\\kakaopay securities Corp."
+   },
+   {
+    "finance_cd": "0010918",
+    "finance_nm": "BA Asia Securities, Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\BA Asia Securities, Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0010155",
+    "finance_nm": "Barclays Capital Securities Limited Seoul Branch [closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Barclays Capital Securities Limited Seoul Branch [closed]"
+   },
+   {
+    "finance_cd": "0013352",
+    "finance_nm": "CGS International Securities Hong Kong, Korea Branch",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\CGS International Securities Hong Kong, Korea Branch"
+   },
+   {
+    "finance_cd": "0010160",
+    "finance_nm": "CREDIT LYONNAIS SECURITIES ASIA [closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\CREDIT LYONNAIS SECURITIES ASIA [closed]"
+   },
+   {
+    "finance_cd": "0010156",
+    "finance_nm": "Credit Agricole Cheuvreux Securities Limited, Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Credit Agricole Cheuvreux Securities Limited, Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0010162",
+    "finance_nm": "Credit Agricole Securities Asia Limited, Seoul Branch",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Credit Agricole Securities Asia Limited, Seoul Branch"
+   },
+   {
+    "finance_cd": "0010145",
+    "finance_nm": "Credit Suisse Securities(Europe) Ltd. Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Credit Suisse Securities(Europe) Ltd. Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0010151",
+    "finance_nm": "Daiwa Securities Capital Markets Co. Ltd. Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Daiwa Securities Capital Markets Co. Ltd. Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0010152",
+    "finance_nm": "Deutsche Securities, Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Deutsche Securities, Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0010149",
+    "finance_nm": "Goldman Sachs (Asia) L.L.C Seoul Branch",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Goldman Sachs (Asia) L.L.C Seoul Branch"
+   },
+   {
+    "finance_cd": "0011218",
+    "finance_nm": "Hongkong and Shanghai Banking Corporation Ltd. Seoul Branch",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Hongkong and Shanghai Banking Corporation Ltd. Seoul Branch"
+   },
+   {
+    "finance_cd": "0010165",
+    "finance_nm": "Hongkong and Shanghai Banking Corporation Ltd. Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Hongkong and Shanghai Banking Corporation Ltd. Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0014595",
+    "finance_nm": "ING Bank N.V., Seoul Securities Branch",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\ING Bank N.V., Seoul Securities Branch"
+   },
+   {
+    "finance_cd": "0010158",
+    "finance_nm": "J.P.Morgan Securities (Far East) Limited Seoul Branch",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\J.P.Morgan Securities (Far East) Limited Seoul Branch"
+   },
+   {
+    "finance_cd": "0010148",
+    "finance_nm": "JP Morgan [closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\JP Morgan [closed]"
+   },
+   {
+    "finance_cd": "0021727",
+    "finance_nm": "Jefferies Securities Seoul Branch",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Jefferies Securities Seoul Branch"
+   },
+   {
+    "finance_cd": "0010161",
+    "finance_nm": "Kleinwort Benson Securities[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Kleinwort Benson Securities[closed]"
+   },
+   {
+    "finance_cd": "0010159",
+    "finance_nm": "Kokusai Securities, Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Kokusai Securities, Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0011191",
+    "finance_nm": "Lehman Brothers International(Europe) Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Lehman Brothers International(Europe) Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0010166",
+    "finance_nm": "Macquarie Securities Limited, Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Macquarie Securities Limited, Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0010153",
+    "finance_nm": "Merrill Lynch International Incorporated Seoul Branch",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Merrill Lynch International Incorporated Seoul Branch"
+   },
+   {
+    "finance_cd": "0015535",
+    "finance_nm": "Mizuho Securities Asia Limited",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Mizuho Securities Asia Limited"
+   },
+   {
+    "finance_cd": "0010154",
+    "finance_nm": "Morgan Stanley & Co. International plc Seoul Branch",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Morgan Stanley & Co. International plc Seoul Branch"
+   },
+   {
+    "finance_cd": "0020016",
+    "finance_nm": "Natixis asia limited seoul branch",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Natixis asia limited seoul branch"
+   },
+   {
+    "finance_cd": "0011542",
+    "finance_nm": "Nomura Financial Investment (Korea) Co., Ltd.[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Nomura Financial Investment (Korea) Co., Ltd.[closed]"
+   },
+   {
+    "finance_cd": "0010150",
+    "finance_nm": "Nomura(野村) Securities Co. Ltd. Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\Nomura(野村) Securities Co. Ltd. Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0011574",
+    "finance_nm": "SG Securities (HK) Ltd., Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\SG Securities (HK) Ltd., Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0010168",
+    "finance_nm": "SG Securities (London) Ltd. Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\SG Securities (London) Ltd. Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0010157",
+    "finance_nm": "UBS Securities Limited, Seoul Branch[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\UBS Securities Limited, Seoul Branch[closed]"
+   },
+   {
+    "finance_cd": "0011612",
+    "finance_nm": "UBS Securities Pte., Ltd., Seoul Branch",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\UBS Securities Pte., Ltd., Seoul Branch"
+   },
+   {
+    "finance_cd": "0010141",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010167",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010144",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010143",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010146",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010147",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010163",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010142",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\[closed]"
+   },
+   {
+    "finance_cd": "0010140",
+    "finance_nm": "[closed]",
+    "finance_path": "Securities Companies\\Foreign Securities Companies\\[closed]"
+   }
+  ]
+ }
+}

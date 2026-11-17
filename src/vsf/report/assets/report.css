@@ -1,0 +1,67 @@
+:root {
+  --bg: #fafaf8; --fg: #1d1f21; --muted: #6a6f76; --line: #dcdcd6; --card: #fff; --link: #0b57b7;
+  --ok-bg: #d8f3dc; --ok-fg: #1b5e20; --warn-bg: #fff3cd; --warn-fg: #7a5b00;
+  --no-bg: #f8d7da; --no-fg: #842029; --info-bg: #dbe8fb; --info-fg: #0a3d91;
+  --flag-bg: #ffe0b2; --flag-fg: #8a3b00; --bar: #4a90d9; --mark: #c0392b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17181a; --fg: #e8e8e6; --muted: #9a9fa6; --line: #3a3d42; --card: #1f2124; --link: #7db4ff;
+    --ok-bg: #1d3d26; --ok-fg: #9be3ab; --warn-bg: #473a10; --warn-fg: #f2d675;
+    --no-bg: #4a1f24; --no-fg: #f5a3ab; --info-bg: #1c2f4d; --info-fg: #a9c9f5;
+    --flag-bg: #5a3410; --flag-fg: #ffc98a; --bar: #5a9fe6; --mark: #ff7a6b;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0 auto; max-width: 1040px; padding: 12px 16px 48px; background: var(--bg); color: var(--fg);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+a { color: var(--link); }
+h1 { font-size: 1.5rem; margin: 12px 0 4px; }
+h2 { font-size: 1.2rem; margin: 28px 0 8px; }
+h3 { font-size: 1.05rem; margin: 24px 0 6px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+h4 { font-size: .95rem; margin: 14px 0 4px; }
+code { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+.muted { color: var(--muted); font-size: .85rem; }
+.scroll { overflow-x: auto; max-width: 100%; margin: 6px 0 10px; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { border-bottom: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top; }
+th { font-weight: 600; color: var(--muted); white-space: nowrap; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill, .chip { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: .75rem; font-weight: 600; white-space: nowrap; vertical-align: middle; }
+.chip { background: var(--info-bg); color: var(--info-fg); }
+.chip.flag { background: var(--flag-bg); color: var(--flag-fg); border: 1px solid var(--flag-fg); }
+.chip.info { background: var(--info-bg); color: var(--info-fg); }
+.ok { background: var(--ok-bg); color: var(--ok-fg); }
+.warn { background: var(--warn-bg); color: var(--warn-fg); }
+.no { background: var(--no-bg); color: var(--no-fg); }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.banner { border-radius: 8px; padding: 8px 12px; margin: 8px 0; background: var(--info-bg); color: var(--info-fg); }
+.banner.warn { background: var(--warn-bg); color: var(--warn-fg); }
+.banner ul { margin: 4px 0 0; padding-left: 20px; }
+.tiles { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.tile, .box { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.tile { flex: 1 1 140px; }
+.box { margin: 10px 0; }
+.big { font-size: 1.6rem; font-weight: 700; }
+.next { margin: 8px 0 0; }
+.meter { height: 8px; background: var(--line); border-radius: 4px; position: relative; margin: 10px 0 4px; }
+.meter span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--bar); }
+.meter i { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--mark); }
+#q { width: 100%; padding: 8px 10px; font-size: 1rem; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); }
+.results { list-style: none; padding: 0; margin: 6px 0; }
+.results li { padding: 4px 0; }
+details { margin: 6px 0; }
+summary { cursor: pointer; }
+.q { list-style: none; padding-left: 0; }
+.charts { display: flex; flex-wrap: wrap; gap: 12px; }
+.chart { flex: 1 1 300px; max-width: 100%; height: auto; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+.chart .bar { fill: var(--bar); }
+.chart .axis { stroke: var(--line); }
+.chart .dash { fill: none; stroke: var(--mark); stroke-width: 2; stroke-dasharray: 5 4; }
+.chart .line { fill: none; stroke: var(--bar); stroke-width: 2; }
+.chart .dot { fill: var(--mark); }
+.chart text { fill: var(--muted); font-size: 9px; text-anchor: middle; }

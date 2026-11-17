@@ -1,0 +1,179 @@
+{
+ "result": {
+  "total_count": "34",
+  "err_cd": "000",
+  "err_msg": "정상",
+  "list": [
+   {
+    "finance_cd": "0010927",
+    "finance_nm": "국민은행",
+    "finance_path": "국내은행\\일반은행\\시중은행\\국민은행"
+   },
+   {
+    "finance_cd": "0010014",
+    "finance_nm": "국민은행(구)[폐]",
+    "finance_path": "국내은행\\일반은행\\시중은행\\국민은행(구)[폐]"
+   },
+   {
+    "finance_cd": "0010004",
+    "finance_nm": "서울은행[폐]",
+    "finance_path": "국내은행\\일반은행\\시중은행\\서울은행[폐]"
+   },
+   {
+    "finance_cd": "0011625",
+    "finance_nm": "신한은행",
+    "finance_path": "국내은행\\일반은행\\시중은행\\신한은행"
+   },
+   {
+    "finance_cd": "0010005",
+    "finance_nm": "신한은행(구)[폐]",
+    "finance_path": "국내은행\\일반은행\\시중은행\\신한은행(구)[폐]"
+   },
+   {
+    "finance_cd": "0010016",
+    "finance_nm": "아이엠뱅크",
+    "finance_path": "국내은행\\일반은행\\시중은행\\아이엠뱅크"
+   },
+   {
+    "finance_cd": "0010001",
+    "finance_nm": "우리은행",
+    "finance_path": "국내은행\\일반은행\\시중은행\\우리은행"
+   },
+   {
+    "finance_cd": "0010003",
+    "finance_nm": "조흥은행[폐]",
+    "finance_path": "국내은행\\일반은행\\시중은행\\조흥은행[폐]"
+   },
+   {
+    "finance_cd": "0013909",
+    "finance_nm": "주식회사 하나은행",
+    "finance_path": "국내은행\\일반은행\\시중은행\\주식회사 하나은행"
+   },
+   {
+    "finance_cd": "0010012",
+    "finance_nm": "평화은행[폐]",
+    "finance_path": "국내은행\\일반은행\\시중은행\\평화은행[폐]"
+   },
+   {
+    "finance_cd": "0010010",
+    "finance_nm": "하나은행(구)[폐]",
+    "finance_path": "국내은행\\일반은행\\시중은행\\하나은행(구)[폐]"
+   },
+   {
+    "finance_cd": "0011228",
+    "finance_nm": "하나은행[폐]",
+    "finance_path": "국내은행\\일반은행\\시중은행\\하나은행[폐]"
+   },
+   {
+    "finance_cd": "0010002",
+    "finance_nm": "한국스탠다드차타드은행",
+    "finance_path": "국내은행\\일반은행\\시중은행\\한국스탠다드차타드은행"
+   },
+   {
+    "finance_cd": "0010006",
+    "finance_nm": "한국씨티은행",
+    "finance_path": "국내은행\\일반은행\\시중은행\\한국씨티은행"
+   },
+   {
+    "finance_cd": "0010013",
+    "finance_nm": "한국외환은행[폐]",
+    "finance_path": "국내은행\\일반은행\\시중은행\\한국외환은행[폐]"
+   },
+   {
+    "finance_cd": "0010015",
+    "finance_nm": "한국주택은행[폐]",
+    "finance_path": "국내은행\\일반은행\\시중은행\\한국주택은행[폐]"
+   },
+   {
+    "finance_cd": "0015130",
+    "finance_nm": "주식회사 카카오뱅크",
+    "finance_path": "국내은행\\일반은행\\인터넷전문은행\\주식회사 카카오뱅크"
+   },
+   {
+    "finance_cd": "0014674",
+    "finance_nm": "주식회사 케이뱅크",
+    "finance_path": "국내은행\\일반은행\\인터넷전문은행\\주식회사 케이뱅크"
+   },
+   {
+    "finance_cd": "0017801",
+    "finance_nm": "토스뱅크 주식회사",
+    "finance_path": "국내은행\\일반은행\\인터넷전문은행\\토스뱅크 주식회사"
+   },
+   {
+    "finance_cd": "0010023",
+    "finance_nm": "강원은행[폐]",
+    "finance_path": "국내은행\\일반은행\\지방은행\\강원은행[폐]"
+   },
+   {
+    "finance_cd": "0010024",
+    "finance_nm": "경남은행",
+    "finance_path": "국내은행\\일반은행\\지방은행\\경남은행"
+   },
+   {
+    "finance_cd": "0010019",
+    "finance_nm": "광주은행",
+    "finance_path": "국내은행\\일반은행\\지방은행\\광주은행"
+   },
+   {
+    "finance_cd": "0010017",
+    "finance_nm": "부산은행",
+    "finance_path": "국내은행\\일반은행\\지방은행\\부산은행"
+   },
+   {
+    "finance_cd": "0010022",
+    "finance_nm": "전북은행",
+    "finance_path": "국내은행\\일반은행\\지방은행\\전북은행"
+   },
+   {
+    "finance_cd": "0010020",
+    "finance_nm": "제주은행",
+    "finance_path": "국내은행\\일반은행\\지방은행\\제주은행"
+   },
+   {
+    "finance_cd": "0010025",
+    "finance_nm": "충북은행[폐]",
+    "finance_path": "국내은행\\일반은행\\지방은행\\충북은행[폐]"
+   },
+   {
+    "finance_cd": "0010027",
+    "finance_nm": "농업협동조합중앙회[폐]",
+    "finance_path": "국내은행\\특수은행\\농업협동조합중앙회[폐]"
+   },
+   {
+    "finance_cd": "0013175",
+    "finance_nm": "농협은행주식회사",
+    "finance_path": "국내은행\\특수은행\\농협은행주식회사"
+   },
+   {
+    "finance_cd": "0010028",
+    "finance_nm": "수산업협동조합중앙회[폐]",
+    "finance_path": "국내은행\\특수은행\\수산업협동조합중앙회[폐]"
+   },
+   {
+    "finance_cd": "0014807",
+    "finance_nm": "수협은행",
+    "finance_path": "국내은행\\특수은행\\수협은행"
+   },
+   {
+    "finance_cd": "0010026",
+    "finance_nm": "중소기업은행",
+    "finance_path": "국내은행\\특수은행\\중소기업은행"
+   },
+   {
+    "finance_cd": "0010029",
+    "finance_nm": "축산업협동조합[폐]",
+    "finance_path": "국내은행\\특수은행\\축산업협동조합[폐]"
+   },
+   {
+    "finance_cd": "0010030",
+    "finance_nm": "한국산업은행",
+    "finance_path": "국내은행\\특수은행\\한국산업은행"
+   },
+   {
+    "finance_cd": "0010031",
+    "finance_nm": "한국수출입은행",
+    "finance_path": "국내은행\\특수은행\\한국수출입은행"
+   }
+  ]
+ }
+}

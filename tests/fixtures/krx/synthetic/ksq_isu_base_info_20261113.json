@@ -1,0 +1,33 @@
+{
+  "_synthetic": "hand-written from the documented format",
+  "OutBlock_1": [
+    {
+      "ISU_CD": "KR7247540008",
+      "ISU_SRT_CD": "247540",
+      "ISU_NM": "에코프로비엠",
+      "ISU_ABBRV": "에코프로비엠",
+      "ISU_ENG_NM": "",
+      "LIST_DD": "19990101",
+      "MKT_TP_NM": "KOSDAQ",
+      "SECUGRP_NM": "주권",
+      "SECT_TP_NM": "",
+      "KIND_STKCERT_TP_NM": "보통주",
+      "PARVAL": "5,000",
+      "LIST_SHRS": "97,800,000"
+    },
+    {
+      "ISU_CD": "KR7400001001",
+      "ISU_SRT_CD": "400001",
+      "ISU_NM": "한국제7호스팩",
+      "ISU_ABBRV": "한국제7호스팩",
+      "ISU_ENG_NM": "",
+      "LIST_DD": "19990101",
+      "MKT_TP_NM": "KOSDAQ",
+      "SECUGRP_NM": "주권",
+      "SECT_TP_NM": "",
+      "KIND_STKCERT_TP_NM": "보통주",
+      "PARVAL": "5,000",
+      "LIST_SHRS": "4,000,000"
+    }
+  ]
+}

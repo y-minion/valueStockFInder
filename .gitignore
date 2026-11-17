@@ -1,0 +1,8 @@
+.superpowers/
+/keys.toml
+/data/
+/reports/
+/exports/
+.venv/
+__pycache__/
+.pytest_cache/

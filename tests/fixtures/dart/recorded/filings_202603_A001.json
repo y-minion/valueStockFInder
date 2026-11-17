@@ -1,0 +1,65 @@
+{
+  "status": "000",
+  "message": "정상",
+  "page_no": 1,
+  "page_count": 100,
+  "total_count": 3596,
+  "total_page": 36,
+  "list": [
+    {
+      "corp_code": "00362292",
+      "corp_name": "씨티씨바이오",
+      "stock_code": "060590",
+      "corp_cls": "K",
+      "report_nm": "[첨부추가]사업보고서 (2025.12)",
+      "rcept_no": "20260318001697",
+      "flr_nm": "씨티씨바이오",
+      "rcept_dt": "20260318",
+      "rm": "정연"
+    },
+    {
+      "corp_code": "00172228",
+      "corp_name": "엔케이",
+      "stock_code": "085310",
+      "corp_cls": "Y",
+      "report_nm": "[첨부추가]사업보고서 (2025.12)",
+      "rcept_no": "20260323001528",
+      "flr_nm": "엔케이",
+      "rcept_dt": "20260323",
+      "rm": "연"
+    },
+    {
+      "corp_code": "00144164",
+      "corp_name": "SK가스",
+      "stock_code": "018670",
+      "corp_cls": "Y",
+      "report_nm": "[첨부추가]사업보고서 (2025.12)",
+      "rcept_no": "20260316001594",
+      "flr_nm": "SK가스",
+      "rcept_dt": "20260316",
+      "rm": "정연"
+    },
+    {
+      "corp_code": "00299002",
+      "corp_name": "HL홀딩스",
+      "stock_code": "060980",
+      "corp_cls": "Y",
+      "report_nm": "[첨부추가]사업보고서 (2025.12)",
+      "rcept_no": "20260318001627",
+      "flr_nm": "HL홀딩스",
+      "rcept_dt": "20260318",
+      "rm": "정연"
+    },
+    {
+      "corp_code": "00533191",
+      "corp_name": "비보존 제약",
+      "stock_code": "082800",
+      "corp_cls": "K",
+      "report_nm": "[첨부추가]사업보고서 (2025.12)",
+      "rcept_no": "20260323000660",
+      "flr_nm": "비보존 제약",
+      "rcept_dt": "20260323",
+      "rm": "정연"
+    }
+  ]
+}

@@ -1,0 +1,584 @@
+{
+ "result": {
+  "total_count": "115",
+  "err_cd": "000",
+  "err_msg": "정상",
+  "list": [
+   {
+    "finance_cd": "0010658",
+    "finance_nm": "(주)겟모어증권중개[폐]",
+    "finance_path": "증권사\\국내증권사\\(주)겟모어증권중개[폐]"
+   },
+   {
+    "finance_cd": "0012334",
+    "finance_nm": "(주)비엔케이투자증권",
+    "finance_path": "증권사\\국내증권사\\(주)비엔케이투자증권"
+   },
+   {
+    "finance_cd": "0010124",
+    "finance_nm": "(주)코스닥증권시장[폐]",
+    "finance_path": "증권사\\국내증권사\\(주)코스닥증권시장[폐]"
+   },
+   {
+    "finance_cd": "0015363",
+    "finance_nm": "CMS증권한국주식회사",
+    "finance_path": "증권사\\국내증권사\\CMS증권한국주식회사"
+   },
+   {
+    "finance_cd": "0012001",
+    "finance_nm": "IBK투자증권",
+    "finance_path": "증권사\\국내증권사\\IBK투자증권"
+   },
+   {
+    "finance_cd": "0010106",
+    "finance_nm": "KB증권주식회사",
+    "finance_path": "증권사\\국내증권사\\KB증권주식회사"
+   },
+   {
+    "finance_cd": "0010122",
+    "finance_nm": "KB투자증권[폐]",
+    "finance_path": "증권사\\국내증권사\\KB투자증권[폐]"
+   },
+   {
+    "finance_cd": "0010137",
+    "finance_nm": "LS증권",
+    "finance_path": "증권사\\국내증권사\\LS증권"
+   },
+   {
+    "finance_cd": "0010117",
+    "finance_nm": "NH농협증권[폐]",
+    "finance_path": "증권사\\국내증권사\\NH농협증권[폐]"
+   },
+   {
+    "finance_cd": "0010101",
+    "finance_nm": "NH투자증권",
+    "finance_path": "증권사\\국내증권사\\NH투자증권"
+   },
+   {
+    "finance_cd": "0010114",
+    "finance_nm": "SK증권주식회사",
+    "finance_path": "증권사\\국내증권사\\SK증권주식회사"
+   },
+   {
+    "finance_cd": "0010100",
+    "finance_nm": "건설증권[폐]",
+    "finance_path": "증권사\\국내증권사\\건설증권[폐]"
+   },
+   {
+    "finance_cd": "0010107",
+    "finance_nm": "고려증권[폐]",
+    "finance_path": "증권사\\국내증권사\\고려증권[폐]"
+   },
+   {
+    "finance_cd": "0010090",
+    "finance_nm": "교보증권(주)",
+    "finance_path": "증권사\\국내증권사\\교보증권(주)"
+   },
+   {
+    "finance_cd": "0010899",
+    "finance_nm": "넥스트증권 주식회사",
+    "finance_path": "증권사\\국내증권사\\넥스트증권 주식회사"
+   },
+   {
+    "finance_cd": "0012390",
+    "finance_nm": "노무라금융투자주식회사",
+    "finance_path": "증권사\\국내증권사\\노무라금융투자주식회사"
+   },
+   {
+    "finance_cd": "0011981",
+    "finance_nm": "다올투자증권 주식회사",
+    "finance_path": "증권사\\국내증권사\\다올투자증권 주식회사"
+   },
+   {
+    "finance_cd": "0013003",
+    "finance_nm": "다이와증권캐피탈마켓코리아 주식회사",
+    "finance_path": "증권사\\국내증권사\\다이와증권캐피탈마켓코리아 주식회사"
+   },
+   {
+    "finance_cd": "0010093",
+    "finance_nm": "대신증권주식회사",
+    "finance_path": "증권사\\국내증권사\\대신증권주식회사"
+   },
+   {
+    "finance_cd": "0010169",
+    "finance_nm": "도이치증권",
+    "finance_path": "증권사\\국내증권사\\도이치증권"
+   },
+   {
+    "finance_cd": "0010121",
+    "finance_nm": "동방페레그린증권[폐]",
+    "finance_path": "증권사\\국내증권사\\동방페레그린증권[폐]"
+   },
+   {
+    "finance_cd": "0010109",
+    "finance_nm": "동서증권[폐]",
+    "finance_path": "증권사\\국내증권사\\동서증권[폐]"
+   },
+   {
+    "finance_cd": "0010131",
+    "finance_nm": "동양오리온투자증권(주)[폐]",
+    "finance_path": "증권사\\국내증권사\\동양오리온투자증권(주)[폐]"
+   },
+   {
+    "finance_cd": "0010092",
+    "finance_nm": "동원증권주식회사[폐]",
+    "finance_path": "증권사\\국내증권사\\동원증권주식회사[폐]"
+   },
+   {
+    "finance_cd": "0010120",
+    "finance_nm": "디비증권주식회사",
+    "finance_path": "증권사\\국내증권사\\디비증권주식회사"
+   },
+   {
+    "finance_cd": "0011980",
+    "finance_nm": "디에스투자증권",
+    "finance_path": "증권사\\국내증권사\\디에스투자증권"
+   },
+   {
+    "finance_cd": "0010132",
+    "finance_nm": "리딩투자증권주식회사",
+    "finance_path": "증권사\\국내증권사\\리딩투자증권주식회사"
+   },
+   {
+    "finance_cd": "0011611",
+    "finance_nm": "맥쿼리증권",
+    "finance_path": "증권사\\국내증권사\\맥쿼리증권"
+   },
+   {
+    "finance_cd": "0010099",
+    "finance_nm": "메리츠증권(주)",
+    "finance_path": "증권사\\국내증권사\\메리츠증권(주)"
+   },
+   {
+    "finance_cd": "0010135",
+    "finance_nm": "모아증권중개주식회사[폐]",
+    "finance_path": "증권사\\국내증권사\\모아증권중개주식회사[폐]"
+   },
+   {
+    "finance_cd": "0010094",
+    "finance_nm": "미래에셋증권 주식회사",
+    "finance_path": "증권사\\국내증권사\\미래에셋증권 주식회사"
+   },
+   {
+    "finance_cd": "0010133",
+    "finance_nm": "미래에셋증권주식회사[폐]",
+    "finance_path": "증권사\\국내증권사\\미래에셋증권주식회사[폐]"
+   },
+   {
+    "finance_cd": "0010102",
+    "finance_nm": "부국증권주식회사",
+    "finance_path": "증권사\\국내증권사\\부국증권주식회사"
+   },
+   {
+    "finance_cd": "0010134",
+    "finance_nm": "비엔지증권(주)[폐]",
+    "finance_path": "증권사\\국내증권사\\비엔지증권(주)[폐]"
+   },
+   {
+    "finance_cd": "0011221",
+    "finance_nm": "비엔피파리바증권주식회사",
+    "finance_path": "증권사\\국내증권사\\비엔피파리바증권주식회사"
+   },
+   {
+    "finance_cd": "0012000",
+    "finance_nm": "비오에스증권 주식회사[폐]",
+    "finance_path": "증권사\\국내증권사\\비오에스증권 주식회사[폐]"
+   },
+   {
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "finance_path": "증권사\\국내증권사\\삼성증권(주)"
+   },
+   {
+    "finance_cd": "0010127",
+    "finance_nm": "삼성투자신탁증권[폐]",
+    "finance_path": "증권사\\국내증권사\\삼성투자신탁증권[폐]"
+   },
+   {
+    "finance_cd": "0010104",
+    "finance_nm": "상상인증권",
+    "finance_path": "증권사\\국내증권사\\상상인증권"
+   },
+   {
+    "finance_cd": "0010095",
+    "finance_nm": "신영증권주식회사",
+    "finance_path": "증권사\\국내증권사\\신영증권주식회사"
+   },
+   {
+    "finance_cd": "0010103",
+    "finance_nm": "신한증권[폐]",
+    "finance_path": "증권사\\국내증권사\\신한증권[폐]"
+   },
+   {
+    "finance_cd": "0010091",
+    "finance_nm": "신한투자증권 주식회사",
+    "finance_path": "증권사\\국내증권사\\신한투자증권 주식회사"
+   },
+   {
+    "finance_cd": "0011238",
+    "finance_nm": "씨엘에스에이코리아증권(주)",
+    "finance_path": "증권사\\국내증권사\\씨엘에스에이코리아증권(주)"
+   },
+   {
+    "finance_cd": "0010123",
+    "finance_nm": "씨티그룹글로벌마켓증권주식회사",
+    "finance_path": "증권사\\국내증권사\\씨티그룹글로벌마켓증권주식회사"
+   },
+   {
+    "finance_cd": "0010116",
+    "finance_nm": "아이엠투자증권[폐]",
+    "finance_path": "증권사\\국내증권사\\아이엠투자증권[폐]"
+   },
+   {
+    "finance_cd": "0011985",
+    "finance_nm": "애플투자증권주식회사[폐]",
+    "finance_path": "증권사\\국내증권사\\애플투자증권주식회사[폐]"
+   },
+   {
+    "finance_cd": "0010108",
+    "finance_nm": "우리증권주식회사[폐]",
+    "finance_path": "증권사\\국내증권사\\우리증권주식회사[폐]"
+   },
+   {
+    "finance_cd": "0010113",
+    "finance_nm": "유안타증권주식회사",
+    "finance_path": "증권사\\국내증권사\\유안타증권주식회사"
+   },
+   {
+    "finance_cd": "0010097",
+    "finance_nm": "유진투자증권주식회사",
+    "finance_path": "증권사\\국내증권사\\유진투자증권주식회사"
+   },
+   {
+    "finance_cd": "0010112",
+    "finance_nm": "유화증권주식회사",
+    "finance_path": "증권사\\국내증권사\\유화증권주식회사"
+   },
+   {
+    "finance_cd": "0010118",
+    "finance_nm": "일은증권[폐]",
+    "finance_path": "증권사\\국내증권사\\일은증권[폐]"
+   },
+   {
+    "finance_cd": "0010096",
+    "finance_nm": "장은증권[폐]",
+    "finance_path": "증권사\\국내증권사\\장은증권[폐]"
+   },
+   {
+    "finance_cd": "0010128",
+    "finance_nm": "주식회사 아이엠증권",
+    "finance_path": "증권사\\국내증권사\\주식회사 아이엠증권"
+   },
+   {
+    "finance_cd": "0013515",
+    "finance_nm": "주식회사 우리투자증권",
+    "finance_path": "증권사\\국내증권사\\주식회사 우리투자증권"
+   },
+   {
+    "finance_cd": "0011982",
+    "finance_nm": "주식회사 카카오페이증권",
+    "finance_path": "증권사\\국내증권사\\주식회사 카카오페이증권"
+   },
+   {
+    "finance_cd": "0010659",
+    "finance_nm": "케이아이디비채권중개(주)",
+    "finance_path": "증권사\\국내증권사\\케이아이디비채권중개(주)"
+   },
+   {
+    "finance_cd": "0010897",
+    "finance_nm": "케이알투자증권주식회사",
+    "finance_path": "증권사\\국내증권사\\케이알투자증권주식회사"
+   },
+   {
+    "finance_cd": "0011978",
+    "finance_nm": "케이프투자증권",
+    "finance_path": "증권사\\국내증권사\\케이프투자증권"
+   },
+   {
+    "finance_cd": "0010138",
+    "finance_nm": "코리아에셋투자증권",
+    "finance_path": "증권사\\국내증권사\\코리아에셋투자증권"
+   },
+   {
+    "finance_cd": "0010136",
+    "finance_nm": "키움증권(주)",
+    "finance_path": "증권사\\국내증권사\\키움증권(주)"
+   },
+   {
+    "finance_cd": "0017713",
+    "finance_nm": "토스증권 주식회사",
+    "finance_path": "증권사\\국내증권사\\토스증권 주식회사"
+   },
+   {
+    "finance_cd": "0010105",
+    "finance_nm": "하나IB증권(주)[폐]",
+    "finance_path": "증권사\\국내증권사\\하나IB증권(주)[폐]"
+   },
+   {
+    "finance_cd": "0010130",
+    "finance_nm": "하나증권주식회사",
+    "finance_path": "증권사\\국내증권사\\하나증권주식회사"
+   },
+   {
+    "finance_cd": "0013414",
+    "finance_nm": "한국 에스지증권 주식회사",
+    "finance_path": "증권사\\국내증권사\\한국 에스지증권 주식회사"
+   },
+   {
+    "finance_cd": "0010115",
+    "finance_nm": "한국산업증권[폐]",
+    "finance_path": "증권사\\국내증권사\\한국산업증권[폐]"
+   },
+   {
+    "finance_cd": "0012002",
+    "finance_nm": "한국스탠다드차타드증권",
+    "finance_path": "증권사\\국내증권사\\한국스탠다드차타드증권"
+   },
+   {
+    "finance_cd": "0017993",
+    "finance_nm": "한국아이엠씨증권 주식회사",
+    "finance_path": "증권사\\국내증권사\\한국아이엠씨증권 주식회사"
+   },
+   {
+    "finance_cd": "0011033",
+    "finance_nm": "한국이씨엔증권주식회사[폐]",
+    "finance_path": "증권사\\국내증권사\\한국이씨엔증권주식회사[폐]"
+   },
+   {
+    "finance_cd": "0010129",
+    "finance_nm": "한국투자증권",
+    "finance_path": "증권사\\국내증권사\\한국투자증권"
+   },
+   {
+    "finance_cd": "0010125",
+    "finance_nm": "한남투자신탁증권[폐]",
+    "finance_path": "증권사\\국내증권사\\한남투자신탁증권[폐]"
+   },
+   {
+    "finance_cd": "0010898",
+    "finance_nm": "한맥투자증권(주)[폐]",
+    "finance_path": "증권사\\국내증권사\\한맥투자증권(주)[폐]"
+   },
+   {
+    "finance_cd": "0010098",
+    "finance_nm": "한양증권주식회사",
+    "finance_path": "증권사\\국내증권사\\한양증권주식회사"
+   },
+   {
+    "finance_cd": "0010126",
+    "finance_nm": "한화투자증권(주)[폐]",
+    "finance_path": "증권사\\국내증권사\\한화투자증권(주)[폐]"
+   },
+   {
+    "finance_cd": "0010110",
+    "finance_nm": "한화투자증권주식회사",
+    "finance_path": "증권사\\국내증권사\\한화투자증권주식회사"
+   },
+   {
+    "finance_cd": "0010111",
+    "finance_nm": "현대차증권주식회사",
+    "finance_path": "증권사\\국내증권사\\현대차증권주식회사"
+   },
+   {
+    "finance_cd": "0010139",
+    "finance_nm": "흥국증권주식회사",
+    "finance_path": "증권사\\국내증권사\\흥국증권주식회사"
+   },
+   {
+    "finance_cd": "0010163",
+    "finance_nm": "BTC증권[폐]",
+    "finance_path": "증권사\\외국계증권사\\BTC증권[폐]"
+   },
+   {
+    "finance_cd": "0010144",
+    "finance_nm": "HG아시아증권[폐]",
+    "finance_path": "증권사\\외국계증권사\\HG아시아증권[폐]"
+   },
+   {
+    "finance_cd": "0010148",
+    "finance_nm": "JP모간증권(폐지)[폐]",
+    "finance_path": "증권사\\외국계증권사\\JP모간증권(폐지)[폐]"
+   },
+   {
+    "finance_cd": "0010149",
+    "finance_nm": "골드만삭스증권회사서울지점",
+    "finance_path": "증권사\\외국계증권사\\골드만삭스증권회사서울지점"
+   },
+   {
+    "finance_cd": "0020016",
+    "finance_nm": "나틱시스증권 서울지점",
+    "finance_path": "증권사\\외국계증권사\\나틱시스증권 서울지점"
+   },
+   {
+    "finance_cd": "0011542",
+    "finance_nm": "노무라인터내셔날증권서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\노무라인터내셔날증권서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010150",
+    "finance_nm": "노무라증권서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\노무라증권서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010156",
+    "finance_nm": "뉴엣지증권 서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\뉴엣지증권 서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010143",
+    "finance_nm": "니꼬증권[폐]",
+    "finance_path": "증권사\\외국계증권사\\니꼬증권[폐]"
+   },
+   {
+    "finance_cd": "0010151",
+    "finance_nm": "다이와증권캐피탈마켓주식회사 서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\다이와증권캐피탈마켓주식회사 서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010152",
+    "finance_nm": "도이치증권서울지점(폐지)[폐]",
+    "finance_path": "증권사\\외국계증권사\\도이치증권서울지점(폐지)[폐]"
+   },
+   {
+    "finance_cd": "0011191",
+    "finance_nm": "리먼브러더스인터내셔날증권서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\리먼브러더스인터내셔날증권서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010166",
+    "finance_nm": "맥쿼리증권서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\맥쿼리증권서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010153",
+    "finance_nm": "메릴린치인터내셔날엘엘씨증권 서울지점",
+    "finance_path": "증권사\\외국계증권사\\메릴린치인터내셔날엘엘씨증권 서울지점"
+   },
+   {
+    "finance_cd": "0010154",
+    "finance_nm": "모간스탠리인터내셔날증권회사서울지점",
+    "finance_path": "증권사\\외국계증권사\\모간스탠리인터내셔날증권회사서울지점"
+   },
+   {
+    "finance_cd": "0015535",
+    "finance_nm": "미즈호증권아시아리미티드 서울지점",
+    "finance_path": "증권사\\외국계증권사\\미즈호증권아시아리미티드 서울지점"
+   },
+   {
+    "finance_cd": "0010155",
+    "finance_nm": "바클레이즈캐피탈증권(주)서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\바클레이즈캐피탈증권(주)서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010167",
+    "finance_nm": "뱅커스증권[폐]",
+    "finance_path": "증권사\\외국계증권사\\뱅커스증권[폐]"
+   },
+   {
+    "finance_cd": "0010918",
+    "finance_nm": "비에이아시아증권서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\비에이아시아증권서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010141",
+    "finance_nm": "슈로더증권[폐]",
+    "finance_path": "증권사\\외국계증권사\\슈로더증권[폐]"
+   },
+   {
+    "finance_cd": "0010140",
+    "finance_nm": "시티증권[폐]",
+    "finance_path": "증권사\\외국계증권사\\시티증권[폐]"
+   },
+   {
+    "finance_cd": "0013352",
+    "finance_nm": "씨지에스 인터내셔널증권 홍콩 한국지점",
+    "finance_path": "증권사\\외국계증권사\\씨지에스 인터내셔널증권 홍콩 한국지점"
+   },
+   {
+    "finance_cd": "0014595",
+    "finance_nm": "아이엔지증권 서울지점",
+    "finance_path": "증권사\\외국계증권사\\아이엔지증권 서울지점"
+   },
+   {
+    "finance_cd": "0010146",
+    "finance_nm": "야마이치증권[폐]",
+    "finance_path": "증권사\\외국계증권사\\야마이치증권[폐]"
+   },
+   {
+    "finance_cd": "0011574",
+    "finance_nm": "에스지증권서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\에스지증권서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010168",
+    "finance_nm": "에스지증권회사서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\에스지증권회사서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010147",
+    "finance_nm": "유비에스증권[폐]",
+    "finance_path": "증권사\\외국계증권사\\유비에스증권[폐]"
+   },
+   {
+    "finance_cd": "0011612",
+    "finance_nm": "유비에스증권리미티드서울지점",
+    "finance_path": "증권사\\외국계증권사\\유비에스증권리미티드서울지점"
+   },
+   {
+    "finance_cd": "0010157",
+    "finance_nm": "유비에스증권회사서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\유비에스증권회사서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010158",
+    "finance_nm": "제이피모간증권회사서울지점",
+    "finance_path": "증권사\\외국계증권사\\제이피모간증권회사서울지점"
+   },
+   {
+    "finance_cd": "0021727",
+    "finance_nm": "제프리스 증권 서울지점",
+    "finance_path": "증권사\\외국계증권사\\제프리스 증권 서울지점"
+   },
+   {
+    "finance_cd": "0010142",
+    "finance_nm": "케이플증권[폐]",
+    "finance_path": "증권사\\외국계증권사\\케이플증권[폐]"
+   },
+   {
+    "finance_cd": "0010159",
+    "finance_nm": "코쿠사이증권서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\코쿠사이증권서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010162",
+    "finance_nm": "크레디 아그리콜 아시아증권 서울지점",
+    "finance_path": "증권사\\외국계증권사\\크레디 아그리콜 아시아증권 서울지점"
+   },
+   {
+    "finance_cd": "0010160",
+    "finance_nm": "크레디리요네증권서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\크레디리요네증권서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010145",
+    "finance_nm": "크레디트스위스증권서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\크레디트스위스증권서울지점[폐]"
+   },
+   {
+    "finance_cd": "0010161",
+    "finance_nm": "클라인워트벤슨증권[폐]",
+    "finance_path": "증권사\\외국계증권사\\클라인워트벤슨증권[폐]"
+   },
+   {
+    "finance_cd": "0010165",
+    "finance_nm": "홍콩상하이증권 서울지점[폐]",
+    "finance_path": "증권사\\외국계증권사\\홍콩상하이증권 서울지점[폐]"
+   },
+   {
+    "finance_cd": "0011218",
+    "finance_nm": "홍콩상하이증권서울지점",
+    "finance_path": "증권사\\외국계증권사\\홍콩상하이증권서울지점"
+   }
+  ]
+ }
+}

@@ -1,0 +1,21 @@
+{
+  "OutBlock_1": [
+    {
+      "BAS_DD": "20261113",
+      "ISU_CD": "482520",
+      "ISU_NM": "교보16호스팩",
+      "MKT_NM": "KOSDAQ",
+      "SECT_TP_NM": "SPAC(소속부없음)",
+      "TDD_CLSPRC": "2065",
+      "CMPPREVDD_PRC": "0",
+      "FLUC_RT": "0.00",
+      "TDD_OPNPRC": "0",
+      "TDD_HGPRC": "0",
+      "TDD_LWPRC": "0",
+      "ACC_TRDVOL": "0",
+      "ACC_TRDVAL": "0",
+      "MKTCAP": "12596500000",
+      "LIST_SHRS": "6100000"
+    }
+  ]
+}

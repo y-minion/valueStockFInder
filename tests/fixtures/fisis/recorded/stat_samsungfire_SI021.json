@@ -1,0 +1,161 @@
+{
+ "result": {
+  "err_cd": "000",
+  "err_msg": "정상",
+  "total_count": "18",
+  "description": [
+   {
+    "column_id": "a",
+    "column_nm": "값"
+   }
+  ],
+  "date_of_settlement": "12/31",
+  "unit": "원,%",
+  "list": [
+   {
+    "base_month": "202512",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "A",
+    "account_nm": "지급여력비율(경과조치 적용 전)(①/②)",
+    "a": "262.87"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "B",
+    "account_nm": "지급여력금액(경과조치 적용 전)(①)",
+    "a": "29299955523976"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "C",
+    "account_nm": "지급여력기준금액(경과조치 적용 전)(②)",
+    "a": "11146341184492"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "D",
+    "account_nm": "지급여력비율(경과조치 적용 후)(③/④)",
+    "a": "262.87"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "E",
+    "account_nm": "지급여력금액(경과조치 적용 후)(③)",
+    "a": "29299955523975"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "F",
+    "account_nm": "지급여력기준금액(경과조치 적용 후)(④)",
+    "a": "11146341184492"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "A",
+    "account_nm": "지급여력비율(경과조치 적용 전)(①/②)",
+    "a": "270.13"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "B",
+    "account_nm": "지급여력금액(경과조치 적용 전)(①)",
+    "a": "32948892290724"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "C",
+    "account_nm": "지급여력기준금액(경과조치 적용 전)(②)",
+    "a": "12197625679376"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "D",
+    "account_nm": "지급여력비율(경과조치 적용 후)(③/④)",
+    "a": "270.13"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "E",
+    "account_nm": "지급여력금액(경과조치 적용 후)(③)",
+    "a": "32948892290724"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "F",
+    "account_nm": "지급여력기준금액(경과조치 적용 후)(④)",
+    "a": "12197625679376"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "A",
+    "account_nm": "지급여력비율(경과조치 적용 전)(①/②)",
+    "a": "282.78"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "B",
+    "account_nm": "지급여력금액(경과조치 적용 전)(①)",
+    "a": "43987935994398"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "C",
+    "account_nm": "지급여력기준금액(경과조치 적용 전)(②)",
+    "a": "15555539388307"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "D",
+    "account_nm": "지급여력비율(경과조치 적용 후)(③/④)",
+    "a": "282.78"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "E",
+    "account_nm": "지급여력금액(경과조치 적용 후)(③)",
+    "a": "43987935994400"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010633",
+    "finance_nm": "삼성화재해상보험주식회사",
+    "account_cd": "F",
+    "account_nm": "지급여력기준금액(경과조치 적용 후)(④)",
+    "a": "15555539388307"
+   }
+  ]
+ }
+}

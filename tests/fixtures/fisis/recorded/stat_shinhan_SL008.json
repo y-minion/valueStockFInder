@@ -1,0 +1,401 @@
+{
+ "result": {
+  "err_cd": "000",
+  "err_msg": "정상",
+  "total_count": "48",
+  "description": [
+   {
+    "column_id": "a",
+    "column_nm": "값"
+   }
+  ],
+  "date_of_settlement": "12/31",
+  "unit": "원,%",
+  "list": [
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "A",
+    "account_nm": "단순자기자본비율",
+    "a": " "
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "A1",
+    "account_nm": "단순자기자본비율_자기자본",
+    "a": "0"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "A2",
+    "account_nm": "단순자기자본비율_자산총계",
+    "a": "0"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "B",
+    "account_nm": "필요자본에 대한 자기자본비율",
+    "a": " "
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "B1",
+    "account_nm": "필요자본에 대한 자기자본비율_필요자본",
+    "a": "0"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "B4",
+    "account_nm": "필요자본에 대한 자기자본비율_자기자본순합계액",
+    "a": "0"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "C",
+    "account_nm": "BIS기준 자기자본비율",
+    "a": "15.94"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "C1",
+    "account_nm": "BIS기준 자기자본비율_기본자본 비율",
+    "a": "15.02"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "C2",
+    "account_nm": "BIS기준 자기자본비율_보통주자본 비율",
+    "a": "13.35"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "D",
+    "account_nm": "자기자본",
+    "a": "56260597380000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "D1",
+    "account_nm": "자기자본_기본자본",
+    "a": "53006305090000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "D2",
+    "account_nm": "자기자본_보통주자본",
+    "a": "47115338000000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "E",
+    "account_nm": "위험가중자산",
+    "a": "352907637420000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "F",
+    "account_nm": "연결자기자본비율",
+    "a": " "
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "F1",
+    "account_nm": "연결자기자본비율_바젤I 위험가중자산",
+    "a": "0"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "F2",
+    "account_nm": "연결자기자본비율_바젤I 자기자본",
+    "a": "0"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "A",
+    "account_nm": "단순자기자본비율",
+    "a": " "
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "A1",
+    "account_nm": "단순자기자본비율_자기자본",
+    "a": "0"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "A2",
+    "account_nm": "단순자기자본비율_자산총계",
+    "a": "0"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "B",
+    "account_nm": "필요자본에 대한 자기자본비율",
+    "a": " "
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "B1",
+    "account_nm": "필요자본에 대한 자기자본비율_필요자본",
+    "a": "0"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "B4",
+    "account_nm": "필요자본에 대한 자기자본비율_자기자본순합계액",
+    "a": "0"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "C",
+    "account_nm": "BIS기준 자기자본비율",
+    "a": "15.84"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "C1",
+    "account_nm": "BIS기준 자기자본비율_기본자본 비율",
+    "a": "14.92"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "C2",
+    "account_nm": "BIS기준 자기자본비율_보통주자본 비율",
+    "a": "13.3"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "D",
+    "account_nm": "자기자본",
+    "a": "57296942000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "D1",
+    "account_nm": "자기자본_기본자본",
+    "a": "53969975000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "D2",
+    "account_nm": "자기자본_보통주자본",
+    "a": "48104656000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "E",
+    "account_nm": "위험가중자산",
+    "a": "361802898000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "F",
+    "account_nm": "연결자기자본비율",
+    "a": " "
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "F1",
+    "account_nm": "연결자기자본비율_바젤I 위험가중자산",
+    "a": "0"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "F2",
+    "account_nm": "연결자기자본비율_바젤I 자기자본",
+    "a": "0"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "A",
+    "account_nm": "단순자기자본비율",
+    "a": " "
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "A1",
+    "account_nm": "단순자기자본비율_자기자본",
+    "a": "0"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "A2",
+    "account_nm": "단순자기자본비율_자산총계",
+    "a": "0"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "B",
+    "account_nm": "필요자본에 대한 자기자본비율",
+    "a": " "
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "B1",
+    "account_nm": "필요자본에 대한 자기자본비율_필요자본",
+    "a": "0"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "B4",
+    "account_nm": "필요자본에 대한 자기자본비율_자기자본순합계액",
+    "a": "0"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "C",
+    "account_nm": "BIS기준 자기자본비율",
+    "a": "15.82"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "C1",
+    "account_nm": "BIS기준 자기자본비율_기본자본 비율",
+    "a": "14.94"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "C2",
+    "account_nm": "BIS기준 자기자본비율_보통주자본 비율",
+    "a": "13.5"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "D",
+    "account_nm": "자기자본",
+    "a": "57871347000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "D1",
+    "account_nm": "자기자본_기본자본",
+    "a": "54643333000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "D2",
+    "account_nm": "자기자본_보통주자본",
+    "a": "49361303000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "E",
+    "account_nm": "위험가중자산",
+    "a": "365710076000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "F",
+    "account_nm": "연결자기자본비율",
+    "a": " "
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "F1",
+    "account_nm": "연결자기자본비율_바젤I 위험가중자산",
+    "a": "0"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010926",
+    "finance_nm": "주식회사 신한금융지주회사",
+    "account_cd": "F2",
+    "account_nm": "연결자기자본비율_바젤I 자기자본",
+    "a": "0"
+   }
+  ]
+ }
+}

@@ -1,0 +1,62 @@
+{
+ "105560": {
+  "corp_name": "(주)KB금융지주",
+  "corp_name_eng": "KB Financial Group Inc.",
+  "stock_name": "KB금융",
+  "induty_code": "64992"
+ },
+ "055550": {
+  "corp_name": "(주)신한금융지주회사",
+  "corp_name_eng": "SHINHAN FINANCIAL GROUP CO.,LTD",
+  "stock_name": "신한지주",
+  "induty_code": "64992"
+ },
+ "086790": {
+  "corp_name": "(주)하나금융지주",
+  "corp_name_eng": "Hana Financial Group Inc.",
+  "stock_name": "하나금융지주",
+  "induty_code": "64992"
+ },
+ "316140": {
+  "corp_name": "(주)우리금융지주",
+  "corp_name_eng": "Woori Financial Group Inc.",
+  "stock_name": "우리금융지주",
+  "induty_code": "64992"
+ },
+ "024110": {
+  "corp_name": "중소기업은행",
+  "corp_name_eng": "INDUSTRIAL BANK OF KOREA",
+  "stock_name": "기업은행",
+  "induty_code": "64121"
+ },
+ "323410": {
+  "corp_name": "주식회사 카카오뱅크",
+  "corp_name_eng": "KakaoBank Corp.",
+  "stock_name": "카카오뱅크",
+  "induty_code": "64121"
+ },
+ "000810": {
+  "corp_name": "삼성화재해상보험(주)",
+  "corp_name_eng": "SAMSUNG FIRE & MARINE INSURANCE CO.,LTD",
+  "stock_name": "삼성화재해상보험",
+  "induty_code": "65121"
+ },
+ "005830": {
+  "corp_name": "DB손해보험(주)",
+  "corp_name_eng": "DB INSURANCE CO.,LTD",
+  "stock_name": "DB손해보험",
+  "induty_code": "65121"
+ },
+ "032830": {
+  "corp_name": "삼성생명보험(주)",
+  "corp_name_eng": "Samsung Life Insurance co., Ltd",
+  "stock_name": "삼성생명",
+  "induty_code": "65110"
+ },
+ "016360": {
+  "corp_name": "삼성증권(주)",
+  "corp_name_eng": "SAMSUNG SECURITIES CO.,LTD",
+  "stock_name": "삼성증권",
+  "induty_code": "66121"
+ }
+}

@@ -1,0 +1,39 @@
+{
+  "_synthetic": "hand-written from the documented format",
+  "OutBlock_1": [
+    {
+      "BAS_DD": "20261113",
+      "ISU_CD": "247540",
+      "ISU_NM": "에코프로비엠",
+      "MKT_NM": "KOSDAQ",
+      "SECT_TP_NM": "",
+      "TDD_CLSPRC": "180,000",
+      "CMPPREVDD_PRC": "0",
+      "FLUC_RT": "0.00",
+      "TDD_OPNPRC": "180,000",
+      "TDD_HGPRC": "180,000",
+      "TDD_LWPRC": "180,000",
+      "ACC_TRDVOL": "1,000",
+      "ACC_TRDVAL": "1,000,000",
+      "MKTCAP": "1,000,000,000",
+      "LIST_SHRS": "97,800,000"
+    },
+    {
+      "BAS_DD": "20261113",
+      "ISU_CD": "400001",
+      "ISU_NM": "한국제7호스팩",
+      "MKT_NM": "KOSDAQ",
+      "SECT_TP_NM": "",
+      "TDD_CLSPRC": "2,050",
+      "CMPPREVDD_PRC": "0",
+      "FLUC_RT": "0.00",
+      "TDD_OPNPRC": "2,050",
+      "TDD_HGPRC": "2,050",
+      "TDD_LWPRC": "2,050",
+      "ACC_TRDVOL": "1,000",
+      "ACC_TRDVAL": "1,000,000",
+      "MKTCAP": "1,000,000,000",
+      "LIST_SHRS": "4,000,000"
+    }
+  ]
+}

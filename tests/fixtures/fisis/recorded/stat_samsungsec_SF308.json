@@ -1,0 +1,281 @@
+{
+ "result": {
+  "err_cd": "000",
+  "err_msg": "정상",
+  "total_count": "33",
+  "description": [
+   {
+    "column_id": "a",
+    "column_nm": "금액"
+   }
+  ],
+  "date_of_settlement": "12/31",
+  "unit": "원,%",
+  "list": [
+   {
+    "base_month": "202512",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "A",
+    "account_nm": "영업용순자본(A)",
+    "a": "5577883336691"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "A1",
+    "account_nm": "순재산액",
+    "a": "7644514334642"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "A2",
+    "account_nm": "차감항목계",
+    "a": "2158712312251"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "A3",
+    "account_nm": "가산항목계",
+    "a": "92081314301"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "B",
+    "account_nm": "총위험액(B)",
+    "a": "3274900610131"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "B1",
+    "account_nm": "시장위험액",
+    "a": "1655603056336"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "B2",
+    "account_nm": "신용위험액",
+    "a": "1230885799424"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "B3",
+    "account_nm": "운영위험액",
+    "a": "388411754371"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "C",
+    "account_nm": "잉여자본(C=A-B)",
+    "a": "2302982726560"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "D",
+    "account_nm": "필요유지자기자본(D)",
+    "a": "130725000000"
+   },
+   {
+    "base_month": "202512",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "E",
+    "account_nm": "순자본비율(C/D×100)",
+    "a": "1761.7"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "A",
+    "account_nm": "영업용순자본(A)",
+    "a": "5752813467185"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "A1",
+    "account_nm": "순재산액",
+    "a": "7701702149640"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "A2",
+    "account_nm": "차감항목계",
+    "a": "2041129008261"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "A3",
+    "account_nm": "가산항목계",
+    "a": "92240325807"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "B",
+    "account_nm": "총위험액(B)",
+    "a": "3199399428743"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "B1",
+    "account_nm": "시장위험액",
+    "a": "1603833395298"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "B2",
+    "account_nm": "신용위험액",
+    "a": "1211659850726"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "B3",
+    "account_nm": "운영위험액",
+    "a": "383906182719"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "C",
+    "account_nm": "잉여자본(C=A-B)",
+    "a": "2553414038442"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "D",
+    "account_nm": "필요유지자기자본(D)",
+    "a": "130725000000"
+   },
+   {
+    "base_month": "202603",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "E",
+    "account_nm": "순자본비율(C/D×100)",
+    "a": "1953.27"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "A",
+    "account_nm": "영업용순자본(A)",
+    "a": "6130046000256"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "A1",
+    "account_nm": "순재산액",
+    "a": "8156627340443"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "A2",
+    "account_nm": "차감항목계",
+    "a": "2123731724504"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "A3",
+    "account_nm": "가산항목계",
+    "a": "97150384317"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "B",
+    "account_nm": "총위험액(B)",
+    "a": "3768655366565"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "B1",
+    "account_nm": "시장위험액",
+    "a": "1931912796823"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "B2",
+    "account_nm": "신용위험액",
+    "a": "1415779689573"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "B3",
+    "account_nm": "운영위험액",
+    "a": "420962880169"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "C",
+    "account_nm": "잉여자본(C=A-B)",
+    "a": "2361390633691"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "D",
+    "account_nm": "필요유지자기자본(D)",
+    "a": "130725000000"
+   },
+   {
+    "base_month": "202606",
+    "finance_cd": "0010119",
+    "finance_nm": "삼성증권(주)",
+    "account_cd": "E",
+    "account_nm": "순자본비율(C/D×100)",
+    "a": "1806.38"
+   }
+  ]
+ }
+}

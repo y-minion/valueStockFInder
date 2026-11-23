@@ -120,3 +120,35 @@ def test_evaluate_uses_capital():
     r = evaluate_one(bank, a, settings_with(), None)
     assert r.financial == FinancialGate("은행", cap, 9.0)
     assert r.cells["F_CAP_D"] == "통과" and r.cells["D82"] != "확인 필요"
+
+
+# ---- 우선주: 같은 회사를 두 번 세지 않아요 (2026-11-24) ----
+
+def _with_preferred_run():
+    from dataclasses import replace as _r
+
+    from fakes import D as _D
+    from fakes import FakeDart, FakeKrx, mem_store, noop
+    from helpers import _SYN_DPS, div_rows, settings_with
+    from vsf.collect import collect
+    from vsf.config import IndustrySettings
+    plus = lambda v: v if v.strip() in ("-", "") else f"{int(v.replace(',', '')) + 50:,}"   # noqa: E731
+    divs = {y: div_rows(*v, year=y, pref=tuple(plus(x) for x in v)) for y, v in _SYN_DPS.items()}
+    dart = FakeDart({"000270": FakeDart.entry(dividends=divs), "030000": FakeDart.entry()})
+    c = collect(dart, FakeKrx.with_preferred(), mem_store(), _D, progress=noop)
+    settings = _r(settings_with(), industry=IndustrySettings(min_group_size=1))
+    return evaluate(c, settings), settings
+
+
+def test_industry_counts_common_only():
+    run, _ = _with_preferred_run()
+    common, pref = run.results["000270"], run.results["000275"]
+    assert common.industry is not None and common.industry.size == 2      # 기아·제일기획, 기아우는 빼요
+    assert pref.industry == common.industry                                # 우선주는 보통주 업종 정보를 그대로
+
+
+def test_criteria_check_skips_preferred():
+    from vsf.criteria_check import criteria_check
+    run, settings = _with_preferred_run()
+    got = criteria_check(run.results, settings, partial=False)
+    assert got["groups"][0]["n"] == 2

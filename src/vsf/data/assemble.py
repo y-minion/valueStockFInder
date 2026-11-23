@@ -18,7 +18,7 @@ from vsf.excelfn import excel_round
 from vsf.financial import CapitalRatio
 from vsf.model import StockInputs, YearRow
 
-QUICK_FAIL_NOTE = "최근 3년 중 배당을 안 준 해가 있어 관문 ②에서 탈락이라, 나머지 숫자는 받지 않았어요."
+QUICK_FAIL_NOTE = "최근 해에 배당을 주지 않아 관문 ②에서 탈락이라, 나머지 숫자는 받지 않았어요."
 OFS_NOTE = "별도 재무제표 기준이에요"
 PBR_NOTE = "PBR은 추정값이에요"
 ROE_END_NOTE = "{y}년 ROE는 기말 자본 기준이에요"
@@ -209,10 +209,14 @@ def dps_by_year(div_reports: dict[int, list[dict]]) -> tuple[dict[int, float | N
 
 
 def quick_fail_check(latest_div_rows: list[dict] | None, latest_year: int) -> bool:
-    """최근 3년 중 보통주 DPS가 0인 해(대시 모양 포함)가 있으면 True. 값이 없는 해(None)는 0으로 보지 않아요."""
+    """최근 해 보통주 DPS가 0(대시 모양 포함)이면 True. 값이 없으면(None) 0으로 보지 않아요.
+
+    전 해·전전 해에만 배당을 쉰 종목은 끝까지 계산해요. 계산기 관문 ②(B86)가 스스로 탈락을 내고,
+    점수 순위에는 들어가요 (2026-11-23, 점수 순위 설계 4장).
+    """
     if not latest_div_rows:
         return False
-    return any(v == 0 for v in dps_from_report(latest_div_rows, latest_year).values())
+    return dps_from_report(latest_div_rows, latest_year).get(latest_year) == 0
 
 
 # ---- 재무제표 기간과 출처 글 ----

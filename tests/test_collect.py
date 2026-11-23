@@ -66,7 +66,8 @@ def test_first_run_skips_filings_check_and_records_date():
 
 def test_exclusions_bucketed():
     c = collect(FakeDart.exclusion_mix(), FakeKrx.exclusion_mix(), mem_store(), D, progress=noop)
-    assert set(c.excluded) == {"우선주", "스팩", "금융회사(그 밖)", "결산월 12월 아님"} and len(c.records) == 1
+    assert set(c.excluded) == {"우선주", "스팩", "결산월 12월 아님"} and len(c.records) == 2
+    assert c.records["055550"][0].financial_kind == "그 밖"
     assert c.excluded["스팩"] == [("123450", "하나30호스팩")]
 
 
@@ -102,7 +103,7 @@ def test_holding_without_statements_fails_instead_of_general_verdict():
 
 
 def test_quick_fail_skips_statements():
-    dart = FakeDart.with_company("000270", dividends={2025: div_rows("1,000", "-", "900")})
+    dart = FakeDart.with_company("000270", dividends={2025: div_rows("-", "1,000", "900")})
     c = collect(dart, FakeKrx.default(), mem_store(), D, progress=noop)
     assert c.records["000270"][1].quick_fail and dart.calls_of("financials") == 0
 
@@ -326,3 +327,29 @@ def test_coarse_codes_still_excluded_when_financials_are_off():
                  _coarse("661", "다올투자증권"), _coarse("661", "NHN KCP"), _coarse("66202")):
         c = collect(dart, FakeKrx.default(), mem_store(), D, progress=noop, include_financial=False)
         assert c.excluded == {"금융회사": [("000270", "기아")]} and "000270" not in c.records
+
+
+def test_skipped_dividend_year_now_gets_full_calculation():
+    """전 해에만 배당을 쉰 종목은 재무제표를 받아 계산기를 끝까지 돌려요. 관문 ②는 계산기가 스스로 탈락시켜요."""
+    from pathlib import Path as _P
+
+    from vsf.config import load_settings
+    from vsf.evaluate import evaluate_one
+    dart = FakeDart.with_company("000270", dividends={2025: div_rows("1,000", "-", "900")})
+    c = collect(dart, FakeKrx.default(), mem_store(), D, progress=noop)
+    info, a = c.records["000270"]
+    assert not a.quick_fail and dart.calls_of("financials") >= 1
+    settings = load_settings(_P(__file__).resolve().parents[1] / "settings.toml")
+    assert evaluate_one(info, a, settings, None).summary.gate2 == "탈락"
+
+
+def test_other_financial_is_judged_with_capital_to_check():
+    from pathlib import Path as _P
+
+    from vsf.config import load_settings
+    from vsf.evaluate import evaluate_one
+    c = run(FakeDart({"000270": FakeDart.entry(induty_code="64201")}))
+    info, a = c.records["000270"]
+    r = evaluate_one(info, a, load_settings(_P(__file__).resolve().parents[1] / "settings.toml"), None)
+    assert info.financial_kind == "그 밖" and r.financial.capital_min is None
+    assert r.cells["F_CAP_D"] == "직접 확인" and "자본비율" in r.cells["C131"]

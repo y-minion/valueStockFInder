@@ -96,13 +96,14 @@ def company_exclusion(company: dict, include_financial: bool = True) -> str | No
     """DART 기업개황으로 제외 사유를 찾아요. 값이 없으면 그 항목으로는 제외하지 않아요.
 
     include_financial=False는 예전 그대로예요: 64·65·66 업종은 64992 지주회사 말고 모두 "금융회사".
+    금융회사(그 밖: 창투·신탁·저축은행 등)도 분석해요 (2026-11-23, 점수 순위 설계 4장).
     """
     acc_mt = company.get("acc_mt")
     if acc_mt and acc_mt != "12":
         return "결산월 12월 아님"
     if not include_financial:
         return "금융회사" if _code(company)[:2] in FINANCIAL_DIVISIONS and not is_holding(company) else None
-    return f"금융회사({OTHER_FINANCIAL})" if financial_kind(company) == OTHER_FINANCIAL else None
+    return None
 
 
 def is_financial_holding(fin: FinRows | None) -> bool:

@@ -125,12 +125,12 @@ def _src(year: int, kind: str, rows: list[dict] | None) -> str:
 
 def fetch_score_facts(dart, corp: str, latest_year: int, latest_eps: float | None,
                       listed_names: set[str], stake_min: float) -> ScoreFacts:
-    from vsf.extras import quarterly      # extras가 evaluate를 불러서, 순환을 피하려고 여기서 불러요
+    from vsf.extras import latest_quarter   # extras가 evaluate를 불러서, 순환을 피하려고 여기서 불러요
 
     src: dict[str, str] = {}
     ttm_eps = ttm_label = None
-    q = quarterly(dart, corp, latest_year + 1)
-    ttm_is_annual = q is None
+    q = latest_quarter(dart, corp, latest_year + 1)
+    ttm_is_annual = q is None                 # 보고서 자체가 없을 때만 '연간이 가장 최신'이에요
     if q is not None and all(isinstance(x, (int, float)) for x in (latest_eps, q.get("eps"), q.get("eps_prev"))):
         ttm_eps = latest_eps + q["eps"] - q["eps_prev"]
         n = q["quarter"]

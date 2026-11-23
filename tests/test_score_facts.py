@@ -157,3 +157,15 @@ def test_facts_round_trip_dict():
     d = score_facts_to_dict(f)
     json.dumps(d)
     assert score_facts_from_dict(d) == f and score_facts_from_dict(None) is None
+
+
+def test_quarter_report_without_income_lines_is_not_treated_as_missing():
+    """분기 보고서는 있는데 손익 줄을 못 읽으면 '연간이 가장 최신'(만점)이 아니라 자료 없음이어야 해요."""
+    from helpers import fin_row
+    from vsf.data.dart import FinRows
+    row = fin_row("IS", "ifrs-full_BasicEarningsLossPerShare", "기본주당이익")
+    row.update({"thstrm_add_amount": "", "frmtrm_add_amount": ""})
+    e = _entry()
+    e["quarterly_fin"] = {(2026, "11014"): FinRows([row], "CFS", "20261114000001")}
+    f = fetch_score_facts(FakeDart({"000270": e}), corp_of("000270"), 2025, 674.0, set(), 30.0)
+    assert f.ttm_is_annual is False and f.ttm_eps is None

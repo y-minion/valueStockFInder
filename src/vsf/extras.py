@@ -94,13 +94,19 @@ def _disclosures(dart, corp: str, today: date) -> list[dict]:
     return out
 
 
-def quarterly(dart, corp: str, year: int) -> dict | None:
+def latest_quarter(dart, corp: str, year: int) -> dict | None:
+    """그해 가장 최근 분기 보고서 요약. 보고서가 하나도 없을 때만 None이에요 (숫자를 못 읽어도 요약은 돌려줘요)."""
     for report in _REPORTS:
         fin = dart.financials(corp, year, report)
         if fin:
-            q = quarterly_summary(fin, year, report)
-            return None if q["net_income"] is None and q["op_income"] is None else q
+            return quarterly_summary(fin, year, report)
     return None
+
+
+def quarterly(dart, corp: str, year: int) -> dict | None:
+    """카드에 보여줄 분기 실적. 순이익·영업이익을 둘 다 못 읽으면 보여줄 게 없어서 None이에요."""
+    q = latest_quarter(dart, corp, year)
+    return None if q is None or (q["net_income"] is None and q["op_income"] is None) else q
 
 
 def gather_extras(codes, run: RunResult, dart, krx, naver: NaverNews | None,

@@ -661,3 +661,5 @@
 - 호출 순서와 줄이는 방법
 
 - 2026-11-23: 점수 순위 추가 — `docs/superpowers/specs/2026-11-23-score-ranking-design.md`. 첫 화면이 점수 순위가 되고, 관문 판정과 엑셀은 그대로예요. 빠른 탈락은 최근 해 무배당일 때만이에요.
+
+- 2026-11-24: 우선주를 배당 종목으로 추가 — `docs/superpowers/specs/2026-11-24-preferred-shares-design.md`. 재무는 보통주 회사 것, 주가·배당은 우선주 것으로 계산기를 한 번 더 돌려요.

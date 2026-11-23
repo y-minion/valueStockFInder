@@ -157,3 +157,7 @@ def test_financial_coverage_uses_capital_ratio():
     assert item(score_stock(stock(financial="은행", f_cap="직접 확인"), FACTS, ScoreSettings()),
                 "coverage")["status"] == "no_data"
     assert item(score_stock(stock(financial="은행", f_cap="탈락"), FACTS, ScoreSettings()), "coverage")["points"] == 0
+
+
+def test_per_always_shows_one_decimal():
+    assert item(score_stock(stock(price=20000.0), FACTS, ScoreSettings()), "per")["value"] == "5.0배"

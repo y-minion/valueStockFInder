@@ -32,6 +32,8 @@ var KIND_LABEL = { new_buy: "새로 매수선 이하", new_watch: "새로 관심
 // 엑셀 C열에 수식이 아니라 글자로 적혀 있어서 payload의 cells에 없는 기준 글
 var STATIC_CRIT = { C86: "0번", C87: "0번 (아니면 이유 확인)", C110: "주가 ≤ 매수선" };
 var COLS = ["B", "C", "D", "E", "F"];
+// 엑셀 맨 위 입력 칸 (18–23행)
+var INPUT_LABELS = { 18: "회사명", 19: "종목코드", 20: "현재 주가", 21: "주가 기준일", 22: "PBR", 23: "메모" };
 var NO_FIGURES = "이 종목은 이번 실행에서 분석되지 않았어요";
 
 // ---- 작은 도구들 ----
@@ -69,7 +71,9 @@ function link(url, text) {
   return u ? '<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + esc(text) + "</a>" : esc(text);
 }
 function wrap(table) { return '<div class="scroll">' + table + "</div>"; }
-function chip(text, cls) { return '<span class="chip ' + (cls || "") + '">' + esc(text) + "</span>"; }
+function chip(text, cls, title) {
+  return '<span class="chip ' + (cls || "") + '"' + (title ? ' title="' + esc(title) + '"' : "") + ">" + esc(text) + "</span>";
+}
 function badgeClass(v) {
   if (v === "통과") return "ok";
   if (v === "탈락") return "no";
@@ -83,7 +87,13 @@ function gateBadge(n, verdict) {
   if (n === 4 && verdict === "입력 필요") return badge(mark + " 직접 판단 필요", verdict);
   return badge(mark + " " + (verdict == null || verdict === "" ? "—" : verdict), verdict);
 }
-function flagChip(s) { return s.flags && s.flags.length ? " " + chip("숫자 확인 필요", "flag") : ""; }
+function flagChip(s) { return s.flags && s.flags.length ? " " + chip("숫자 확인 필요", "flag", s.flags.join(" / ")) : ""; }
+// 표 안의 관문: "①통" 처럼 짧게 한 줄로. 전체 판정은 마우스를 올리면 보여요.
+function gateMini(n, verdict) {
+  var mark = ["①", "②", "③", "④"][n - 1], v = verdict == null || verdict === "" ? "—" : String(verdict);
+  return '<span class="pill gm ' + badgeClass(v) + '" title="' + esc(mark + " " + v) + '">' + mark + esc(v.charAt(0)) + "</span>";
+}
+function gatesMini(m) { return gateMini(1, m.gate1) + gateMini(2, m.gate2) + gateMini(3, m.gate3); }
 function recentOf(s) { return (s.extras && s.extras.recent) || null; }
 function recentChip(s) { var q = recentOf(s); return q && q.warning ? " " + chip("최근 실적 미달", "flag") : ""; }
 function stockLink(code, name) { return '<a href="stock.html#' + encodeURIComponent(code) + '">' + esc(name) + "</a>"; }
@@ -230,8 +240,8 @@ function tiles(data) {
   var s = data.summary, p = s.prev || {}, rep = (data.run.criteria || {}).report || {};
   var near = Math.round((rep.near_range == null ? 0.1 : rep.near_range) * 100);
   var watch = Math.round((rep.watch_range == null ? 0.2 : rep.watch_range) * 100);
-  return '<div class="tiles">' + tile("매수선 이하", s.buy, p.buy) + tile("매수선까지 " + near + "% 이내", s.near, p.near) +
-    tile("관심 목록 (" + watch + "% 이내)", s.watch, p.watch) + tile("①② 탈락 아님", s.gate12_ok, p.gate12_ok) + scoreTiles(data) + "</div>";
+  return '<div class="tiles">' + scoreTiles(data) + tile("매수선 이하", s.buy, p.buy) + tile("매수선까지 " + near + "% 이내", s.near, p.near) +
+    tile("관심 목록 (" + watch + "% 이내)", s.watch, p.watch) + tile("①② 탈락 아님", s.gate12_ok, p.gate12_ok) + "</div>";
 }
 function changesTable(data) {
   var list = data.changes || [];
@@ -270,23 +280,37 @@ function scoreTiles(data) {
   if (!s) return "";
   return tile("점수 대상", s.eligible) + tile("A등급", s.A) + tile("B등급", s.B);
 }
+function nameCell(code, s, extra) {
+  var chips = flagChip(s) + recentChip(s) + (s.financial ? " " + chip("금융", "info") : "");
+  return '<td class="name">' + stockLink(code, s.name) + (chips ? '<div class="chips">' + chips + "</div>" : "") + (extra || "") + "</td>";
+}
+function scoreYield(sc) {   // 점수에 쓴 배당수익률(정상 DPS 기준)만: "5.4% (정상 DPS …)" → "5.4%"
+  var y = scoreItem(sc, "yield");
+  return y && y.status === "ok" ? esc(String(y.value).split(" (")[0]) : "—";
+}
+function groupMax(data, key) {
+  var code = (data.score_rank || [])[0], sc = code && data.stocks[code] && data.stocks[code].score, n = 0;
+  ((sc && sc.items) || []).forEach(function (it) { if (it.group === key) n += it.max; });
+  return n;
+}
 function scoreRow(data, code, n) {
   var s = data.stocks[code], sc = s.score, m = s.summary, sum = data.score_summary, per = scoreItem(sc, "per");
   var groups = (sum.groups || []).map(function (g) { return '<td class="num">' + pts(sc.groups[g[0]]) + "</td>"; }).join("");
-  return '<tr><td class="num">' + n + "</td><td>" + stockLink(code, s.name) + flagChip(s) + recentChip(s) +
-    (s.financial ? " " + chip("금융", "info") : "") + "</td><td>" + gradeChip(sc) + "</td>" + groups +
+  return '<tr><td class="num">' + n + "</td>" + nameCell(code, s) + '<td class="gates">' + gradeChip(sc) + "</td>" + groups +
     '<td class="num">' + (sc.missing ? pts(sc.missing) + "점" : "—") + '</td><td class="num">' + scoreChange(s, sum) +
-    '</td><td class="num">' + (per && per.status === "ok" ? esc(per.value) : "—") + '</td><td class="num">' + fmt(m.yield_now, "pct") +
-    '</td><td class="num">' + fmt(m.ratio, "d2") + "</td><td>" + gateBadge(1, m.gate1) + " " + gateBadge(2, m.gate2) + " " +
-    gateBadge(3, m.gate3) + "</td></tr>";
+    '</td><td class="num">' + (per && per.status === "ok" ? esc(per.value) : "—") + '</td><td class="num">' + scoreYield(sc) +
+    '</td><td class="num">' + fmt(m.ratio, "d2") + '</td><td class="gates">' + gatesMini(m) + "</td></tr>";
 }
 function scoreTable(data) {
   var sum = data.score_summary, list = data.score_rank;
   if (!sum || !list) return "";
   var h = "<h2>점수 순위 (점수 높은 순)</h2>";
   if (!list.length) return h + '<p class="muted">점수를 매긴 종목이 없어요.</p>';
-  var head = "<tr><th>순위</th><th>종목</th><th>점수</th>" + (sum.groups || []).map(function (g) { return "<th>" + esc(g[1]) + "</th>"; }).join("") +
-    "<th>자료 없는 배점</th><th>지난주 대비</th><th>PER</th><th>지금 배당수익률</th><th>주가÷적정가</th><th>관문</th></tr>";
+  var head = '<tr><th class="r">순위</th><th>종목</th><th>점수</th>' + (sum.groups || []).map(function (g) {
+    var mx = groupMax(data, g[0]);
+    return '<th class="r">' + esc(g[1]) + (mx ? '<div class="muted">/' + pts(mx) + "</div>" : "") + "</th>";
+  }).join("") + '<th class="r">자료 없는<div class="muted">배점</div></th><th class="r">지난주<div class="muted">대비</div></th><th class="r">PER</th>' +
+    '<th class="r">배당수익률<div class="muted">정상 DPS</div></th><th class="r">주가÷<div class="muted">적정가</div></th><th>관문<div class="muted">①②③</div></th></tr>';
   var top = Math.max(1, sum.top_n || 50);
   var rows = list.map(function (code, i) { return scoreRow(data, code, i + 1); });
   var out = h + '<p class="muted">점수 대상 ' + fmt(sum.eligible, "won") + "개 · 최근 해에 배당을 준 종목만 매겨요. 성장 잠재력·경영·브랜드는 점수에 없어요(카드와 /자문에서 봐요).</p>" +
@@ -299,11 +323,13 @@ function scoreBox(s) {
   var sc = s.score;
   if (!sc) return "<h3>점수</h3>" + '<p class="muted">' + esc(NOT_SCORED) + "</p>";
   var rows = sc.items.map(function (it) {
-    var got = it.status === "no_data" ? chip("자료 없음", "warn") : pts(it.points) + " / " + pts(it.max);
-    return tr([esc(it.label), it.status === "no_data" ? "—" : esc(it.value), esc(it.rule), got, '<span class="muted">' + esc(it.source || "") + "</span>"]);
+    var got = it.status === "no_data" ? chip("자료 없음", "warn") : "<b>" + pts(it.points) + "</b> / " + pts(it.max);
+    var val = (it.status === "no_data" ? "—" : esc(it.value)) + (it.source ? '<span class="src">' + esc(it.source) + "</span>" : "");
+    return tr([esc(it.label), val, '<span class="muted">' + esc(it.rule) + "</span>", got]);
   });
   return "<h3>점수</h3>" + '<div class="box">' + gradeChip(sc) + (sc.max !== 100 ? ' <span class="muted">만점 ' + pts(sc.max) + "점</span>" : "") +
-    " · 자료 없는 배점 " + pts(sc.missing) + "점</div>" + rowsTable(["항목", "이 회사", "구간", "점수 / 배점", "출처"], rows);
+    " · 자료 없는 배점 " + pts(sc.missing) + "점</div>" +
+    rowsTable(["항목", "이 회사 (출처)", "구간", "점수 / 배점"], rows, { align: "lllr", widths: ["22%", "36%", "28%", "14%"], cls: "fixed" });
 }
 function judgmentBox(data) {
   var j = data.score_summary && data.score_summary.judgment;
@@ -319,13 +345,14 @@ function watchTable(data) {
   if (!list.length) return h + '<p class="muted">지금 관심 목록에 든 종목이 없어요.</p>';
   var rows = list.map(function (code) {
     var s = data.stocks[code], m = s.summary, ind = s.industry;
-    return "<tr><td>" + stockLink(code, s.name) + flagChip(s) + recentChip(s) + (s.financial ? " " + chip("금융", "info") : "") + '<div class="muted">' + esc(ind ? ind.group_name : "업종 정보 없음") + "</div></td><td>" +
-      gateBadge(1, m.gate1) + " " + gateBadge(2, m.gate2) + " " + gateBadge(3, m.gate3) + '</td><td class="num">' + fmt(m.ratio, "d2") +
+    var industry = '<div class="muted ind" title="' + esc(ind ? ind.group_name : "") + '">' + esc(ind ? ind.group_name : "업종 정보 없음") + "</div>";
+    return "<tr>" + nameCell(code, s, industry) + '<td class="gates">' + gatesMini(m) + '</td><td class="num">' + fmt(m.ratio, "d2") +
       '</td><td class="num">' + fmt(m.drop == null ? null : Math.round(m.drop * 100) / 100, "pct0") + '</td><td class="num">' + fmt(m.yield_now, "pct") +
-      "</td><td>" + fmt(m.method) + '</td><td class="num">' + industryRank(ind) +
-      "</td><td>" + (s.flags.length ? esc(s.flags.join(" / ")) : "") + "</td></tr>";
+      '</td><td class="nowrap">' + fmt(m.method) + '</td><td class="num">' + industryRank(ind) + "</td></tr>";
   }).join("");
-  return h + wrap("<table><tr><th>종목(업종)</th><th>관문</th><th>주가÷적정가</th><th>매수선까지</th><th>지금 배당수익률</th><th>적정가 방법</th><th>업종 ROE 순위</th><th>경고</th></tr>" + rows + "</table>");
+  return h + '<p class="muted">\'숫자 확인 필요\' 칩에 마우스를 올리면 이유가 보여요. 관문 색: 초록 통과 · 노랑 확인 필요 · 빨강 탈락.</p>' +
+    wrap('<table><tr><th>종목(업종)</th><th>관문<div class="muted">①②③</div></th><th class="r">주가÷<div class="muted">적정가</div></th><th class="r">매수선<div class="muted">까지</div></th>' +
+      '<th class="r">지금<div class="muted">배당수익률</div></th><th>적정가 방법</th><th class="r">업종 ROE 순위</th></tr>' + rows + "</table>");
 }
 function nearMissTable(data) {
   var list = data.near_miss || [];
@@ -366,11 +393,25 @@ function renderIndex(data) {
 }
 
 // ---- 종목 카드 ----
-function rowsTable(head, rows) {
-  return wrap("<table><tr>" + head.map(function (x) { return "<th>" + esc(x) + "</th>"; }).join("") + "</tr>" + rows.join("") + "</table>");
+// 표 한 줄 = 칸 배열. 정렬은 칸 내용이 아니라 열마다 정해요(같은 열은 같은 쪽으로).
+function tr(cells) { return cells; }
+// spec.align: 열마다 l(왼쪽)·r(오른쪽)·c(가운데). spec.widths: 열 너비. spec.cls: 표 종류(kv·fixed).
+// 같은 종류 표끼리 열 너비를 맞춰서, 위아래 표의 숫자 열이 같은 자리에 오게 해요.
+var KV = { align: "lr", cls: "kv" };
+var GATE = { align: "lrll", widths: ["40%", "16%", "26%", "18%"], cls: "fixed" };
+var YEARS = { align: "lrrrrr", widths: ["28%", "14.4%", "14.4%", "14.4%", "14.4%", "14.4%"], cls: "fixed" };
+function alignCls(spec, i) {
+  var a = ((spec && spec.align) || "").charAt(i);
+  return a === "r" ? ' class="r"' : a === "c" ? ' class="c"' : "";
 }
-function tr(cells) {
-  return "<tr>" + cells.map(function (c, i) { return "<td" + (i && /^[\d—-]/.test(c) ? ' class="num"' : "") + ">" + c + "</td>"; }).join("") + "</tr>";
+function rowsTable(head, rows, spec) {
+  spec = spec || { align: "l" + "r".repeat(Math.max(0, head.length - 1)) };
+  var cols = spec.widths ? "<colgroup>" + spec.widths.map(function (w) { return '<col style="width:' + w + '">'; }).join("") + "</colgroup>" : "";
+  var body = rows.map(function (r) {
+    if (!Array.isArray(r)) return r;
+    return "<tr>" + r.map(function (c, i) { return "<td" + alignCls(spec, i) + ">" + c + "</td>"; }).join("") + "</tr>";
+  }).join("");
+  return wrap('<table class="' + (spec.cls || "") + '">' + cols + "<tr>" + head.map(function (x, i) { return "<th" + alignCls(spec, i) + ">" + esc(x) + "</th>"; }).join("") + "</tr>" + body + "</table>");
 }
 function verdictCell(v) { return v ? badge(String(v), v) : "—"; }
 function gateTable(c, rows, resultRow) {
@@ -378,18 +419,18 @@ function gateTable(c, rows, resultRow) {
     return tr([esc(LABELS[g[0]]), fmt(c["B" + g[0]], g[1]), fmt(c["C" + g[0]], g[1] === "pct" ? "pct" : "raw"), verdictCell(c["D" + g[0]])]);
   });
   body.push(tr(["<b>" + esc(LABELS[resultRow]) + "</b>", "", "", verdictCell(c["D" + resultRow])]));
-  return rowsTable(["항목", "이 회사", "기준", "판정"], body);
+  return rowsTable(["항목", "이 회사", "기준", "판정"], body, GATE);
 }
 function colTable(s, rows, headRow) {
   var c = s.cells, head = [""].concat(COLS.map(function (col, i) { return c[col + headRow] || (s.inputs.years[i] && s.inputs.years[i].year) || ""; }));
   return rowsTable(head, rows.map(function (r) {
     return tr([esc(LABELS[r[0]])].concat(COLS.map(function (col) { return fmt(c[col + r[0]], r[1]); })));
-  }));
+  }), YEARS);
 }
 function inputTable(s) {
   var y = s.inputs.years || [], src = s.sources || {}, fin = !!s.financial;
   var defs = [[27, "eps", "won"], [28, "per", "d2"], [29, "dps", "won"], [30, "roe", "raw"], [31, "debt_ratio", "raw"],
-    [32, "interest_coverage", "d2"], [33, "net_income", "raw"], [34, "ocf", "raw"], [35, "capex", "raw"], [36, "dividends_paid", "raw"]];
+    [32, "interest_coverage", "d2"], [33, "net_income", "d2"], [34, "ocf", "d2"], [35, "capex", "d2"], [36, "dividends_paid", "d2"]];
   var head = [LABELS[26]].concat(y.map(function (v) { return v.year == null ? "—" : String(v.year); }));
   var rows = defs.map(function (d) {
     return "<tr><td>" + esc(LABELS[d[0]]) + "</td>" + COLS.map(function (col, i) {
@@ -402,9 +443,9 @@ function inputTable(s) {
     rows.push("<tr><td>" + esc(LABELS[d[0]]) + "</td>" + y.map(function (v) { return '<td class="num">' + (v[d[1]] ? "X" : "") + "</td>"; }).join("") + "</tr>");
   });
   var inp = s.inputs;
-  var prior = rowsTable(["그 이전 5년 (" + LABELS[42] + ")"].concat(inp.prior_years.map(function (v) { return v == null ? "—" : String(v); })),
-    [tr([esc(LABELS[42])].concat(inp.prior_dps.map(function (v) { return fmt(v, "won"); })))]);
-  return rowsTable(head, rows) + "<h4>1-1. 그 이전 5년 배당</h4>" + prior;
+  var prior = rowsTable(["연도"].concat(inp.prior_years.map(function (v) { return v == null ? "—" : String(v); })),
+    [tr([esc(LABELS[42])].concat(inp.prior_dps.map(function (v) { return fmt(v, "won"); })))], YEARS);
+  return rowsTable(head, rows, YEARS) + "<h4>1-1. 그 이전 5년 배당</h4>" + prior;
 }
 function sourceTable(s) {
   var keys = Object.keys(s.sources || {}).sort(), y = s.inputs.years || [];
@@ -412,12 +453,14 @@ function sourceTable(s) {
   var rows = keys.map(function (k) {
     var m = /^([B-F])(\d+)$/.exec(k), label = k;
     if (m) {
-      var yr = y[COLS.indexOf(m[1])];
-      label = k + " · " + (LABELS[m[2]] || "") + (yr && yr.year != null ? " · " + yr.year : "");
+      var row = Number(m[2]), i = COLS.indexOf(m[1]);
+      var yr = row >= 41 ? (s.inputs.prior_years || [])[i] : row >= 26 ? (y[i] && y[i].year) : null;
+      label = k + " · " + (LABELS[row] || INPUT_LABELS[row] || "") + (yr != null ? " · " + yr : "");
     }
     return tr([esc(label), esc(s.sources[k])]);
   });
-  return "<h4>칸별 출처</h4>" + rowsTable(["칸", "출처"], rows);
+  return "<details><summary>칸별 출처 (" + keys.length + "칸)</summary>" +
+    rowsTable(["칸", "출처"], rows, { align: "ll", widths: ["30%", "70%"], cls: "fixed" }) + "</details>";
 }
 function cardHead(s) {
   var chips = flagChip(s) + recentChip(s) + (s.criteria_overridden ? " " + chip("업종 기준 적용", "info") : "") +
@@ -426,7 +469,11 @@ function cardHead(s) {
     esc(s.industry ? s.industry.group_name : "업종 정보 없음") + " · " + esc(s.market) + " · 최근 연도 " + esc(s.latest_year) + "</p>";
 }
 function noteList(notes) {
-  return notes && notes.length ? '<div class="banner warn"><ul>' + notes.map(function (n) { return "<li>" + esc(n) + "</li>"; }).join("") + "</ul></div>" : "";
+  if (!notes || !notes.length) return "";
+  var list = "<ul>" + notes.map(function (n) { return "<li>" + esc(n) + "</li>"; }).join("") + "</ul>";
+  // 메모가 많으면 첫 화면을 덮지 않게 접어 둬요 (숫자 확인 필요는 flagList로 따로 늘 보여요)
+  if (notes.length > 2) return '<details class="notes"><summary>자료 메모 ' + notes.length + "개</summary>" + list + "</details>";
+  return '<div class="banner warn">' + list + "</div>";
 }
 function flagList(s) {
   return s.flags.length ? '<div class="banner warn"><b>숫자 확인 필요</b><ul>' + s.flags.map(function (f) { return "<li>" + esc(f) + "</li>"; }).join("") + "</ul></div>" : "";
@@ -481,26 +528,26 @@ function gate1Table(s, data) {
       "상위 " + fmt(pct, "raw") + "% 이내", verdictCell(s.extra_gate1)]));
   }
   body.push(tr(["<b>" + esc(LABELS[82]) + "</b>", "", "", verdictCell(c.D82)]));
-  return rowsTable(["항목", "이 회사", "기준", "판정"], body) + after;
+  return rowsTable(["항목", "이 회사", "기준", "판정"], body, GATE) + after;
 }
 function gate2Table(s) {
   var c = s.cells, body = [[86, "raw"], [87, "raw"], [88, "pct"], [89, "d2"]].map(function (g) {
     return tr([esc(LABELS[g[0]]), fmt(c["B" + g[0]], g[1]), crit(c, g[0]), verdictWithMark(s, "D" + g[0], c["D" + g[0]])]);
   });
   body.push(tr(["<b>" + esc(LABELS[90]) + "</b>", "", "", verdictCell(c.D90)]));
-  return rowsTable(["항목", "이 회사", "기준", "판정"], body);
+  return rowsTable(["항목", "이 회사", "기준", "판정"], body, GATE);
 }
 function gate3Table(c) {
   return rowsTable(["항목", "이 회사", "기준", "판정"], [
     tr([esc(LABELS[108]), fmt(c.B108, "d2"), crit(c, 108), verdictCell(c.D110)]),
-    tr(["<b>" + esc(LABELS[110]) + "</b>", "", crit(c, 110), verdictCell(c.D110)])]);
+    tr(["<b>" + esc(LABELS[110]) + "</b>", "", crit(c, 110), verdictCell(c.D110)])], GATE);
 }
 function kvTable(c, rows) {
-  return rowsTable(["항목", "값"], rows.map(function (r) { return tr([esc(LABELS[r[0]]), fmt(c["B" + r[0]], r[1])]); }));
+  return rowsTable(["항목", "값"], rows.map(function (r) { return tr([esc(LABELS[r[0]]), fmt(c["B" + r[0]], r[1])]); }), KV);
 }
 function fairTable(c) {
   var kinds = { 102: "won", 103: "won", 104: "won", 105: "won", 106: "text", 107: "won", 108: "d2", 109: "pct0" };
-  return rowsTable(["적정가 세 가지와 매수선", "값"], Object.keys(kinds).map(function (r) { return tr([esc(LABELS[r]), fmt(c["B" + r], kinds[r])]); }));
+  return rowsTable(["적정가 세 가지와 매수선", "값"], Object.keys(kinds).map(function (r) { return tr([esc(LABELS[r]), fmt(c["B" + r], kinds[r])]); }), KV);
 }
 function table54(c, recent) {
   var rows = [120, 121, 122, 123, 124, 125, 126].map(function (r) {
@@ -509,7 +556,8 @@ function table54(c, recent) {
   // 최근 4분기 줄은 엑셀에 없는 참고 줄이라 '최근 해' 바로 밑에 끼워 보여줘요.
   if (recent) rows.splice(4, 0, tr([esc(recent.label) + ' <span class="muted">(참고, 엑셀에는 없어요)</span>', fmt(recent.eps, "won"),
     fmt(recent.fair, "won"), fmt(recent.buy_line, "won"), fmt(recent.ratio, "d2"), verdictCell(recent.verdict)]));
-  return rowsTable(["5-4. 정상 EPS 가정을 바꾸면", "정상 EPS", "적정가", "매수선", "주가÷적정가", "판단"], rows);
+  return rowsTable(["5-4. 정상 EPS 가정을 바꾸면", "정상 EPS", "적정가", "매수선", "주가÷적정가", "판단"], rows,
+    { align: "lrrrrl", widths: ["34%", "13%", "13%", "13%", "13%", "14%"], cls: "fixed" });
 }
 function recentBanner(s) {
   var q = recentOf(s);
@@ -521,7 +569,7 @@ function industryBox(s) {
   return rowsTable(["업종 비교 (참고)", "값"], [
     tr(["업종", esc(i.group_name) + " (" + i.size + "개)"]),
     tr(["업종 ROE 중앙값 / 이 회사 순위", fmt(i.roe_median, "raw") + " / " + (isNum(i.roe_rank_pct) ? "상위 " + fmt(i.roe_rank_pct, "raw") + "%" : "—")]),
-    tr(["업종 부채비율 중앙값 / 이 회사 순위", fmt(i.debt_median, "raw") + " / " + (isNum(i.debt_rank_pct) ? "상위 " + fmt(i.debt_rank_pct, "raw") + "%" : "—")])]);
+    tr(["업종 부채비율 중앙값 / 이 회사 순위", fmt(i.debt_median, "raw") + " / " + (isNum(i.debt_rank_pct) ? "상위 " + fmt(i.debt_rank_pct, "raw") + "%" : "—")])], KV);
 }
 function gate4Box(s) {
   var c = s.cells, e = s.extras;
@@ -538,7 +586,7 @@ function gate4Box(s) {
     "<h4>뉴스</h4>" + (news ? "<ul>" + news + "</ul>" : '<p class="muted">받은 뉴스가 없어요</p>') +
     (e.news_link ? "<p>" + link(e.news_link, "네이버 뉴스에서 더 보기") + "</p>" : "") +
     "<h4>분기 실적 (억 원)</h4>" + (q ? rowsTable([q.label, "이번", "작년 같은 때"], [
-      tr(["순이익", fmt(q.net_income, "raw"), fmt(q.net_income_prev, "raw")]), tr(["영업이익", fmt(q.op_income, "raw"), fmt(q.op_income_prev, "raw")])])
+      tr(["순이익", fmt(q.net_income, "raw"), fmt(q.net_income_prev, "raw")]), tr(["영업이익", fmt(q.op_income, "raw"), fmt(q.op_income_prev, "raw")])], { align: "lrr", cls: "kv" })
       : '<p class="muted">받은 분기 실적이 없어요</p>') +
     "<h4>세 가지 질문</h4><ul class=\"q\">" + qs + "</ul>" + noteList(e.notes);
 }
@@ -551,7 +599,7 @@ function charts(s) {
 function quickFailCard(s) {
   var c = s.cells, y = s.inputs.years || [];
   var dps = rowsTable(["배당"].concat(y.map(function (v) { return v.year == null ? "—" : String(v.year); })),
-    [tr([esc(LABELS[29])].concat(y.map(function (v) { return fmt(v.dps, "won"); })))]);
+    [tr([esc(LABELS[29])].concat(y.map(function (v) { return fmt(v.dps, "won"); })))], YEARS);
   return cardHead(s) + noteList(s.notes) + flagList(s) + '<div class="banner info">최근 해에 배당을 주지 않아 먼저 걸렸어요. 나머지 숫자는 받지 않았어요.</div>' +
     '<div class="badges">' + gateBadge(1, c.D82) + " " + gateBadge(2, c.D90) + "</div>" +
     scoreBox(s) + "<h3>배당</h3>" + dps + "<h3>관문 ② 배당이 오래 갈까</h3>" + gate2Table(s) + '<p class="muted">엑셀로 보려면 <code>uv run run.py --excel ' + esc(s.code) + "</code></p>";
@@ -570,7 +618,7 @@ function renderStock(data, code) {
     "<h4>5-3. 지금 주가가 예상하는 것</h4>" + kvTable(c, [[112, "won"], [113, "d2"], [114, "d2"], [115, "pct"], [116, "pct"], [117, "pct"], [118, "d2"]]) +
     table54(c, recentOf(s)) +
     "<h3>5년 입력 숫자</h3>" + inputTable(s) +
-    "<h4>해마다 계산한 값</h4>" + colTable(s, [[47, "won"], [48, "pct"], [49, "pct"], [50, "pct"], [51, "raw"], [52, "raw"], [53, "text"], [54, "text"], [55, "won"]], 46) +
+    "<h4>해마다 계산한 값</h4>" + colTable(s, [[47, "won"], [48, "pct"], [49, "pct"], [50, "pct"], [51, "d2"], [52, "d2"], [53, "text"], [54, "text"], [55, "won"]], 46) +
     sourceTable(s) + "<h3>그래프</h3>" + charts(s) +
     "<h3>업종 비교 (참고)</h3>" + industryBox(s) + gate4Box(s) +
     '<p class="muted">엑셀로 보려면 <code>uv run run.py --excel ' + esc(s.code) + "</code></p>";
@@ -608,7 +656,7 @@ function criteriaGroup(g) {
       variantCell(r.stricter, r.unit), variantCell(r.looser, r.unit)]);
   });
   return "<h2>" + esc(g.group) + " (" + fmt(g.n, "won") + "곳)</h2>" +
-    rowsTable(["기준", "지금 기준", "분포 (25%·중간·75%)", "통과", "한 칸 엄하게", "한 칸 느슨하게"], rows) + changeLists(g);
+    rowsTable(["기준", "지금 기준", "분포 (25%·중간·75%)", "통과", "한 칸 엄하게", "한 칸 느슨하게"], rows, { align: "lrrrll" }) + changeLists(g);
 }
 function industryCheck(list) {
   if (!list || !list.length) return "";

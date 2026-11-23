@@ -266,7 +266,7 @@ test('score ranking is the first table, calculator lists come after', () => {
 });
 test('score table shows grade, group points, missing points, weekly change, rest folded', () => {
   const h = r.renderIndex(data);
-  for (const s of ['85점', 'A', '72점', '자료 없는 배점', '▲5', '▼2', '7.5배', '전체 3개 보기']) assert.ok(h.includes(s), s);
+  for (const s of ['85점', 'A', '72점', '자료 없는', '▲5', '▼2', '7.5배', '전체 3개 보기']) assert.ok(h.includes(s), s);
   assert.ok(h.indexOf('가나다산업') < h.indexOf('라마바식품'));
   const folded = h.slice(h.indexOf('전체 3개 보기'));
   assert.ok(folded.includes('KB금융'));
@@ -287,7 +287,7 @@ test('partial score banner', () => {
 });
 test('card shows score table and judgment box', () => {
   const h = r.renderStock(data, 'A');
-  for (const s of ['85점 · A', '<h3>점수</h3>', '5배 미만 15', '11 / 15', '자료 없음', '자료 없는 배점 0점',
+  for (const s of ['85점 · A', '<h3>점수</h3>', '5배 미만 15', '<b>11</b> / 15', '자료 없음', '자료 없는 배점 0점',
     '<h3>점수에 없는 판단</h3>', '미래 성장 잠재력', '실적이 저조한 오너 경영', '/자문']) assert.ok(h.includes(s), s);
   assert.ok(!h.includes('만점'));
 });
@@ -308,4 +308,43 @@ test('old data without score keys renders without score parts', () => {
   delete st.score; delete st.score_prev;
   const c = r.renderStock({ ...d, stocks: { ...data.stocks, A: st } }, 'A');
   assert.ok(!c.includes('점수에 없는 판단') && !c.includes('점수 대상 아님'));
+});
+
+
+// ---- 표 정렬과 읽기 편하게 (2026-11-24 UX 점검) ----
+test('columns align by column, not by what a cell starts with', () => {
+  const h = r.renderStock(data, 'A');
+  assert.ok(h.includes('<th class="r">이 회사</th>'));            // 숫자 열은 제목도 오른쪽
+  assert.ok(h.includes('<td>0번</td>'));                           // '기준' 열은 숫자로 시작해도 왼쪽
+  assert.ok(!h.includes('<td class="r">0번</td>'));
+  assert.ok(h.includes('<col style="width:40%">'));                // 관문 표들은 같은 열 너비
+});
+test('year tables share column widths so years line up', () => {
+  const h = r.renderStock(data, 'A');
+  assert.ok(h.split('<col style="width:28%">').length - 1 >= 3);   // 5년 입력 · 그 이전 5년 · 해마다 계산한 값
+});
+test('gates are one short line in lists, full verdict in the tooltip', () => {
+  const h = r.renderIndex(data);
+  assert.ok(h.includes('title="① 통과">①통</span>'));
+  assert.ok(!h.includes('<th>경고</th>'));
+  assert.ok(h.includes('title="2024년 DPS가 보고서마다 달라요."'));   // 숫자 확인 필요 이유는 칩에
+});
+test('many notes fold away, few stay open', () => {
+  const many = { ...data.stocks.A, notes: ['a', 'b', 'c'] };
+  assert.ok(r.renderStock({ ...data, stocks: { ...data.stocks, A: many } }, 'A').includes('<summary>자료 메모 3개</summary>'));
+  const few = { ...data.stocks.A, notes: ['a'] };
+  assert.ok(!r.renderStock({ ...data, stocks: { ...data.stocks, A: few } }, 'A').includes('자료 메모'));
+});
+test('source list names top input cells without a stray year and folds away', () => {
+  const st = { ...data.stocks.A, sources: { B20: 'KRX 종가', F27: 'DART 사업보고서 2025' } };
+  const h = r.renderStock({ ...data, stocks: { ...data.stocks, A: st } }, 'A');
+  assert.ok(h.includes('B20 · 현재 주가<') && !h.includes('B20 · 현재 주가 · '));
+  assert.ok(h.includes('F27 · EPS (원) · 2025'));
+  assert.ok(h.includes('<summary>칸별 출처 (2칸)</summary>'));
+});
+test('score list shows the yield the score used', () => {
+  const d = JSON.parse(JSON.stringify(data));
+  d.stocks.A.score.items.push({ key: 'yield', label: '배당수익률', group: 'return', value: '5.4% (정상 DPS 2,799원)', rule: '', points: 7, max: 10, status: 'ok', source: '' });
+  const h = r.renderIndex(d);
+  assert.ok(h.includes('>5.4%</td>') && h.includes('정상 DPS'));
 });

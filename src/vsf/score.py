@@ -121,7 +121,7 @@ def _values(r, facts: ScoreFacts | None, cfg: ScoreSettings) -> dict[str, tuple]
 
     if _n(i.price) and _n(eps):
         out["per"] = (None, "적자", f"현재가 ÷ {yr}년 EPS", 0.0) if eps <= 0 else \
-            (i.price / eps, f"{_g(round(i.price / eps, 1))}배", f"현재가 ÷ {yr}년 EPS", None)
+            (i.price / eps, f"{i.price / eps:.1f}배", f"현재가 ÷ {yr}년 EPS", None)
     if _n(i.pbr):
         out["pbr"] = (i.pbr, f"{_g(round(i.pbr, 2))}배", "카드의 PBR", None)
     if _n(c.get("B108")):

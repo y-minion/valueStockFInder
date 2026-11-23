@@ -938,3 +938,54 @@ def test_recent_share_jump_stays_flagged_even_with_face_value_change():
     ye = {**ye, 2021: replace(ye[2021], shares=SYN_SHARES / 50)}
     a = assemble(co, L, fin_a, fin_b, divs, ye, price, d)
     assert SPLIT_FLAG in a.flags and a.inputs.years[0].dps == 1444
+
+
+# ---- 우선주 (2026-11-24 우선주 설계 4장) ----
+
+from vsf.data.assemble import PREF_NOTE, PreferredShare  # noqa: E402
+from vsf.data.store import PriceRow as _PR  # noqa: E402
+
+
+def _plus50(v: str) -> str:
+    return v if v.strip() in ("-", "") else f"{int(v.replace(',', '')) + 50:,}"
+
+
+def preferred_case(pref_dps: bool = True):
+    """합성 회사의 우선주: 배당은 보통주 + 50원, 주가는 보통주의 60%."""
+    from helpers import _SYN_DPS
+    company, L, fa, fb, divs, ye, price, d = synthetic_company()
+    pdivs = {y: div_rows(*v, year=y, pref=tuple(_plus50(x) for x in v) if pref_dps else ("-", "-", "-"))
+             for y, v in _SYN_DPS.items()}
+    p_ye = {y: _PR(r.date, "000275", "기아우", "KOSPI", r.close * 0.6, 1_000_000.0) for y, r in ye.items()}
+    pref = PreferredShare(code="000275", name="기아우", price=_PR(d, "000275", "기아우", "KOSPI", price.close * 0.6, 1e6),
+                          year_end=p_ye)
+    info = replace(company, code="000275", name="기아우", common_code="000270")
+    common = assemble(company, L, fa, fb, pdivs, ye, price, d)
+    got = assemble(info, L, fa, fb, pdivs, ye, price, d, preferred=pref)
+    return common, got
+
+
+def test_preferred_uses_its_own_dividends_price_and_year_end_per():
+    common, got = preferred_case()
+    ci, pi = common.inputs, got.inputs
+    assert (pi.name, pi.code) == ("기아우", "000275") and pi.price == ci.price * 0.6
+    assert [y.dps for y in pi.years] == [None if v is None else v + 50 for v in (y.dps for y in ci.years)]
+    assert [v for v in pi.prior_dps] == [None if v is None else v + 50 for v in ci.prior_dps]
+    for cy, py in zip(ci.years, pi.years, strict=True):
+        assert py.eps == cy.eps and py.roe == cy.roe and py.net_income == cy.net_income   # 같은 회사 재무
+        if cy.per is not None:
+            assert abs(py.per - cy.per * 0.6) < 0.02                                         # 우선주 연말 종가 ÷ EPS
+    assert abs(pi.pbr - ci.pbr * 0.6) < 0.02
+    assert "우선주" in got.sources["E29"] and pi.memo.startswith("우선주: 재무는 보통주(000270) 것")
+    assert PREF_NOTE in got.notes
+
+
+def test_preferred_without_dividend_row_is_flagged():
+    _, got = preferred_case(pref_dps=False)
+    assert all(y.dps in (None, 0.0) for y in got.inputs.years)
+
+
+def test_quick_fail_check_by_share_kind():
+    rows = div_rows("1,000", "900", "800", pref=("-", "950", "850"))
+    assert quick_fail_check(rows, 2025) is False
+    assert quick_fail_check(rows, 2025, kind="우선") is True

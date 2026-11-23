@@ -66,7 +66,7 @@ def test_first_run_skips_filings_check_and_records_date():
 
 def test_exclusions_bucketed():
     c = collect(FakeDart.exclusion_mix(), FakeKrx.exclusion_mix(), mem_store(), D, progress=noop)
-    assert set(c.excluded) == {"우선주", "스팩", "결산월 12월 아님"} and len(c.records) == 2
+    assert set(c.excluded) == {"우선주(보통주 없음)", "스팩", "결산월 12월 아님"} and len(c.records) == 2
     assert c.records["055550"][0].financial_kind == "그 밖"
     assert c.excluded["스팩"] == [("123450", "하나30호스팩")]
 
@@ -85,7 +85,7 @@ def test_financial_holding_is_analyzed_as_its_kind():
 def test_include_false_keeps_old_exclusions():
     c = collect(FakeDart.exclusion_mix(), FakeKrx.exclusion_mix(), mem_store(), D, progress=noop,
                 include_financial=False)
-    assert set(c.excluded) == {"우선주", "스팩", "금융회사", "결산월 12월 아님"}
+    assert set(c.excluded) == {"우선주(보통주 없음)", "스팩", "금융회사", "결산월 12월 아님"}
     bank_holding = synthetic(defaults=False)
     held = collect(FakeDart.with_company("000270", induty_code="64992", fin={2025: bank_holding, 2023: bank_holding}),
                    FakeKrx.default(), mem_store(), D, progress=noop, include_financial=False)
@@ -145,8 +145,8 @@ def test_quota_at_start_defers_every_included_stock():
     dart = FakeDart.exclusion_mix(raise_in={"corp_codes": DartQuotaExceeded()})
     c = run(dart, FakeKrx.exclusion_mix())
     assert not c.records and not c.failed and dart.calls_of("company") == 0
-    assert [code for code, _ in c.pending] == ["000270", "055550", "007070"]
-    assert set(c.excluded) == {"우선주", "스팩"}
+    assert [code for code, _ in c.pending] == ["000270", "005935", "055550", "007070"]   # 우선주도 다음에 받아요
+    assert set(c.excluded) == {"스팩"}
 
 
 def test_quota_during_filings_check_does_not_update_meta():
@@ -227,7 +227,7 @@ def test_collect_one_unknown_code(): assert "찾지 못했어요" in collect_one
 
 def test_collect_one_excluded_code_says_why():
     msg = collect_one(FakeDart.exclusion_mix(), FakeKrx.exclusion_mix(), mem_store(), D, "005935")
-    assert msg == "005935은(는) 분석 대상이 아니에요: 우선주"
+    assert msg == "005935은(는) 분석 대상이 아니에요: 우선주(보통주 없음)"
 
 
 def test_collect_one_failure_is_a_reason_text():
@@ -353,3 +353,49 @@ def test_other_financial_is_judged_with_capital_to_check():
     r = evaluate_one(info, a, load_settings(_P(__file__).resolve().parents[1] / "settings.toml"), None)
     assert info.financial_kind == "그 밖" and r.financial.capital_min is None
     assert r.cells["F_CAP_D"] == "직접 확인" and "자본비율" in r.cells["C131"]
+
+
+
+# ---- 우선주 (2026-11-24 우선주 설계 3장) ----
+
+def _pref_divs():
+    from helpers import _SYN_DPS
+    plus = lambda v: v if v.strip() in ("-", "") else f"{int(v.replace(',', '')) + 50:,}"   # noqa: E731
+    return {y: div_rows(*v, year=y, pref=tuple(plus(x) for x in v)) for y, v in _SYN_DPS.items()}
+
+
+def test_preferred_share_is_collected_with_company_financials_and_its_own_dividends():
+    dart = FakeDart({"000270": FakeDart.entry(dividends=_pref_divs()), "030000": FakeDart.entry()})
+    c = collect(dart, FakeKrx.with_preferred(), mem_store(), D, progress=noop)
+    info, a = c.records["000275"]
+    common = c.records["000270"][1]
+    assert info.common_code == "000270" and info.name == "기아우" and info.corp_code == "99000270"
+    assert [y.dps for y in a.inputs.years] == [None if y.dps is None else y.dps + 50 for y in common.inputs.years]
+    assert [y.eps for y in a.inputs.years] == [y.eps for y in common.inputs.years]
+    assert not any(code == "000275" for v in c.excluded.values() for code, _ in v)
+
+
+def test_preferred_without_a_listed_common_is_excluded():
+    c = collect(FakeDart.exclusion_mix(), FakeKrx.exclusion_mix(), mem_store(), D, progress=noop)
+    assert c.excluded["우선주(보통주 없음)"] == [("005935", "삼성전자우")]
+
+
+def test_quota_defers_preferred_to_pending():
+    dart = FakeDart({"000270": FakeDart.entry(dividends=_pref_divs()), "030000": FakeDart.entry()}, quota_after=1)
+    c = collect(dart, FakeKrx.with_preferred(), mem_store(), D, progress=noop)
+    assert "000270" in c.records and "000275" not in c.records
+    assert ("000275", "기아우") in c.pending and ("030000", "제일기획") in c.pending
+
+
+def test_collect_one_handles_a_preferred_code():
+    dart = FakeDart({"000270": FakeDart.entry(dividends=_pref_divs())})
+    got = collect_one(dart, FakeKrx.with_preferred(), mem_store(), D, "000275")
+    assert not isinstance(got, str) and got[0].common_code == "000270"
+
+
+def test_preferred_quick_fail_uses_preferred_dividend():
+    divs = _pref_divs()
+    divs[2025] = div_rows("6,800", "6,500", "5,600", pref=("-", "6,550", "5,650"))
+    dart = FakeDart({"000270": FakeDart.entry(dividends=divs), "030000": FakeDart.entry()})
+    c = collect(dart, FakeKrx.with_preferred(), mem_store(), D, progress=noop)
+    assert c.records["000275"][1].quick_fail and not c.records["000270"][1].quick_fail

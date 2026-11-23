@@ -143,3 +143,66 @@ def test_fisis_key_is_optional(tmp_path):
     assert load_keys(tmp_path / "keys.toml").fisis is None
     (tmp_path / "keys.toml").write_text('[dart]\napi_key = "d"\n[krx]\nauth_key = "k"\n[fisis]\nauth_key = "f"\n')
     assert load_keys(tmp_path / "keys.toml").fisis == "f"
+
+
+# ---- [score] ----
+from vsf.config import ItemRule, ScoreSettings  # noqa: E402
+
+
+def test_shipped_score_defaults():
+    s = load_settings(ROOT / "settings.toml").score
+    assert s == ScoreSettings()
+    assert sum(r.points for r in s.items.values()) == 100
+    assert s.items["per"].steps == ((5, 15), (8, 11), (10, 7), (15, 3))
+    assert s.items["treasury"].none_points == 5
+    assert (s.top_n, s.grade_a, s.grade_b, s.grade_c, s.subsidiary_stake_min) == (50, 80, 70, 50, 30.0)
+
+
+def test_score_steps_override(tmp_path):
+    p = write_settings(tmp_path, score={"per": "{ points = 20, steps = [[5, 20], [8, 12]] }"})
+    s = load_settings(p).score
+    assert s.items["per"] == ItemRule(20, ((5, 20), (8, 12)))
+    assert s.items["pbr"] == ScoreSettings().items["pbr"]
+
+
+def test_score_scalar_override(tmp_path):
+    s = load_settings(write_settings(tmp_path, score={"top_n": "30"})).score
+    assert s.top_n == 30 and s.items == ScoreSettings().items
+
+
+@pytest.mark.parametrize("body,word", [
+    ('{ points = 5, steps = [[5, 9]] }', "배점"),                 # 구간 점수 > 배점
+    ('{ points = 15, steps = [[8, 11], [5, 15]] }', "순서"),      # 미만인데 경계가 내려가요
+    ('{ points = -1 }', "0 이상"),
+    ('{ points = 15, steps = [[5]] }', "[경계, 점수]"),
+    ('{ points = 15, color = 3 }', "알 수 없는"),
+])
+def test_bad_score_item(tmp_path, body, word):
+    with pytest.raises(ConfigError) as e:
+        load_settings(write_settings(tmp_path, score={"per": body}))
+    assert word in str(e.value)
+
+
+def test_descending_steps_for_at_least_items(tmp_path):
+    with pytest.raises(ConfigError) as e:
+        load_settings(write_settings(tmp_path, score={"roe": "{ points = 10, steps = [[8, 5], [15, 10]] }"}))
+    assert "순서" in str(e.value)
+
+
+def test_unknown_score_item(tmp_path):
+    with pytest.raises(ConfigError) as e:
+        load_settings(write_settings(tmp_path, score={"growth": "{ points = 10 }"}))
+    assert "알 수 없는" in str(e.value)
+
+
+@pytest.mark.parametrize("key,value", [("top_n", "0"), ("grade_a", "60"), ("subsidiary_stake_min", "150")])
+def test_bad_score_scalars(tmp_path, key, value):
+    with pytest.raises(ConfigError):
+        load_settings(write_settings(tmp_path, score={key: value}))
+
+
+def test_fingerprint_has_score():
+    fp = settings_fingerprint(load_settings(ROOT / "settings.toml"))
+    assert fp["score"]["items"]["per"]["points"] == 15 and fp["score"]["top_n"] == 50
+    import json as _json
+    _json.dumps(fp)

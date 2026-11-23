@@ -64,6 +64,31 @@ def detect_changes(prev: Snapshot | None, run: RunResult, report: ReportSettings
     return out
 
 
+def _score_rule(d: dict | None, key: str) -> str | None:
+    """점수 항목 설정 → "15점: 5배 미만 15 · 8배 미만 11" (기준 변경 알림용)."""
+    if d is None:
+        return None
+    from vsf.config import ItemRule
+    from vsf.score import rule_text
+    rule = ItemRule(d["points"], tuple(tuple(s) for s in d.get("steps") or ()), d.get("none_points"))
+    return f"{rule.points:g}점: {rule_text(key, rule)}"
+
+
+def _score_changes(old: dict, new: dict) -> list[dict]:
+    from vsf.score import LABELS
+    out = []
+    for key, val in new.items():
+        if key == "items":
+            old_items = old.get("items") or {}
+            for item, body in val.items():
+                if old_items.get(item) != body:
+                    out.append({"key": f"score.{item}", "label": f"점수 {LABELS.get(item, item)}",
+                                "old": _score_rule(old_items.get(item), item), "new": _score_rule(body, item)})
+        elif old.get(key) != val:
+            out.append({"key": key, "label": CRITERIA_LABELS.get(key, key), "old": old.get(key), "new": val})
+    return out
+
+
 def criteria_changes(prev_fp: dict, cur_fp: dict) -> list[dict]:
     out = []
     for section in _SECTIONS:
@@ -75,4 +100,6 @@ def criteria_changes(prev_fp: dict, cur_fp: dict) -> list[dict]:
             if old != new:
                 label = CRITERIA_LABELS.get(key, key)
                 out.append({"key": key, "label": label, "old": old, "new": new})
+    if "score" in prev_fp:
+        out += _score_changes(prev_fp["score"], cur_fp.get("score", {}))
     return out

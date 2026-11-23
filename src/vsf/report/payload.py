@@ -12,6 +12,7 @@ from vsf.evaluate import RunResult, StockResult
 from vsf.extras import Extras
 from vsf.financial import CAPITAL_LABELS
 from vsf.model import inputs_to_dict
+from vsf.score import GROUPS, JUDGMENT, rank
 from vsf.snapshot import Snapshot, run_counts
 
 SCHEMA = 1
@@ -51,9 +52,31 @@ def _stock(r: StockResult, extras: Extras | None, settings) -> dict:
     }
 
 
+def _score_summary(scores: dict[str, dict | None], partial: bool, changed: bool, settings) -> dict:
+    got = [s for s in scores.values() if s is not None]
+    return {"eligible": len(got), **{g: sum(s["grade"] == g for s in got) for g in "ABCD"},
+            "partial": partial, "top_n": settings.score.top_n, "settings_changed": changed,
+            "groups": [[key, label] for key, label, _ in GROUPS],
+            "judgment": [[key, q, list(choices), list(points)] for key, q, choices, points in JUDGMENT]}
+
+
 def build_payload(run: RunResult, changes: list[Change], crit_changes: list[dict],
-                  prev: Snapshot | None, extras: dict[str, Extras], settings) -> dict:
+                  prev: Snapshot | None, extras: dict[str, Extras], settings,
+                  scores: dict[str, dict | None] | None = None, score_partial: bool = False) -> dict:
+    """scores: 종목 → 점수 dict(점수 대상이 아니면 None). score_partial: 하루 한도로 점수 자료를 다 못 받음."""
     c = run.collected
+    scores = scores or {}
+    scored = {code: s for code, s in scores.items() if s is not None and code in run.results}
+    score_rank = rank(scored, {code: run.results[code].summary.ratio for code in scored})
+    changed = bool(prev is not None and "score" in prev.settings_fp
+                   and prev.settings_fp["score"] != run.settings_fp.get("score"))
+
+    def score_prev(code: str) -> float | None:
+        if prev is None or changed or code not in scored:
+            return None
+        held = prev.stocks.get(code)
+        return None if held is None else held.score
+
     watch = [(code, r) for code, r in run.results.items() if r.state in ("buy", "watch")]
     watch.sort(key=lambda kv: (kv[1].summary.ratio is None, kv[1].summary.ratio or 0.0, kv[0]))
     near = [(code, r) for code, r in run.results.items() if r.state == "out" and near_miss_state(
@@ -77,7 +100,10 @@ def build_payload(run: RunResult, changes: list[Change], crit_changes: list[dict
                     for x in changes],
         "watchlist": [code for code, _ in watch],
         "near_miss": [code for code, _ in near],
-        "stocks": {code: _stock(r, extras.get(code), settings) for code, r in run.results.items()},
+        "stocks": {code: {**_stock(r, extras.get(code), settings), "score": scored.get(code),
+                          "score_prev": score_prev(code)} for code, r in run.results.items()},
+        "score_rank": score_rank,
+        "score_summary": _score_summary(scored, score_partial, changed, settings),
         "criteria_check": criteria_check(run.results, settings, partial=bool(c.pending)),
     }
 

@@ -141,7 +141,12 @@ def test_non_krw_flagged():
 
 
 def test_quick_fail_detection():
-    assert quick_fail_check(div_rows(thstrm="1,000", frmtrm="-", lwfr="900"), 2025)
+    assert quick_fail_check(div_rows(thstrm="-", frmtrm="1,000", lwfr="900"), 2025)
+
+
+def test_quick_fail_only_when_latest_year_has_no_dividend():
+    assert quick_fail_check(div_rows("-", "1,000", "900"), 2025) is True       # 최근 해 0
+    assert quick_fail_check(div_rows("1,000", "-", "900"), 2025) is False      # 전 해만 0이면 끝까지 계산
 
 
 def test_quick_fail_inputs():
@@ -558,7 +563,7 @@ def test_dps_by_year_small_gap_and_hole_in_newer_report():
 
 
 @pytest.mark.parametrize("rows,want", [
-    (div_rows("1,000", "-", "900"), True), (div_rows("1,000", "900", "-"), True),
+    (div_rows("-", "1,000", "900"), True), (div_rows("1,000", "-", "900"), False), (div_rows("1,000", "900", "-"), False),
     (div_rows("1,000", "900", "800"), False), (div_rows("1,000", "", "800"), False),   # 빈 값은 '모름'
     ([], False), (None, False)])
 def test_quick_fail_check_cases(rows, want):
@@ -572,7 +577,7 @@ DASHES = ["-", "－", "–", "—", "‐", "−", " － ", "　—　"]
 def test_dash_variants_mean_no_dividend(dash):
     rows = div_rows("1,000", dash, "900")
     assert dps_from_report(rows, 2025) == {2025: 1000.0, 2024: 0.0, 2023: 900.0}
-    assert quick_fail_check(rows, 2025) is True
+    assert quick_fail_check(div_rows(dash, "1,000", "900"), 2025) is True
     assert dps_by_year({2025: rows}) == ({2025: 1000.0, 2024: 0.0, 2023: 900.0}, ())
 
 
@@ -629,7 +634,7 @@ def test_quick_fail_fills_only_basics():
     assert [r.dps for r in i.years] == [None, None, 900, 0.0, 1000]
     assert all(getattr(r, f) is None for r in i.years for f in FIN_FIELDS)
     assert i.memo == "" and i.pbr is None and i.prior_dps == (None,) * 5
-    assert a.notes == ("최근 3년 중 배당을 안 준 해가 있어 관문 ②에서 탈락이라, 나머지 숫자는 받지 않았어요.",)
+    assert a.notes == ("최근 해에 배당을 주지 않아 관문 ②에서 탈락이라, 나머지 숫자는 받지 않았어요.",)
     assert a.flags == () and a.latest_year == 2025 and set(a.sources) == _filled(i)
     assert a.sources["E29"] == "2025 사업보고서 배당에 관한 사항(보통주, 접수번호 20260310000123)"
 

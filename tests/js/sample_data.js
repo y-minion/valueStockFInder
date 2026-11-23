@@ -88,6 +88,20 @@ const stocks = {
   "105560": finStock(),
   Q: stock("Q", "빠른탈락", { state: "out", quick_fail: true, cells: failCells, notes: ["배당 보고서만 받았어요"] }),
 };
+function score(total, grade, missing, max) {
+  return { total, max: max || 100, grade, missing: missing || 0,
+    groups: { cheap: 30, steady: 17, return: total - 52, other: 5 },
+    items: [
+      { key: "per", label: "PER", group: "cheap", value: "7.5배", rule: "5배 미만 15 · 8배 미만 11", points: 11, max: 15,
+        status: "ok", source: "현재가 ÷ 2025년 EPS" },
+      { key: "freq", label: "분기·반기 배당", group: "return", value: "자료 없음", rule: "4회 이상 5 · 2회 이상 3", points: 0,
+        max: 5, status: "no_data", source: "" },
+    ] };
+}
+Object.values(stocks).forEach((s) => { s.score = null; s.score_prev = null; });
+stocks.A.score = score(85, "A"); stocks.A.score_prev = 80;
+stocks.B.score = score(72, "B", 5);
+stocks["105560"].score = score(64, "C"); stocks["105560"].score_prev = 66;
 stocks.Q.boundaries = stocks.F.boundaries = [{ cell: "D78", label: "ROE 5년 평균", value: 7.6, threshold: 8, gap: -0.4, unit: "%p", passed: false }];
 stocks.A.boundaries = [{ cell: "D88", label: "배당성향", value: 58, threshold: 60, gap: -2, unit: "%p", passed: true }];
 
@@ -109,6 +123,13 @@ module.exports = {
     { code: "B", name: "라마바식품", kind: "above_buy", causes: ["기준 변경", "재무 갱신"] },
   ],
   watchlist: ["A", "B", "F", "X"],
+  score_rank: ["A", "B", "105560"],
+  score_summary: { eligible: 3, A: 1, B: 1, C: 1, D: 0, partial: false, top_n: 2, settings_changed: false,
+    groups: [["cheap", "싼가"], ["steady", "꾸준히 버나"], ["return", "주주환원"], ["other", "기타"]],
+    judgment: [["sustain", "이익이 앞으로도 지속 가능한가", ["대체로 지속 가능", "불안정"], [5, 0]],
+      ["growth", "미래 성장 잠재력", ["매우 높다", "높다", "보통", "낮다"], [10, 7, 5, 3]],
+      ["management", "기업 경영", ["우수한 경영자", "전문 경영자", "실적이 저조한 오너 경영"], [10, 5, 0]],
+      ["brand", "세계적 브랜드·경쟁력", ["있다", "없다"], [5, 0]]] },
   near_miss: ["Q"],
   stocks,
   criteria_check: {

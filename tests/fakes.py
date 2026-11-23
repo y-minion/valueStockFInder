@@ -33,7 +33,9 @@ def corp_of(code: str) -> str:
 class FakeDart:
     """DartClient 흉내.
 
-    companies: {종목코드: {"company": 기업개황 dict, "dividends": {연도: 줄}, "fin": {연도: FinRows}}}
+    companies: {종목코드: {"company": 기업개황 dict, "dividends": {연도: 줄}, "fin": {연도: FinRows},
+                "quarterly_fin": {(연도, 보고서 코드): FinRows}, "periodic": {(api, 연도, 보고서 코드): 줄},
+                "name": DART 회사명}}  ("quarterly_fin"·"periodic"·"name"은 없어도 돼요)
     없는 연도는 None(DART의 013)을 돌려줘요.
     quota_after=N: 서로 다른 회사 N곳을 건드린 뒤 새 회사를 건드리면 DartQuotaExceeded.
     raise_for={종목코드: 예외}: 그 회사에 대한 어떤 호출이든 그 예외.
@@ -85,7 +87,18 @@ class FakeDart:
 
     def financials(self, corp_code: str, year: int, report: str = "11011"):
         self._enter("financials", corp_code, year, report)
-        return self._gate(corp_code)["fin"].get(year)
+        entry = self._gate(corp_code)
+        if report != "11011":
+            return entry.get("quarterly_fin", {}).get((year, report))
+        return entry["fin"].get(year)
+
+    def periodic(self, api: str, corp_code: str, year: int, report: str = "11011") -> list[dict] | None:
+        self._enter("periodic", corp_code, api, year, report)
+        return self._gate(corp_code).get("periodic", {}).get((api, year, report))
+
+    def corp_names(self) -> dict[str, str]:
+        self._enter("corp_names")
+        return {code: e.get("name", f"회사{code}") for code, e in self._companies.items()}
 
     def dividends(self, corp_code: str, year: int) -> list[dict] | None:
         self._enter("dividends", corp_code, year)

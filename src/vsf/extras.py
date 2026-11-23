@@ -94,13 +94,19 @@ def _disclosures(dart, corp: str, today: date) -> list[dict]:
     return out
 
 
-def _quarterly(dart, corp: str, year: int) -> dict | None:
+def latest_quarter(dart, corp: str, year: int) -> dict | None:
+    """그해 가장 최근 분기 보고서 요약. 보고서가 하나도 없을 때만 None이에요 (숫자를 못 읽어도 요약은 돌려줘요)."""
     for report in _REPORTS:
         fin = dart.financials(corp, year, report)
         if fin:
-            q = quarterly_summary(fin, year, report)
-            return None if q["net_income"] is None and q["op_income"] is None else q
+            return quarterly_summary(fin, year, report)
     return None
+
+
+def quarterly(dart, corp: str, year: int) -> dict | None:
+    """카드에 보여줄 분기 실적. 순이익·영업이익을 둘 다 못 읽으면 보여줄 게 없어서 None이에요."""
+    q = latest_quarter(dart, corp, year)
+    return None if q is None or (q["net_income"] is None and q["op_income"] is None) else q
 
 
 def gather_extras(codes, run: RunResult, dart, krx, naver: NaverNews | None,
@@ -131,11 +137,11 @@ def gather_extras(codes, run: RunResult, dart, krx, naver: NaverNews | None,
             failed(e, "최근 공시를 가져오지 못했어요")
 
         latest_year = result.assembled.latest_year
-        quarterly = None
+        q_now = None
         try:
             # 사업보고서 바로 다음 해의 분기 보고서. 1~3월엔 아직 지난해 3분기 누적이 가장 최근이에요.
-            quarterly = _quarterly(dart, company.corp_code, latest_year + 1 if latest_year else today.year)
-            if quarterly is None:
+            q_now = quarterly(dart, company.corp_code, latest_year + 1 if latest_year else today.year)
+            if q_now is None:
                 note(_NO_QUARTER)
         except _CAUGHT as e:
             failed(e, "분기 실적을 가져오지 못했어요")
@@ -167,10 +173,10 @@ def gather_extras(codes, run: RunResult, dart, krx, naver: NaverNews | None,
                 note("뉴스를 가져오지 못했어요")
 
         cells = result.cells
-        recent = recent_row(quarterly, latest_year=latest_year, latest_eps=cells.get("B123"),
+        recent = recent_row(q_now, latest_year=latest_year, latest_eps=cells.get("B123"),
                             b118=cells.get("B118"), price=result.assembled.inputs.price,
                             safety_margin=result.criteria.safety_margin, gate3=cells.get("D110"))
         out[code] = Extras(disclosures=disclosures, news=news,
                            news_link=_NEWS_LINK.format(quote(company.name)),
-                           quarterly=quarterly, weekly_closes=closes, notes=tuple(notes), recent=recent)
+                           quarterly=q_now, weekly_closes=closes, notes=tuple(notes), recent=recent)
     return out

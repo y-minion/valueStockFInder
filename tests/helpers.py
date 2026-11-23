@@ -18,11 +18,12 @@ ORACLE_NAMES: list[str] = sorted(p.stem for p in ORACLE_DIR.glob("*.json"))
 
 
 def write_settings(tmp_path: Path, criteria: dict[str, str] | None = None,
-                   overrides: str | None = None) -> Path:
+                   overrides: str | None = None, score: dict[str, str] | None = None) -> Path:
     """배포용 settings.toml을 tmp_path에 복사하고 해당 줄만 바꿔요.
 
     criteria: {키: TOML 값 글자}. 이미 있는 키는 줄을 바꾸고, 없는 키는 [criteria] 끝에 넣어요.
     overrides: [industry.overrides] 본문 전체를 이 글자로 바꿔요.
+    score: {키: TOML 값 글자}. [score.키] 하위표가 있으면 지우고, [score] 바로 아래에 `키 = 값`으로 넣어요.
     """
     text = (ROOT / "settings.toml").read_text(encoding="utf-8")
     for key, value in (criteria or {}).items():
@@ -34,6 +35,10 @@ def write_settings(tmp_path: Path, criteria: dict[str, str] | None = None,
     if overrides is not None:
         text = re.sub(r"(\[industry\.overrides\]\n).*?(?=^\[)",
                       lambda m: m.group(1) + overrides + "\n\n", text, count=1, flags=re.S | re.M)
+    for key, value in (score or {}).items():
+        text = re.sub(rf"^\[score\.{re.escape(key)}\][^\n]*\n.*?(?=^\[|\Z)", "", text, count=1, flags=re.S | re.M)
+        text = re.sub(rf"^{re.escape(key)}\s*=.*\n", "", text, count=1, flags=re.M)
+        text = re.sub(r"^\[score\][^\n]*\n", lambda m: f"{m.group(0)}{key} = {value}\n", text, count=1, flags=re.M)
     out = tmp_path / "settings.toml"
     out.write_text(text, encoding="utf-8")
     return out

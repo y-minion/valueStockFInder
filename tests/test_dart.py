@@ -120,10 +120,48 @@ def test_financials_none_when_both_missing(store):
     assert make(store, t).financials(KIA_CORP, 2025) is None
 
 
-def test_quarterly_not_cached(dart, transport):
-    dart.financials(KIA_CORP, 2025, report="11013")
-    dart.financials(KIA_CORP, 2025, report="11013")
-    assert transport.calls == 2
+def test_quarterly_cached_when_found(dart, transport):
+    f = dart.financials(KIA_CORP, 2025, report="11013")
+    assert f is not None
+    assert dart.financials(KIA_CORP, 2025, report="11013") == f
+    assert transport.calls == 1
+
+
+def test_quarterly_missing_is_asked_again(store):
+    t = FakeDart({"fnlttSinglAcntAll.json": body("error_013.json")})
+    d = make(store, t)
+    assert d.financials(KIA_CORP, 2026, report="11014") is None
+    assert d.financials(KIA_CORP, 2026, report="11014") is None
+    assert t.calls == 4                       # CFS·OFS를 두 번씩: 없던 보고서는 다음에 다시 물어요
+
+
+def test_periodic_cached_and_013_not_cached(store):
+    rows = {"status": "000", "message": "정상", "list": [{"se": "보통주", "istc_totqy": "100"}]}
+    t = FakeDart({"stockTotqySttus.json": json.dumps(rows).encode()})
+    d = make(store, t)
+    assert d.periodic("stockTotqySttus", KIA_CORP, 2025) == rows["list"]
+    assert d.periodic("stockTotqySttus", KIA_CORP, 2025) == rows["list"] and t.calls == 1
+    q = t.requests[0].url.params
+    assert (q["corp_code"], q["bsns_year"], q["reprt_code"]) == (KIA_CORP, "2025", "11011")
+    missing = FakeDart({"tesstkAcqsDspsSttus.json": body("error_013.json")})
+    d2 = make(store, missing)
+    assert d2.periodic("tesstkAcqsDspsSttus", KIA_CORP, 2014) is None
+    assert d2.periodic("tesstkAcqsDspsSttus", KIA_CORP, 2014) is None and missing.calls == 2
+
+
+def test_periodic_keeps_report_code_apart(store):
+    rows = {"status": "000", "message": "정상", "list": [{"se": "x"}]}
+    t = FakeDart({"alotMatter.json": json.dumps(rows).encode()})
+    d = make(store, t)
+    d.periodic("alotMatter", KIA_CORP, 2026, "11013")
+    d.periodic("alotMatter", KIA_CORP, 2026, "11012")
+    assert t.calls == 2 and [r.url.params["reprt_code"] for r in t.requests] == ["11013", "11012"]
+
+
+def test_corp_names_maps_stock_code_to_name(dart, transport):
+    assert dart.corp_names() == {"000270": "기아", "030000": "제일기획"}
+    dart.corp_codes()
+    assert transport.calls == 1               # 같은 CORPCODE.xml 캐시를 써요
 
 
 def test_no_data_is_none(store):

@@ -221,6 +221,7 @@ function banners(data) {
     out += banner("지난 실행과 기준이 달라졌어요: " + c.label + " " + critValue(c.old, false, c.key) + " → " +
       critValue(c.new, false, c.key), "warn");
   });
+  if (data.score_summary && data.score_summary.partial) out += banner(SCORE_PARTIAL, "warn");
   if (r.financial_started) out += banner("금융회사를 금융업 기준으로 분석하기 시작했어요", "info");
   if (r.first_run) out += banner("첫 실행이라 비교할 지난 결과가 없어요", "info");
   return out;
@@ -230,7 +231,7 @@ function tiles(data) {
   var near = Math.round((rep.near_range == null ? 0.1 : rep.near_range) * 100);
   var watch = Math.round((rep.watch_range == null ? 0.2 : rep.watch_range) * 100);
   return '<div class="tiles">' + tile("매수선 이하", s.buy, p.buy) + tile("매수선까지 " + near + "% 이내", s.near, p.near) +
-    tile("관심 목록 (" + watch + "% 이내)", s.watch, p.watch) + tile("①② 탈락 아님", s.gate12_ok, p.gate12_ok) + "</div>";
+    tile("관심 목록 (" + watch + "% 이내)", s.watch, p.watch) + tile("①② 탈락 아님", s.gate12_ok, p.gate12_ok) + scoreTiles(data) + "</div>";
 }
 function changesTable(data) {
   var list = data.changes || [];
@@ -247,6 +248,71 @@ function changesTable(data) {
 function industryRank(ind) {
   if (!ind || !isNum(ind.roe_rank_pct)) return "—";
   return "상위 " + fmt(ind.roe_rank_pct, "raw") + "%" + (isNum(ind.roe_median) ? " (중간값 " + fmt(ind.roe_median, "raw") + "%)" : "");
+}
+// ---- 점수 순위 (점수 순위 설계 7장) ----
+var SCORE_PARTIAL = "점수 자료를 다 받지 못했어요. 내일 다시 실행하면 이어서 받아요. '자료 없음' 항목은 0점으로 더했어요.";
+var NOT_SCORED = "최근 해 배당 없음 — 점수 대상 아님";
+function pts(v) { return fmt(v, "raw"); }
+function gradeChip(sc) { return '<span class="pill grade-' + esc(sc.grade) + '">' + pts(sc.total) + "점 · " + esc(sc.grade) + "</span>"; }
+function scoreItem(sc, key) {
+  var list = (sc && sc.items) || [];
+  for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
+  return null;
+}
+function scoreChange(s, sum) {
+  if (sum.settings_changed) return '<span class="muted">배점 바뀜</span>';
+  if (!isNum(s.score_prev) || !s.score) return "—";
+  var d = Math.round((s.score.total - s.score_prev) * 100) / 100;
+  return d > 0 ? "▲" + pts(d) : d < 0 ? "▼" + pts(-d) : "0";
+}
+function scoreTiles(data) {
+  var s = data.score_summary;
+  if (!s) return "";
+  return tile("점수 대상", s.eligible) + tile("A등급", s.A) + tile("B등급", s.B);
+}
+function scoreRow(data, code, n) {
+  var s = data.stocks[code], sc = s.score, m = s.summary, sum = data.score_summary, per = scoreItem(sc, "per");
+  var groups = (sum.groups || []).map(function (g) { return '<td class="num">' + pts(sc.groups[g[0]]) + "</td>"; }).join("");
+  return '<tr><td class="num">' + n + "</td><td>" + stockLink(code, s.name) + flagChip(s) + recentChip(s) +
+    (s.financial ? " " + chip("금융", "info") : "") + "</td><td>" + gradeChip(sc) + "</td>" + groups +
+    '<td class="num">' + (sc.missing ? pts(sc.missing) + "점" : "—") + '</td><td class="num">' + scoreChange(s, sum) +
+    '</td><td class="num">' + (per && per.status === "ok" ? esc(per.value) : "—") + '</td><td class="num">' + fmt(m.yield_now, "pct") +
+    '</td><td class="num">' + fmt(m.ratio, "d2") + "</td><td>" + gateBadge(1, m.gate1) + " " + gateBadge(2, m.gate2) + " " +
+    gateBadge(3, m.gate3) + "</td></tr>";
+}
+function scoreTable(data) {
+  var sum = data.score_summary, list = data.score_rank;
+  if (!sum || !list) return "";
+  var h = "<h2>점수 순위 (점수 높은 순)</h2>";
+  if (!list.length) return h + '<p class="muted">점수를 매긴 종목이 없어요.</p>';
+  var head = "<tr><th>순위</th><th>종목</th><th>점수</th>" + (sum.groups || []).map(function (g) { return "<th>" + esc(g[1]) + "</th>"; }).join("") +
+    "<th>자료 없는 배점</th><th>지난주 대비</th><th>PER</th><th>지금 배당수익률</th><th>주가÷적정가</th><th>관문</th></tr>";
+  var top = Math.max(1, sum.top_n || 50);
+  var rows = list.map(function (code, i) { return scoreRow(data, code, i + 1); });
+  var out = h + '<p class="muted">점수 대상 ' + fmt(sum.eligible, "won") + "개 · 최근 해에 배당을 준 종목만 매겨요. 성장 잠재력·경영·브랜드는 점수에 없어요(카드와 /자문에서 봐요).</p>" +
+    wrap("<table>" + head + rows.slice(0, top).join("") + "</table>");
+  if (rows.length > top) out += "<details><summary>전체 " + fmt(rows.length, "won") + "개 보기</summary>" + wrap("<table>" + head + rows.slice(top).join("") + "</table>") + "</details>";
+  return out;
+}
+function scoreBox(s) {
+  if (!("score" in s)) return "";
+  var sc = s.score;
+  if (!sc) return "<h3>점수</h3>" + '<p class="muted">' + esc(NOT_SCORED) + "</p>";
+  var rows = sc.items.map(function (it) {
+    var got = it.status === "no_data" ? chip("자료 없음", "warn") : pts(it.points) + " / " + pts(it.max);
+    return tr([esc(it.label), it.status === "no_data" ? "—" : esc(it.value), esc(it.rule), got, '<span class="muted">' + esc(it.source || "") + "</span>"]);
+  });
+  return "<h3>점수</h3>" + '<div class="box">' + gradeChip(sc) + (sc.max !== 100 ? ' <span class="muted">만점 ' + pts(sc.max) + "점</span>" : "") +
+    " · 자료 없는 배점 " + pts(sc.missing) + "점</div>" + rowsTable(["항목", "이 회사", "구간", "점수 / 배점", "출처"], rows);
+}
+function judgmentBox(data) {
+  var j = data.score_summary && data.score_summary.judgment;
+  if (!j) return "";
+  var items = j.map(function (x) {
+    return "<li><b>" + esc(x[1]) + "</b> — " + x[2].map(function (c) { return esc(c); }).join(" / ") + "</li>";
+  }).join("");
+  return "<h3>점수에 없는 판단</h3>" + '<div class="box"><ol>' + items + "</ol>" +
+    '<p class="muted">이 네 가지는 점수에 넣지 않았어요. <code>/자문</code>에서 꼭 같이 봐요.</p></div>';
 }
 function watchTable(data) {
   var h = "<h2>관심 목록 (매수선에 가까운 순)</h2>", list = data.watchlist || [];
@@ -295,7 +361,8 @@ function skipLists(data) {
     "<details><summary>다음에 이어서 받을 종목 (" + (r.pending || []).length + ")</summary><p>" + (pe || "없어요") + "</p></details>";
 }
 function renderIndex(data) {
-  return indexHead(data) + banners(data) + tiles(data) + changesTable(data) + watchTable(data) + nearMissTable(data) + searchBox() + skipLists(data);
+  var calc = data.score_rank ? '<h2 class="section">계산기 관문 기준</h2><p class="muted">아래 두 표는 엑셀 계산기 관문 ①②③ 판정으로 고른 종목이에요.</p>' : "";
+  return indexHead(data) + banners(data) + tiles(data) + scoreTable(data) + changesTable(data) + calc + watchTable(data) + nearMissTable(data) + searchBox() + skipLists(data);
 }
 
 // ---- 종목 카드 ----
@@ -367,7 +434,8 @@ function flagList(s) {
 function gateBadges(s) {
   var c = s.cells, m = s.summary;
   return '<div class="badges">' + gateBadge(1, c.D82 != null ? c.D82 : m.gate1) + " " + gateBadge(2, c.D90 != null ? c.D90 : m.gate2) + " " +
-    gateBadge(3, c.D110 != null ? c.D110 : m.gate3) + " " + gateBadge(4, c.D135 != null ? c.D135 : m.gate4) + "</div>";
+    gateBadge(3, c.D110 != null ? c.D110 : m.gate3) + " " + gateBadge(4, c.D135 != null ? c.D135 : m.gate4) +
+    (s.score ? " " + gradeChip(s.score) : "") + "</div>";
 }
 function priceBox(s) {
   var m = s.summary, c = s.cells, ratio = m.ratio, max = 1.5, sm = s.criteria && isNum(s.criteria.safety_margin) ? s.criteria.safety_margin : 0.25;
@@ -484,9 +552,9 @@ function quickFailCard(s) {
   var c = s.cells, y = s.inputs.years || [];
   var dps = rowsTable(["배당"].concat(y.map(function (v) { return v.year == null ? "—" : String(v.year); })),
     [tr([esc(LABELS[29])].concat(y.map(function (v) { return fmt(v.dps, "won"); })))]);
-  return cardHead(s) + noteList(s.notes) + flagList(s) + '<div class="banner info">배당 확인에서 먼저 걸렸어요. 나머지 숫자는 받지 않았어요.</div>' +
+  return cardHead(s) + noteList(s.notes) + flagList(s) + '<div class="banner info">최근 해에 배당을 주지 않아 먼저 걸렸어요. 나머지 숫자는 받지 않았어요.</div>' +
     '<div class="badges">' + gateBadge(1, c.D82) + " " + gateBadge(2, c.D90) + "</div>" +
-    "<h3>배당</h3>" + dps + "<h3>관문 ② 배당이 오래 갈까</h3>" + gate2Table(s) + '<p class="muted">엑셀로 보려면 <code>uv run run.py --excel ' + esc(s.code) + "</code></p>";
+    scoreBox(s) + "<h3>배당</h3>" + dps + "<h3>관문 ② 배당이 오래 갈까</h3>" + gate2Table(s) + '<p class="muted">엑셀로 보려면 <code>uv run run.py --excel ' + esc(s.code) + "</code></p>";
 }
 function renderStock(data, code) {
   var s = (data.stocks || {})[code];
@@ -494,6 +562,7 @@ function renderStock(data, code) {
   if (s.quick_fail) return quickFailCard(s);
   var c = s.cells;
   return cardHead(s) + noteList(s.notes) + flagList(s) + gateBadges(s) + priceBox(s) + recentBanner(s) +
+    scoreBox(s) + (s.score ? judgmentBox(data) : "") +
     "<h3>적정가 A·B·C</h3>" + fairTable(c) +
     "<h3>관문 ① 좋은 회사인가</h3>" + gate1Table(s, data) +
     "<h3>관문 ② 배당이 오래 갈까</h3>" + gate2Table(s) +

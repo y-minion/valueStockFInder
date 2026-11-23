@@ -5,7 +5,7 @@ from vsf.config import FinancialSettings
 from vsf.model import SheetValues
 
 CAPITAL_LABELS = {"금융지주": "보통주자본비율", "은행": "보통주자본비율", "보험": "지급여력비율(K-ICS)",
-                  "증권": "순자본비율", "카드·캐피탈": "자본비율"}
+                  "증권": "순자본비율", "카드·캐피탈": "자본비율", "그 밖": "자본비율"}
 CAPITAL_HELP = "자본비율은 금감원 금융통계정보시스템(fisis.fss.or.kr)이나 사업보고서 '자본적정성'에서 확인해 주세요."
 FIN_CELLS = ("F_LOSS_B", "F_LOSS_C", "F_LOSS_D", "F_CAP_B", "F_CAP_C", "F_CAP_D", "F_CAP_SRC")
 

@@ -79,7 +79,7 @@ def test_financial_kind(code, kind):
 
 def test_company_exclusion_includes_supported_financials():
     assert company_exclusion({"acc_mt": "12", "induty_code": "64121"}) is None
-    assert company_exclusion({"acc_mt": "12", "induty_code": "64201"}) == "금융회사(그 밖)"
+    assert company_exclusion({"acc_mt": "12", "induty_code": "64201"}) is None      # 그 밖도 분석해요 (2026-11-23)
     assert company_exclusion({"acc_mt": "12", "induty_code": "64121"}, include_financial=False) == "금융회사"
 
 
@@ -108,8 +108,8 @@ def test_financial_kind_coarse_codes(co, kind):
 @pytest.mark.parametrize("code,name,want", [
     ("649", "HDC", None), ("64999", "HS효성", None), ("64991", "LB인베스트먼트", None),
     ("661", "다올투자증권", None), ("661", "NHN KCP", None), ("66199", "카카오페이", None),
-    ("66202", "인카금융서비스", None), ("642", "어떤신탁", "금융회사(그 밖)"),
-    ("64201", "어떤창업투자", "금융회사(그 밖)"), ("64132", "어떤저축은행", "금융회사(그 밖)")])
+    ("66202", "인카금융서비스", None), ("642", "어떤신탁", None),
+    ("64201", "어떤창업투자", None), ("64132", "어떤저축은행", None)])
 def test_company_exclusion_coarse_codes(code, name, want):
     co = {"acc_mt": "12", "induty_code": code, "corp_name": name}
     assert company_exclusion(co) == want

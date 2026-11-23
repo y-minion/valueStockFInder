@@ -124,3 +124,17 @@ def test_previous_week_without_financial_uses_current_gate():
     prev = snap(kia_price=60000)
     assert prev.stocks["000270"].financial is None and prev.stocks["000270"].state == "buy"
     assert detect_changes(prev, cur, rep) == [Change("000270", "기아", "left", ("기준 변경",))]
+
+
+def test_score_setting_changes_are_listed_per_item():
+    from vsf.changes import criteria_changes
+    from vsf.config import ItemRule, ScoreSettings, Settings, settings_fingerprint
+    from helpers import settings_with
+    base = settings_with()
+    cur = Settings(**{**base.__dict__, "score": ScoreSettings(
+        top_n=30, items={**ScoreSettings().items, "per": ItemRule(20, ((5, 20),))})})
+    got = criteria_changes(settings_fingerprint(base), settings_fingerprint(cur))
+    labels = {c["label"]: (c["old"], c["new"]) for c in got}
+    assert labels["점수 순위 첫 화면 개수"] == (50, 30)
+    assert labels["점수 PER"] == ("10점: 5배 미만 10 · 8배 미만 7 · 10배 미만 5 · 15배 미만 2", "20점: 5배 미만 20")
+    assert criteria_changes(settings_fingerprint(base), settings_fingerprint(base)) == []

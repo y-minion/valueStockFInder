@@ -67,7 +67,8 @@ def test_run_section_and_stock_entry_shape():
     s = p["stocks"]["000270"]
     assert set(s) == {"name", "code", "market", "latest_year", "industry", "inputs", "cells", "summary",
                       "state", "near", "flags", "notes", "sources", "quick_fail", "criteria",
-                      "criteria_overridden", "extra_gate1", "extras", "financial", "boundaries", "score", "score_prev"}
+                      "criteria_overridden", "extra_gate1", "extras", "financial", "boundaries", "score", "score_prev",
+                      "share_class", "common_code", "common_price", "common_dps", "liquidity"}
     assert s["market"] == "KOSPI" and s["latest_year"] == 2025 and s["industry"] is None
     assert len(s["cells"]) == 152
     assert isinstance(s["flags"], list) and isinstance(s["notes"], list)
@@ -245,3 +246,20 @@ def test_score_change_hidden_when_score_settings_changed():
     assert p["score_summary"]["settings_changed"] is True and p["stocks"]["000270"]["score_prev"] is None
     old = build_payload(run_, [], [], _prev_scored(None), {}, S, scores={"000270": _sc(62, "C")})
     assert old["score_summary"]["settings_changed"] is False      # 예전 스냅샷엔 점수 설정이 없어요
+
+
+# ---- 우선주 (2026-11-24) ----
+
+def test_preferred_fields_and_thin_trading():
+    base = RUN_1114.results["000270"]
+    pref = replace(base, company=replace(base.company, code="000275", name="기아우", common_code="000270"))
+    r = RunResult(collected=RUN_1114.collected, settings_fp=RUN_1114.settings_fp,
+                  results={"000270": base, "000275": pref})
+    p = build_payload(r, [], [], None, {}, S, liquidity={"000275": (5e7, 13), "000270": (3e9, 14)})
+    s, c = p["stocks"]["000275"], p["stocks"]["000270"]
+    assert (s["share_class"], s["common_code"]) == ("우선", "000270") and c["share_class"] == "보통"
+    assert s["common_price"] == base.assembled.inputs.price and s["common_dps"] == base.assembled.inputs.years[-1].dps
+    assert s["liquidity"] == {"avg": 5e7, "days": 13, "thin": True}
+    assert c["liquidity"] == {"avg": 3e9, "days": 14, "thin": False} and c["common_code"] is None
+    assert p["run"]["thin_trading_won"] == 100_000_000
+    assert build_payload(r, [], [], None, {}, S)["stocks"]["000275"]["liquidity"] is None

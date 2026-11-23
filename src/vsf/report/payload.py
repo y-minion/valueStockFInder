@@ -11,6 +11,7 @@ from vsf.criteria_check import criteria_check
 from vsf.evaluate import RunResult, StockResult
 from vsf.extras import Extras
 from vsf.financial import CAPITAL_LABELS
+from vsf.liquidity import THIN_TRADING_WON
 from vsf.model import inputs_to_dict
 from vsf.score import GROUPS, JUDGMENT, rank
 from vsf.snapshot import Snapshot, run_counts
@@ -52,6 +53,19 @@ def _stock(r: StockResult, extras: Extras | None, settings) -> dict:
     }
 
 
+def _share(r: StockResult, results: dict[str, StockResult],
+           liquidity: dict[str, tuple[float, int]]) -> dict:
+    """우선주 칸: 보통주 코드·주가·최근 해 DPS, 거래대금 평균 (우선주 설계 8장)."""
+    common = r.company.common_code
+    held = results.get(common) if common else None
+    ci = held.assembled.inputs if held is not None else None
+    liq = liquidity.get(r.company.code)
+    return {"share_class": "우선" if common else "보통", "common_code": common,
+            "common_price": ci.price if ci else None,
+            "common_dps": ci.years[-1].dps if ci and ci.years else None,
+            "liquidity": None if liq is None else {"avg": liq[0], "days": liq[1], "thin": liq[0] < THIN_TRADING_WON}}
+
+
 def _score_summary(scores: dict[str, dict | None], partial: bool, changed: bool, settings) -> dict:
     got = [s for s in scores.values() if s is not None]
     return {"eligible": len(got), **{g: sum(s["grade"] == g for s in got) for g in "ABCD"},
@@ -62,10 +76,12 @@ def _score_summary(scores: dict[str, dict | None], partial: bool, changed: bool,
 
 def build_payload(run: RunResult, changes: list[Change], crit_changes: list[dict],
                   prev: Snapshot | None, extras: dict[str, Extras], settings,
-                  scores: dict[str, dict | None] | None = None, score_partial: bool = False) -> dict:
+                  scores: dict[str, dict | None] | None = None, score_partial: bool = False,
+                  liquidity: dict[str, tuple[float, int]] | None = None) -> dict:
     """scores: 종목 → 점수 dict(점수 대상이 아니면 None). score_partial: 하루 한도로 점수 자료를 다 못 받음."""
     c = run.collected
     scores = scores or {}
+    liquidity = liquidity or {}
     scored = {code: s for code, s in scores.items() if s is not None and code in run.results}
     score_rank = rank(scored, {code: run.results[code].summary.ratio for code in scored})
     changed = bool(prev is not None and "score" in prev.settings_fp
@@ -94,6 +110,7 @@ def build_payload(run: RunResult, changes: list[Change], crit_changes: list[dict
             "criteria": run.settings_fp, "criteria_changes": crit_changes,
             "financial_started": bool(prev is not None and "financial" not in prev.settings_fp
                                       and settings.financial.include),
+            "thin_trading_won": THIN_TRADING_WON,
         },
         "summary": {**run_counts(run), "prev": prev.counts if prev else None},
         "changes": [{"code": x.code, "name": x.name, "kind": x.kind, "causes": list(x.causes)}
@@ -101,7 +118,8 @@ def build_payload(run: RunResult, changes: list[Change], crit_changes: list[dict
         "watchlist": [code for code, _ in watch],
         "near_miss": [code for code, _ in near],
         "stocks": {code: {**_stock(r, extras.get(code), settings), "score": scored.get(code),
-                          "score_prev": score_prev(code)} for code, r in run.results.items()},
+                          "score_prev": score_prev(code), **_share(r, run.results, liquidity)}
+                   for code, r in run.results.items()},
         "score_rank": score_rank,
         "score_summary": _score_summary(scored, score_partial, changed, settings),
         "criteria_check": criteria_check(run.results, settings, partial=bool(c.pending)),

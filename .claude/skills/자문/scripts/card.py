@@ -50,6 +50,37 @@ def pct(v) -> str:
     return "—" if v is None else f"{v * 100:.1f}%"
 
 
+def print_score(s: dict, data: dict) -> None:
+    """점수(총점·등급·항목)와 점수에 없는 판단 네 가지. 예전 리포트(점수 없음)면 그렇게 말해요."""
+    summ = data.get("score_summary")
+    if summ is None or "score" not in s:
+        print("\n## 점수\n이 리포트에는 점수가 없어요 (점수 순위 전 리포트). 새로 `uv run run.py`를 해요.")
+        return
+    sc = s["score"]
+    print("\n## 점수")
+    if sc is None:
+        print("최근 해 배당 없음 — 점수 대상 아님")
+    else:
+        rank = data.get("score_rank") or []
+        pos = f"{rank.index(s['code']) + 1}위 / {len(rank)}개" if s["code"] in rank else "순위 없음"
+        prev = s.get("score_prev")
+        change = "배점 바뀜" if summ.get("settings_changed") else ("—" if prev is None else f"{sc['total'] - prev:+g}")
+        print(f"총점 {sc['total']:g} / 만점 {sc['max']:g} · 등급 {sc['grade']} · {pos} · 지난주 대비 {change}"
+              f" · 자료 없는 배점 {sc['missing']:g}점")
+        names = dict(summ.get("groups") or [])
+        print("묶음: " + " · ".join(f"{names.get(k, k)} {v:g}" for k, v in sc["groups"].items()))
+        print("항목 | 이 회사 | 구간 | 점수/배점 | 출처")
+        for it in sc["items"]:
+            got = "자료 없음" if it["status"] == "no_data" else f"{it['points']:g}/{it['max']:g}"
+            print(f"- {it['label']} | {it['value']} | {it['rule']} | {got} | {it.get('source') or '—'}")
+        missed = sorted((it for it in sc["items"] if it["max"] - it["points"] > 0), key=lambda it: it["points"] - it["max"])
+        if missed:
+            print("놓친 배점 큰 순: " + ", ".join(f"{it['label']} −{it['max'] - it['points']:g}" for it in missed))
+    print("\n## 점수에 없는 판단 (자문에서 빠뜨리지 않아요; 평가표 배점은 참고)")
+    for _key, q, choices, points in summ.get("judgment") or []:
+        print(f"- {q}: " + " / ".join(f"{c}({p})" for c, p in zip(choices, points)))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("code")
@@ -79,6 +110,8 @@ def main() -> None:
         print("숫자 확인 필요:", " / ".join(s["flags"]))
     if s["notes"]:
         print("메모:", " / ".join(s["notes"]))
+
+    print_score(s, data)
 
     print("\n## 통과 못 한 칸 (관문 ①②)")
     rows = [r for r in range(70, 91) if c.get(f"D{r}") in CHECK]

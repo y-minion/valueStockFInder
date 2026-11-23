@@ -17,6 +17,7 @@ class PriceRow:
     market: str
     close: float | None
     shares: float | None
+    value: float | None = None      # 그날 거래대금(원). 거래대금 칸이 생기기 전 캐시는 None
 
 
 class Store:
@@ -36,6 +37,9 @@ class Store:
             CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
             """
         )
+        cols = {r[1] for r in self._db.execute("PRAGMA table_info(prices)")}
+        if "value" not in cols:          # 예전 파일: 칸만 더하고 저장된 시세는 그대로 둬요
+            self._db.execute("ALTER TABLE prices ADD COLUMN value REAL")
         self._db.commit()
 
     def close(self) -> None:
@@ -97,17 +101,17 @@ class Store:
 
     def put_prices(self, rows: Iterable[PriceRow]) -> None:
         self._db.executemany(
-            "INSERT OR REPLACE INTO prices VALUES(?,?,?,?,?,?)",
-            [(r.date.isoformat(), r.code, r.name, r.market, r.close, r.shares) for r in rows],
+            "INSERT OR REPLACE INTO prices(date, code, name, market, close, shares, value) VALUES(?,?,?,?,?,?,?)",
+            [(r.date.isoformat(), r.code, r.name, r.market, r.close, r.shares, r.value) for r in rows],
         )
         self._db.commit()
 
     def get_prices(self, day: date) -> dict[str, PriceRow]:
         rows = self._db.execute(
-            "SELECT code, name, market, close, shares FROM prices WHERE date=?",
+            "SELECT code, name, market, close, shares, value FROM prices WHERE date=?",
             (day.isoformat(),),
         ).fetchall()
-        return {c: PriceRow(day, c, n, m, cl, sh) for c, n, m, cl, sh in rows}
+        return {c: PriceRow(day, c, n, m, cl, sh, v) for c, n, m, cl, sh, v in rows}
 
     def price_dates(self) -> list[date]:
         rows = self._db.execute("SELECT DISTINCT date FROM prices ORDER BY date").fetchall()

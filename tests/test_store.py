@@ -50,3 +50,29 @@ def test_meta_and_persistence(tmp_path):
     assert s.get_meta("last") is None
     s.set_meta("last", "2026-11-14"); s.set_meta("last", "2026-11-15")
     assert Store(p).get_meta("last") == "2026-11-15"
+
+
+# ---- 거래대금 (우선주 거래 적음 확인, 2026-11-24) ----
+
+def test_price_value_round_trip(tmp_path):
+    s = Store(tmp_path / "v.sqlite3")
+    d = date(2026, 11, 20)
+    s.put_prices([PriceRow(d, "005387", "현대차2우B", "KOSPI", 139500.0, 34257047.0, 2.5e9),
+                  PriceRow(d, "005380", "현대차", "KOSPI", 255000.0, 203466492.0)])
+    got = s.get_prices(d)
+    assert got["005387"].value == 2.5e9 and got["005380"].value is None
+
+
+def test_old_price_table_gets_value_column(tmp_path):
+    import sqlite3
+    p = tmp_path / "old.sqlite3"
+    db = sqlite3.connect(p)
+    db.execute("CREATE TABLE prices(date TEXT, code TEXT, name TEXT, market TEXT, close REAL, shares REAL, "
+               "PRIMARY KEY(date, code))")
+    db.execute("INSERT INTO prices VALUES('2026-11-13','000270','기아','KOSPI',128500,1)")
+    db.commit(); db.close()
+    s = Store(p)
+    row = s.get_prices(date(2026, 11, 13))["000270"]
+    assert row.close == 128500 and row.value is None                  # 예전 시세는 그대로
+    s.put_prices([PriceRow(date(2026, 11, 14), "000270", "기아", "KOSPI", 1.0, 1.0, 5.0)])
+    assert s.get_prices(date(2026, 11, 14))["000270"].value == 5.0

@@ -97,7 +97,7 @@ class DartClient:
         data = self._request(endpoint, **params).json()
         return data if self._check(data.get("status", ""), data.get("message", "")) else None
 
-    def corp_codes(self) -> dict[str, str]:
+    def _corp_xml(self):
         key = "dart:corpcode"
         raw = self._store.get_bytes(key)
         at = self._store.fetched_at(key)
@@ -111,12 +111,17 @@ class DartClient:
             self._store.put_bytes(key, raw)
         with zipfile.ZipFile(io.BytesIO(raw)) as z:
             xml = z.read("CORPCODE.xml")
-        out: dict[str, str] = {}
-        for item in etree.fromstring(xml).iter("list"):
-            stock = (item.findtext("stock_code") or "").strip()
-            if stock:
-                out[stock] = (item.findtext("corp_code") or "").strip()
-        return out
+        return [item for item in etree.fromstring(xml).iter("list") if (item.findtext("stock_code") or "").strip()]
+
+    def corp_codes(self) -> dict[str, str]:
+        """종목코드 → DART 회사 고유번호 (상장 회사만)."""
+        return {(i.findtext("stock_code") or "").strip(): (i.findtext("corp_code") or "").strip()
+                for i in self._corp_xml()}
+
+    def corp_names(self) -> dict[str, str]:
+        """종목코드 → DART 회사명 (상장 회사만). 상장 자회사 이름 맞추기에 써요."""
+        return {(i.findtext("stock_code") or "").strip(): (i.findtext("corp_name") or "").strip()
+                for i in self._corp_xml()}
 
     def company(self, corp_code: str) -> dict | None:
         key = f"dart:{corp_code}:company"
@@ -129,12 +134,11 @@ class DartClient:
         return data
 
     def financials(self, corp_code: str, year: int, report: str = "11011") -> FinRows | None:
+        """재무제표. 받은 보고서는 캐시해요(분기 보고서 포함). 아직 없는 보고서는 다음에 다시 물어요."""
         key = f"dart:{corp_code}:fin:{year}:{report}"
-        cacheable = report == "11011"
-        if cacheable:
-            c = self._store.get_json(key)
-            if c is not None:
-                return FinRows(c["rows"], c["fs"], c["rcept_no"])  # type: ignore[index]
+        c = self._store.get_json(key)
+        if c is not None:
+            return FinRows(c["rows"], c["fs"], c["rcept_no"])  # type: ignore[index]
         for fs in ("CFS", "OFS"):
             data = self._json("fnlttSinglAcntAll.json", corp_code=corp_code,
                               bsns_year=str(year), reprt_code=report, fs_div=fs)
@@ -142,10 +146,25 @@ class DartClient:
                 continue
             rows = data["list"]
             result = FinRows(rows, fs, rows[0].get("rcept_no", ""))  # type: ignore[arg-type]
-            if cacheable:
-                self._store.put_json(key, {"rows": rows, "fs": fs, "rcept_no": result.rcept_no})
+            self._store.put_json(key, {"rows": rows, "fs": fs, "rcept_no": result.rcept_no})
             return result
         return None
+
+    def periodic(self, api: str, corp_code: str, year: int, report: str = "11011") -> list[dict] | None:
+        """정기보고서 주요정보 하나(예: "stockTotqySttus", "tesstkAcqsDspsSttus", "alotMatter").
+
+        받으면 캐시하고, 자료가 없으면(013) None이고 캐시하지 않아요.
+        """
+        key = f"dart:{corp_code}:{api}:{year}:{report}"
+        cached = self._store.get_json(key)
+        if cached is not None:
+            return cached  # type: ignore[return-value]
+        data = self._json(f"{api}.json", corp_code=corp_code, bsns_year=str(year), reprt_code=report)
+        if data is None:
+            return None
+        rows = data.get("list", [])
+        self._store.put_json(key, rows)
+        return rows
 
     def dividends(self, corp_code: str, year: int) -> list[dict] | None:
         key = f"dart:{corp_code}:div:{year}"

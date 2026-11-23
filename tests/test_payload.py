@@ -67,7 +67,7 @@ def test_run_section_and_stock_entry_shape():
     s = p["stocks"]["000270"]
     assert set(s) == {"name", "code", "market", "latest_year", "industry", "inputs", "cells", "summary",
                       "state", "near", "flags", "notes", "sources", "quick_fail", "criteria",
-                      "criteria_overridden", "extra_gate1", "extras", "financial", "boundaries"}
+                      "criteria_overridden", "extra_gate1", "extras", "financial", "boundaries", "score", "score_prev"}
     assert s["market"] == "KOSPI" and s["latest_year"] == 2025 and s["industry"] is None
     assert len(s["cells"]) == 152
     assert isinstance(s["flags"], list) and isinstance(s["notes"], list)
@@ -195,3 +195,53 @@ def test_payload_has_criteria_check():
 def test_criteria_check_partial_follows_pending():
     r = _multi({"000270": ("buy", 0.7)}, pending=[("222222", "대기")])
     assert build_payload(r, [], [], None, {}, S)["criteria_check"]["partial"] is True
+
+
+# ---- 점수 순위 (점수 순위 설계 7장) ----
+
+def _sc(total: float, grade: str) -> dict:
+    return {"total": total, "max": 100.0, "grade": grade, "missing": 0.0,
+            "groups": {"cheap": total, "steady": 0.0, "return": 0.0, "other": 0.0}, "items": []}
+
+
+def test_payload_score_rank_and_summary():
+    r = _multi({"A": ("buy", 0.7), "B": ("watch", 0.8), "C": ("out", 1.5), "D": ("out", 0.6)})
+    scores = {"A": _sc(60, "C"), "B": _sc(75, "B"), "C": None, "D": _sc(60, "C")}
+    p = build_payload(r, [], [], None, {}, S, scores=scores)
+    assert p["score_rank"] == ["B", "D", "A"]                     # 같은 점수면 주가÷적정가 낮은 순
+    s = p["score_summary"]
+    assert (s["eligible"], s["A"], s["B"], s["C"], s["D"]) == (3, 0, 1, 2, 0)
+    assert s["partial"] is False and s["top_n"] == 50 and s["settings_changed"] is False
+    assert [j[0] for j in s["judgment"]] == ["sustain", "growth", "management", "brand"]
+    assert [g[0] for g in s["groups"]] == ["cheap", "steady", "return", "other"]
+    assert p["stocks"]["A"]["score"]["total"] == 60 and p["stocks"]["C"]["score"] is None
+    assert p["stocks"]["A"]["score_prev"] is None
+    json.dumps(p, allow_nan=False)
+
+
+def test_payload_without_scores():
+    p = build_payload(RUN_1114, [], [], None, {}, S)
+    assert p["score_rank"] == [] and p["score_summary"]["eligible"] == 0
+    assert p["stocks"]["000270"]["score"] is None
+
+
+def _prev_scored(score_fp, total=55.0):
+    prev = snap_only("000270")
+    stock = replace(prev.stocks["000270"], score=total)
+    return replace(prev, settings_fp={**prev.settings_fp, **({"score": score_fp} if score_fp is not None else {})},
+                   stocks={"000270": stock})
+
+
+def test_score_prev_comes_from_last_snapshot():
+    run_ = replace(RUN_1114, settings_fp={**RUN_1114.settings_fp, "score": {"top_n": 50}})
+    p = build_payload(run_, [], [], _prev_scored({"top_n": 50}), {}, S,
+                      scores={"000270": _sc(62, "C")}, score_partial=True)
+    assert p["stocks"]["000270"]["score_prev"] == 55.0 and p["score_summary"]["partial"] is True
+
+
+def test_score_change_hidden_when_score_settings_changed():
+    run_ = replace(RUN_1114, settings_fp={**RUN_1114.settings_fp, "score": {"top_n": 30}})
+    p = build_payload(run_, [], [], _prev_scored({"top_n": 50}), {}, S, scores={"000270": _sc(62, "C")})
+    assert p["score_summary"]["settings_changed"] is True and p["stocks"]["000270"]["score_prev"] is None
+    old = build_payload(run_, [], [], _prev_scored(None), {}, S, scores={"000270": _sc(62, "C")})
+    assert old["score_summary"]["settings_changed"] is False      # 예전 스냅샷엔 점수 설정이 없어요

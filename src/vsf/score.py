@@ -82,7 +82,7 @@ def _g(x: float) -> str:
     return f"{x:,.2f}".rstrip("0").rstrip(".")
 
 
-def _rule_text(key: str, rule: ItemRule) -> str:
+def rule_text(key: str, rule: ItemRule) -> str:
     op = ITEM_OPS[key]
     if op == "flag":
         return f"예 {_g(rule.points)} · 아니오 0"
@@ -183,7 +183,7 @@ def score_stock(r, facts: ScoreFacts | None, cfg: ScoreSettings) -> dict | None:
                 status = "ok"
             groups[gkey] += pts
             items.append({"key": key, "label": LABELS[key], "group": gkey, "value": shown,
-                          "rule": _rule_text(key, rule), "points": pts, "max": float(rule.points),
+                          "rule": rule_text(key, rule), "points": pts, "max": float(rule.points),
                           "status": status, "source": source})
     total = sum(groups.values())
     return {"total": total, "max": float(sum(rule.points for rule in cfg.items.values())),

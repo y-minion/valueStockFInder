@@ -16,11 +16,12 @@ from pathlib import Path
 from vsf.changes import criteria_changes, detect_changes
 from vsf.collect import Collected, collect, collect_one
 from vsf.config import ConfigError, Keys, Settings, load_keys, load_settings
-from vsf.data.dart import DartClient
+from vsf.data.dart import DartClient, DartError, DartQuotaExceeded
 from vsf.data.fisis import FisisClient
 from vsf.data.http import NetworkError
 from vsf.data.krx import KrxClient, KrxError
 from vsf.data.naver import NaverNews
+from vsf.data.score_facts import gather_score_facts, normalize_name
 from vsf.data.store import Store
 from vsf.engine import compute, summarize, watch_state
 from vsf.evaluate import evaluate, evaluate_one, evaluation_flags
@@ -28,6 +29,7 @@ from vsf.export_xlsx import export_xlsx
 from vsf.extras import gather_extras
 from vsf.financial import financial_memo
 from vsf.report.payload import build_payload, write_report
+from vsf.score import eligible, score_stock
 from vsf.snapshot import SnapshotNotSaved, load_previous, save_snapshot
 
 
@@ -96,6 +98,37 @@ def _print_pending(collected: Collected) -> None:
               "내일 다시 실행하면 이어서 받아요.")
 
 
+SCORE_PARTIAL = "점수 자료를 다 받지 못했어요. 내일 다시 실행하면 이어서 받아요."
+
+
+def _listed_names(run, dart, krx) -> set[str]:
+    """상장 회사 이름(맞추기용): KRX 종목명과, 그 종목들의 DART 회사명."""
+    try:
+        listed = krx.listed(run.collected.price_date)
+    except (KrxError, NetworkError):
+        return set()
+    try:
+        names = dart.corp_names()
+    except (DartError, NetworkError):
+        names = {}
+    out = {normalize_name(x.name) for x in listed}
+    out |= {normalize_name(names[x.code]) for x in listed if names.get(x.code)}
+    return out - {""}
+
+
+def _scores(run, dart, krx, settings: Settings) -> tuple[dict[str, dict | None], bool]:
+    """점수 대상 종목의 점수 자료를 받아 점수를 매겨요. 주가÷적정가가 낮은 종목부터 받아요(한도에 걸려도 앞쪽은 채워지게)."""
+    codes = [code for code, r in run.results.items() if eligible(r)]
+    codes.sort(key=lambda c: (run.results[c].summary.ratio is None, run.results[c].summary.ratio or 0.0, c))
+    facts, partial = {}, False
+    try:
+        names = _listed_names(run, dart, krx)
+        facts, partial = gather_score_facts(run, dart, names, settings.score.subsidiary_stake_min, codes)
+    except DartQuotaExceeded:
+        partial = True
+    return {code: score_stock(r, facts.get(code), settings.score) for code, r in run.results.items()}, partial
+
+
 def _weekly_run(settings: Settings, keys: Keys, store: Store, deps: Deps, today: date,
                 runs_dir: Path, no_open: bool) -> int:
     dart, krx, naver = deps.make_dart(keys, store, settings), deps.make_krx(keys, store), deps.make_naver(keys)
@@ -115,16 +148,21 @@ def _weekly_run(settings: Settings, keys: Keys, store: Store, deps: Deps, today:
     crit_changes = criteria_changes(prev.settings_fp, run.settings_fp) if prev else []
     codes = [c for c, r in run.results.items() if r.state in ("buy", "watch")]
     extras = gather_extras(codes, run, dart, krx, naver, today)
-    payload = build_payload(run, changes, crit_changes, prev, extras, settings)
+    scores, score_partial = _scores(run, dart, krx, settings)
+    payload = build_payload(run, changes, crit_changes, prev, extras, settings, scores, score_partial)
     index = write_report(payload, settings.reports_dir)
     try:
-        save_snapshot(run, runs_dir, carry_from=prev)
+        save_snapshot(run, runs_dir, carry_from=prev, scores=scores)
     except SnapshotNotSaved as e:
         print(e)
 
     buy = sum(1 for r in run.results.values() if r.state == "buy")
     new = sum(1 for c in changes if c.kind == "new_buy")
     print(f"관심 목록 {len(codes)}개, 매수선 이하 {buy}개 (새로 {new}개)")
+    s = payload["score_summary"]
+    print(f"점수 대상 {s['eligible']}개 (A {s['A']}개 · B {s['B']}개 · C {s['C']}개 · D {s['D']}개)")
+    if score_partial:
+        print(SCORE_PARTIAL)
     print(f"리포트: {index}")
     _print_pending(collected)
     if not no_open:

@@ -24,6 +24,7 @@ class SnapStock:
     state: str
     near: bool
     financial: FinancialGate | None = None
+    score: float | None = None          # 그 주 점수 총점 (점수 대상이 아니거나 예전 파일이면 None)
 
 
 @dataclass(frozen=True)
@@ -63,10 +64,10 @@ class SnapshotNotSaved(Exception):
 
 
 def _stock_doc(name: str, inputs: StockInputs, criteria: Criteria, extra_gate1: str | None,
-               state: str, near: bool, financial: FinancialGate | None = None) -> dict:
+               state: str, near: bool, financial: FinancialGate | None = None, score: float | None = None) -> dict:
     return {"name": name, "inputs": inputs_to_dict(inputs), "criteria": dataclasses.asdict(criteria),
             "extra_gate1": extra_gate1, "state": state, "near": near,
-            "financial": gate_to_dict(financial)}
+            "financial": gate_to_dict(financial), "score": score}
 
 
 def _stock_count(path: Path) -> int:
@@ -78,19 +79,25 @@ def _stock_count(path: Path) -> int:
         return 0
 
 
-def save_snapshot(run: RunResult, runs_dir: Path, carry_from: Snapshot | None = None) -> Path:
+def save_snapshot(run: RunResult, runs_dir: Path, carry_from: Snapshot | None = None,
+                  scores: dict[str, dict | None] | None = None) -> Path:
     """이번 실행을 그날 스냅샷으로 써요. 다음 주 비교의 기준이 돼요.
 
     - 하루 한도로 못 받은 종목(pending)은 carry_from(지난 스냅샷)에 있으면 그 값을 그대로 옮겨요.
       그래야 한도에 걸린 주에도 다음 주 비교 기준이 남아요.
     - 저장하는 counts는 옮겨 온 종목까지 센 값이에요 (run_counts는 이번 실행만).
+    - scores(종목 → 점수 dict 또는 None)의 총점을 종목마다 남겨요. 옮겨 온 종목은 지난 점수 그대로예요.
     - 종목이 하나도 없으면 쓰지 않아요.
     - 같은 날 스냅샷이 이미 있고 종목이 더 많으면 덮어쓰지 않아요.
     쓰지 않으면 SnapshotNotSaved(한국어 이유)를 던져요.
     """
     runs_dir = Path(runs_dir)
+    def total(code: str) -> float | None:
+        s = (scores or {}).get(code)
+        return None if s is None else s["total"]
+
     stocks = {code: _stock_doc(r.company.name, r.assembled.inputs, r.criteria, r.extra_gate1, r.state, r.near,
-                              r.financial)
+                              r.financial, total(code))
               for code, r in run.results.items()}
     carried: list[SnapStock] = []
     if carry_from is not None:
@@ -98,7 +105,7 @@ def save_snapshot(run: RunResult, runs_dir: Path, carry_from: Snapshot | None = 
             held = carry_from.stocks.get(code)
             if code not in stocks and held is not None:
                 stocks[code] = _stock_doc(held.name, held.inputs, held.criteria, held.extra_gate1,
-                                          held.state, held.near, held.financial)
+                                          held.state, held.near, held.financial, held.score)
                 carried.append(held)
     if not stocks:
         raise SnapshotNotSaved(NOTHING_TO_SAVE)
@@ -123,7 +130,7 @@ def _read(path: Path, day: date) -> Snapshot:
     stocks = {code: SnapStock(name=s["name"], inputs=inputs_from_dict(s["inputs"]),
                               criteria=Criteria(**s["criteria"]), extra_gate1=s["extra_gate1"],
                               state=s["state"], near=s["near"],
-                              financial=gate_from_dict(s.get("financial")))
+                              financial=gate_from_dict(s.get("financial")), score=s.get("score"))
               for code, s in doc["stocks"].items()}
     return Snapshot(date=day, settings_fp=doc["settings_fp"], counts=doc["counts"], stocks=stocks)
 

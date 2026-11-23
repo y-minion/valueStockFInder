@@ -399,3 +399,24 @@ def test_default_make_fisis_needs_a_key():
     base = Deps()
     assert base.make_fisis(Keys("d", "k", None, None), mem_store()) is None
     assert isinstance(base.make_fisis(Keys("d", "k", None, None, "f"), mem_store()), FisisClient)
+
+
+def test_weekly_run_report_has_scores(tmp_path, capsys):
+    d = fake_deps(tmp_path)
+    assert run(tmp_path, d) == 0
+    data = report_data(tmp_path)
+    assert "000270" in data["score_rank"] and data["stocks"]["000270"]["score"]["total"] > 0
+    assert data["score_summary"]["partial"] is False
+    assert "점수 대상" in capsys.readouterr().out
+    snap = load_previous(tmp_path / "data" / "runs", D + timedelta(days=1))
+    assert snap.stocks["000270"].score == data["stocks"]["000270"]["score"]["total"]
+
+
+def test_weekly_run_score_quota_is_partial(tmp_path):
+    d = fake_deps(tmp_path)
+    d.dart = FakeDart.default(raise_in={"periodic": DartQuotaExceeded()})
+    assert run(tmp_path, d) == 0
+    data = report_data(tmp_path)
+    assert data["score_summary"]["partial"] is True
+    s = data["stocks"]["000270"]["score"]
+    assert s is not None and s["missing"] > 0                    # 자료를 못 받은 항목은 '자료 없음'

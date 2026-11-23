@@ -1,4 +1,5 @@
 """settings.toml / keys.toml 읽기와 값 검사."""
+import json
 import math
 import tomllib
 from dataclasses import asdict, dataclass, field, fields, replace
@@ -384,5 +385,5 @@ def settings_fingerprint(s: Settings) -> dict:
         "report": asdict(s.report),
         "industry": asdict(s.industry),
         "financial": asdict(s.financial),
-        "score": asdict(s.score),
+        "score": json.loads(json.dumps(asdict(s.score))),   # 튜플을 리스트로: 다음 주 비교에서 같게 보여요
     }

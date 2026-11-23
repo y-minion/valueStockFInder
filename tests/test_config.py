@@ -206,3 +206,9 @@ def test_fingerprint_has_score():
     assert fp["score"]["items"]["per"]["points"] == 15 and fp["score"]["top_n"] == 50
     import json as _json
     _json.dumps(fp)
+
+
+def test_fingerprint_survives_json_round_trip():
+    fp = settings_fingerprint(load_settings(ROOT / "settings.toml"))
+    import json as _json
+    assert _json.loads(_json.dumps(fp)) == fp          # 다음 주에 '배점이 바뀌었어요'가 잘못 뜨지 않게

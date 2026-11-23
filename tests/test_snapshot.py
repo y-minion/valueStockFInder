@@ -151,3 +151,24 @@ def test_carried_financial_stock_counts_with_sector_verdict():
     kw = dict(name="기아", inputs=inputs, criteria=Criteria(), extra_gate1=None, state="out", near=False)
     assert _carried_counts([SnapStock(**kw, financial=gate)])["gate12_ok"] == 0
     assert _carried_counts([SnapStock(**kw)])["gate12_ok"] == 1
+
+
+# ---- 점수 ----
+
+def test_snapshot_stores_score_and_carries_it(tmp_path):
+    save_snapshot(RUN_1114, tmp_path, scores={"000270": {"total": 62.0}})
+    assert load_previous(tmp_path, date(2026, 11, 21)).stocks["000270"].score == 62.0
+    prev = _prev_with_cheil()
+    prev = replace(prev, stocks={**prev.stocks, "030000": replace(prev.stocks["030000"], score=40.0)})
+    save_snapshot(_partial([("030000", "제일기획")]), tmp_path, carry_from=prev, scores={"000270": None})
+    got = load_previous(tmp_path, date(2026, 11, 22))
+    assert got.stocks["030000"].score == 40.0 and got.stocks["000270"].score is None
+
+
+def test_old_snapshot_without_score_reads_none(tmp_path):
+    save_snapshot(RUN_1114, tmp_path)
+    p = tmp_path / "2026-11-14.json.gz"
+    doc = json.loads(gzip.decompress(p.read_bytes()))
+    del doc["stocks"]["000270"]["score"]
+    p.write_bytes(gzip.compress(json.dumps(doc).encode()))
+    assert load_previous(tmp_path, date(2026, 11, 21)).stocks["000270"].score is None

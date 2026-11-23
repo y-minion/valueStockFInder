@@ -136,5 +136,5 @@ def test_score_setting_changes_are_listed_per_item():
     got = criteria_changes(settings_fingerprint(base), settings_fingerprint(cur))
     labels = {c["label"]: (c["old"], c["new"]) for c in got}
     assert labels["점수 순위 첫 화면 개수"] == (50, 30)
-    assert labels["점수 PER"] == ("15점: 5배 미만 15 · 8배 미만 11 · 10배 미만 7 · 15배 미만 3", "20점: 5배 미만 20")
+    assert labels["점수 PER"] == ("10점: 5배 미만 10 · 8배 미만 7 · 10배 미만 5 · 15배 미만 2", "20점: 5배 미만 20")
     assert criteria_changes(settings_fingerprint(base), settings_fingerprint(base)) == []

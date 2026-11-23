@@ -213,7 +213,7 @@ def test_payload_score_rank_and_summary():
     assert (s["eligible"], s["A"], s["B"], s["C"], s["D"]) == (3, 0, 1, 2, 0)
     assert s["partial"] is False and s["top_n"] == 50 and s["settings_changed"] is False
     assert [j[0] for j in s["judgment"]] == ["sustain", "growth", "management", "brand"]
-    assert [g[0] for g in s["groups"]] == ["cheap", "steady", "return", "other"]
+    assert [g[0] for g in s["groups"]] == ["cheap", "steady", "durable", "return", "other"]
     assert p["stocks"]["A"]["score"]["total"] == 60 and p["stocks"]["C"]["score"] is None
     assert p["stocks"]["A"]["score_prev"] is None
     json.dumps(p, allow_nan=False)

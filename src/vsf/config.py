@@ -85,17 +85,21 @@ class ItemRule:
 ITEM_OPS: dict[str, str] = {
     "per": "lt", "pbr": "lt", "ratio": "le",
     "roe": "ge", "no_loss": "flag", "ttm": "ge",
+    "payout": "flag", "coverage": "flag",
     "yield": "gt", "streak": "ge", "freq": "freq", "buyback": "flag", "cancel": "gt", "treasury": "lt",
     "subsidiary": "flag",
 }
 
 DEFAULT_ITEMS: dict[str, ItemRule] = {
-    "per": ItemRule(15, ((5, 15), (8, 11), (10, 7), (15, 3))),
-    "pbr": ItemRule(5, ((0.3, 5), (0.6, 4), (1.0, 2))),
-    "ratio": ItemRule(15, ((0.75, 15), (0.9, 10), (1.0, 6), (1.2, 3))),
+    # 2026-11-24 조정: 싼가 35→25 (상위권에서 거의 만점이라), 배당 지속성 10 새로 (스펙 13장)
+    "per": ItemRule(10, ((5, 10), (8, 7), (10, 5), (15, 2))),
+    "pbr": ItemRule(3, ((0.3, 3), (0.6, 2), (1.0, 1))),
+    "ratio": ItemRule(12, ((0.75, 12), (0.9, 8), (1.0, 5), (1.2, 2))),
     "roe": ItemRule(10, ((15, 10), (10, 7), (8, 5), (5, 2))),
     "no_loss": ItemRule(5),
     "ttm": ItemRule(5, ((0.9, 5), (0.7, 3))),
+    "payout": ItemRule(5),
+    "coverage": ItemRule(5),
     "yield": ItemRule(10, ((7, 10), (5, 7), (3, 5), (0, 2))),
     "streak": ItemRule(5, ((7, 5), (5, 4), (3, 3))),
     "freq": ItemRule(5, ((4, 5), (2, 3))),

@@ -153,7 +153,8 @@ def test_shipped_score_defaults():
     s = load_settings(ROOT / "settings.toml").score
     assert s == ScoreSettings()
     assert sum(r.points for r in s.items.values()) == 100
-    assert s.items["per"].steps == ((5, 15), (8, 11), (10, 7), (15, 3))
+    assert s.items["per"] == ItemRule(10, ((5, 10), (8, 7), (10, 5), (15, 2)))      # 2026-11-24 조정
+    assert s.items["payout"] == ItemRule(5) and s.items["coverage"] == ItemRule(5)
     assert s.items["treasury"].none_points == 5
     assert (s.top_n, s.grade_a, s.grade_b, s.grade_c, s.subsidiary_stake_min) == (50, 80, 70, 50, 30.0)
 
@@ -203,7 +204,7 @@ def test_bad_score_scalars(tmp_path, key, value):
 
 def test_fingerprint_has_score():
     fp = settings_fingerprint(load_settings(ROOT / "settings.toml"))
-    assert fp["score"]["items"]["per"]["points"] == 15 and fp["score"]["top_n"] == 50
+    assert fp["score"]["items"]["per"]["points"] == 10 and fp["score"]["top_n"] == 50
     import json as _json
     _json.dumps(fp)
 

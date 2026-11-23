@@ -10,10 +10,13 @@ from vsf.excelfn import is_num
 
 GROUPS = (("cheap", "싼가", ("per", "pbr", "ratio")),
           ("steady", "꾸준히 버나", ("roe", "no_loss", "ttm")),
+          ("durable", "배당 지속성", ("payout", "coverage")),
           ("return", "주주환원", ("yield", "streak", "freq", "buyback", "cancel", "treasury")),
           ("other", "기타", ("subsidiary",)))
 LABELS = {"per": "PER", "pbr": "PBR", "ratio": "주가÷적정가", "roe": "ROE 5년 평균",
-          "no_loss": "최근 5년 적자 없음", "ttm": "최근 4분기 실적 유지", "yield": "배당수익률",
+          "no_loss": "최근 5년 적자 없음", "ttm": "최근 4분기 실적 유지",
+          "payout": "배당성향이 기준 범위 안", "coverage": "현금흐름이 배당을 받쳐 줌",
+          "yield": "배당수익률 (정상 DPS 기준)",
           "streak": "배당 연속 인상", "freq": "분기·반기 배당", "buyback": "자사주 매입·소각 (최근 3년 매년)",
           "cancel": "연간 소각 비율", "treasury": "자사주 보유 비율", "subsidiary": "상장 자회사 없음"}
 JUDGMENT = (  # 점수에 넣지 않는 판단 항목 (key, 질문, 선택지, 평가표 배점) — 카드와 /자문이 그대로 써요
@@ -94,6 +97,19 @@ def rule_text(key: str, rule: ItemRule) -> str:
     return " · ".join(parts)
 
 
+def _durability(r, c: dict) -> list[tuple[str, str | None, str, str]]:
+    """배당 지속성 두 항목: (키, 계산기 판정, 보여줄 글, 출처). 판정이 통과·탈락이 아니면 자료 없음이에요."""
+    b88, c88 = c.get("B88"), c.get("C88")
+    payout = (f"평균 배당성향 {b88 * 100:.0f}%" if _n(b88) else "평균 배당성향 —") + (f" (기준 {c88})" if c88 else "")
+    fin = getattr(r, "financial", None)
+    if fin is not None and c.get("D89") == "해당 없음":
+        cover = ("coverage", c.get("F_CAP_D"), f"자본비율 {c.get('F_CAP_D')} (금융회사라 현금흐름 대신)", "계산기 금융업 자본비율 판정")
+    else:
+        b89 = c.get("B89")
+        cover = ("coverage", c.get("D89"), f"잉여현금흐름 ÷ 배당 {b89:.2f}배" if _n(b89) else "—", "계산기 89행 (5년 합계)")
+    return [("payout", c.get("D88"), payout, "계산기 88행"), cover]
+
+
 def _values(r, facts: ScoreFacts | None, cfg: ScoreSettings) -> dict[str, tuple]:
     """항목 키 → (점수를 매길 값 또는 None, 보여줄 글, 출처, 특수 점수 또는 None)."""
     a, c = r.assembled, r.cells
@@ -128,8 +144,12 @@ def _values(r, facts: ScoreFacts | None, cfg: ScoreSettings) -> dict[str, tuple]
                 ratio = facts.ttm_eps / eps
                 out["ttm"] = (ratio, f"{facts.ttm_eps:,.0f}원 ÷ {eps:,.0f}원 = {ratio:.2f} ({facts.ttm_label})",
                               facts.sources.get("ttm", ""), None)
-    if _n(c.get("B115")):
-        out["yield"] = (c["B115"] * 100, f"{c['B115'] * 100:.1f}%", "계산기 B115", None)
+    for key, verdict, shown, source in _durability(r, c):
+        if verdict in ("통과", "탈락"):
+            out[key] = (None, shown, source, cfg.items[key].points if verdict == "통과" else 0.0)
+    if _n(c.get("B100")) and _n(i.price) and i.price > 0:
+        pct = c["B100"] / i.price * 100
+        out["yield"] = (pct, f"{pct:.1f}% (정상 DPS {c['B100']:,.0f}원)", "계산기 B100 ÷ 현재가", None)
     streak = dividend_streak(i.prior_dps, [y.dps for y in i.years])
     if streak is not None:
         out["streak"] = (streak, f"{streak}년", "카드 10년 DPS", None)

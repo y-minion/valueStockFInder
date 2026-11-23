@@ -255,3 +255,57 @@ test('old data without the recent row renders', () => {
   assert.ok(!r.renderStock(data, 'A').includes('최근 4분기'));
   assert.ok(!r.renderStock(data, 'B').includes('최근 4분기'));
 });
+
+// ---- 점수 순위 (점수 순위 설계 7장) ----
+test('score ranking is the first table, calculator lists come after', () => {
+  const h = r.renderIndex(data);
+  assert.ok(h.includes('<h2>점수 순위'));
+  assert.ok(h.indexOf('<h2>점수 순위') < h.indexOf('<h2>이번 주 변화'));
+  assert.ok(h.indexOf('<h2>이번 주 변화') < h.indexOf('계산기 관문 기준'));
+  assert.ok(h.indexOf('계산기 관문 기준') < h.indexOf('<h2>관심 목록'));
+});
+test('score table shows grade, group points, missing points, weekly change, rest folded', () => {
+  const h = r.renderIndex(data);
+  for (const s of ['85점', 'A', '72점', '자료 없는 배점', '▲5', '▼2', '7.5배', '전체 3개 보기']) assert.ok(h.includes(s), s);
+  assert.ok(h.indexOf('가나다산업') < h.indexOf('라마바식품'));
+  const folded = h.slice(h.indexOf('전체 3개 보기'));
+  assert.ok(folded.includes('KB금융'));
+});
+test('score tiles', () => {
+  const h = r.renderIndex(data);
+  for (const s of ['점수 대상', 'A등급', 'B등급']) assert.ok(h.includes(s), s);
+});
+test('changed score settings replace weekly change', () => {
+  const d = { ...data, score_summary: { ...data.score_summary, settings_changed: true } };
+  const h = r.renderIndex(d);
+  assert.ok(h.includes('배점 바뀜') && !h.includes('▲5'));
+});
+test('partial score banner', () => {
+  const d = { ...data, score_summary: { ...data.score_summary, partial: true } };
+  assert.ok(r.renderIndex(d).includes("점수 자료를 다 받지 못했어요. 내일 다시 실행하면 이어서 받아요. &#39;자료 없음&#39; 항목은 0점으로 더했어요."));
+  assert.ok(!r.renderIndex(data).includes("점수 자료를 다 받지 못했어요"));
+});
+test('card shows score table and judgment box', () => {
+  const h = r.renderStock(data, 'A');
+  for (const s of ['85점 · A', '<h3>점수</h3>', '5배 미만 15', '11 / 15', '자료 없음', '자료 없는 배점 0점',
+    '<h3>점수에 없는 판단</h3>', '미래 성장 잠재력', '실적이 저조한 오너 경영', '/자문']) assert.ok(h.includes(s), s);
+  assert.ok(!h.includes('만점'));
+});
+test('card says full marks when items do not add to 100', () => {
+  const d = { ...data, stocks: { ...data.stocks, A: { ...data.stocks.A, score: { ...data.stocks.A.score, max: 105 } } } };
+  assert.ok(r.renderStock(d, 'A').includes('만점 105점'));
+});
+test('no score card says not eligible; quick fail text names the latest year', () => {
+  assert.ok(r.renderStock(data, '000270').includes('최근 해 배당 없음 — 점수 대상 아님'));
+  assert.ok(r.renderStock(data, 'Q').includes('최근 해에 배당을 주지 않아 먼저 걸렸어요'));
+});
+test('old data without score keys renders without score parts', () => {
+  const d = { ...data };
+  delete d.score_rank; delete d.score_summary;
+  const h = r.renderIndex(d);
+  assert.ok(!h.includes('점수 순위') && h.includes('<h2>관심 목록'));
+  const st = { ...data.stocks.A };
+  delete st.score; delete st.score_prev;
+  const c = r.renderStock({ ...d, stocks: { ...data.stocks, A: st } }, 'A');
+  assert.ok(!c.includes('점수에 없는 판단') && !c.includes('점수 대상 아님'));
+});

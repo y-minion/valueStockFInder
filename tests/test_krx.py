@@ -250,3 +250,51 @@ def test_need_value_refetches_a_cached_day_without_values_once(store):
     assert krx.daily(d)["000270"].value is None and t.calls == 0           # 평소엔 캐시 그대로
     assert krx.daily(d, need_value=True)["000270"].value == 1_000_000.0 and t.calls == 2
     assert krx.daily(d, need_value=True)["000270"].value == 1_000_000.0 and t.calls == 2   # 다시 저장했어요
+
+
+# ---- ETF·KOSPI 시리즈 일별 시세 (2026-11-24 백테스트) ----
+
+ETF_BODY = {"OutBlock_1": [{"ISU_CD": "133690", "ISU_NM": "TIGER 미국나스닥100", "TDD_CLSPRC": "31880"},
+                           {"ISU_CD": "161510", "ISU_NM": "ARIRANG 고배당주", "TDD_CLSPRC": "-"}]}
+IDX_BODY = {"OutBlock_1": [{"IDX_NM": "코스피", "CLSPRC_IDX": "2,445.85"},
+                           {"IDX_NM": "코스피 200", "CLSPRC_IDX": "321.50"}]}
+
+
+def test_etf_daily_maps_code_to_close_and_caches_past_days(store):
+    t = FakeKrx(bodies={"etf_bydd_trd": ETF_BODY})
+    krx = make(store, t)
+    day = date(2018, 4, 2)
+    assert krx.etf_daily(day) == {"133690": 31880.0}            # 대시·0 종가는 '시세 없음'이라 빼요
+    assert krx.etf_daily(day) == {"133690": 31880.0} and t.calls == 1
+    assert t.requests[0].url.path.endswith("/svc/apis/etp/etf_bydd_trd")
+
+
+def test_etf_daily_holiday_is_cached_as_empty(store):
+    t = FakeKrx(bodies={"etf_bydd_trd": EMPTY})
+    krx = make(store, t)
+    assert krx.etf_daily(date(2018, 5, 7)) == {} and krx.etf_daily(date(2018, 5, 7)) == {} and t.calls == 1
+
+
+def test_etf_daily_today_is_not_cached(store):
+    t = FakeKrx(bodies={"etf_bydd_trd": ETF_BODY})
+    krx = make(store, t)
+    krx.etf_daily(TODAY)
+    krx.etf_daily(TODAY)
+    assert t.calls == 2
+
+
+def test_index_daily_maps_name_to_close(store):
+    t = FakeKrx(bodies={"kospi_dd_trd": IDX_BODY})
+    krx = make(store, t)
+    assert krx.index_daily(date(2018, 4, 2)) == {"코스피": 2445.85, "코스피 200": 321.5}
+    assert krx.index_daily(date(2018, 4, 2))["코스피"] == 2445.85 and t.calls == 1
+    assert t.requests[0].url.path.endswith("/svc/apis/idx/kospi_dd_trd")
+
+
+def test_etf_and_index_services_without_approval_name_the_service(store):
+    for service, label, call in (("etf_bydd_trd", "ETF 일별매매정보", "etf_daily"),
+                                 ("kospi_dd_trd", "KOSPI 시리즈 일별시세정보", "index_daily")):
+        t = FakeKrx(status={service: 401})
+        with pytest.raises(KrxError, match="이용 승인") as e:
+            getattr(make(store, t), call)(date(2018, 4, 2))
+        assert label in str(e.value) and KEY not in str(e.value)

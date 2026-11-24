@@ -143,3 +143,103 @@ def test_holding_whose_gates_turn_fail_is_flagged_not_sold():
     r = run(ds, flat(ds, {"A": 60.0}), {"A": [vin("A", 100.0), later]})
     a = trade(r, "A")
     assert a.reason == "보유 중" and a.flags.count("산 뒤 관문 ①② 탈락으로 바뀌었어요") == 1
+
+
+# ---- 배당·분할·거래정지·상장폐지 (플랜 Task 9) ----
+
+def span(start: date, end: date) -> list[date]:
+    out, d = [], start
+    while d <= end:
+        if d.weekday() < 5:
+            out.append(d)
+        d += timedelta(days=1)
+    return out
+
+
+def test_dividend_from_year_end_holdings_is_paid_when_the_report_is_filed():
+    ds = span(date(2019, 12, 27), date(2020, 4, 3))
+    pay_day = date(2020, 3, 30)
+    vintages = {"A": [vin("A", 100.0, year=2018, dps=4.0), vin("A", 100.0, valid_from=pay_day, year=2019, dps=5.0)]}
+    r = run(ds, flat(ds, {"A": 50.0}), vintages, month_starts={ds[0]})
+    a = trade(r, "A")
+    held_at_year_end = 1_300_000.0 * 0.9975 / 50.0
+    assert a.dividends == pytest.approx(held_at_year_end * 5.0)
+    before = ds.index(pay_day) - 1
+    assert r.value[before] == pytest.approx(held_at_year_end * 50.0)            # 공시 전에는 배당이 없어요
+    assert a.invested == pytest.approx(1_300_000.0 + held_at_year_end * 5.0)    # 받은 배당도 다시 사요
+
+
+def test_dividend_is_paid_even_after_selling_if_held_at_year_end():
+    ds = span(date(2019, 12, 27), date(2020, 4, 3))
+    table = flat(ds, {"A": 50.0})
+    for d in ds:
+        if d >= date(2020, 2, 10):
+            table[d] = {"A": 100.0}                                              # 2월 10일 적정가 도달
+    vintages = {"A": [vin("A", 100.0, year=2018), vin("A", 100.0, valid_from=date(2020, 3, 30), year=2019, dps=5.0)]}
+    r = run(ds, table, vintages, month_starts={ds[0]})
+    a = trade(r, "A")
+    assert a.reason == "적정가 도달" and a.sell_date == date(2020, 2, 10)
+    assert a.dividends == pytest.approx(1_300_000.0 * 0.9975 / 50.0 * 5.0)
+    assert r.cash[-1] == pytest.approx(a.proceeds + a.dividends)
+
+
+def test_split_multiplies_shares_and_scales_fair_value():
+    ds = span(date(2020, 1, 2), date(2020, 1, 10))
+    split_day = date(2020, 1, 7)
+    table = {d: ({"A": 50.0, "C": 100.0} if d < split_day else {"A": 10.0, "C": 20.0}) for d in ds}
+
+    def shares_of(day):
+        return {"A": 1e6 if day < split_day else 5e6, "C": 1e6 if day < split_day else 5e6}
+
+    def stocks(day):
+        return {c: PriceRow(day, c, f"종목{c}", "KOSPI", p, shares_of(day)[c]) for c, p in table[day].items()}
+
+    vintages = {"A": [vin("A", 100.0)], "C": [vin("C", 100.0)]}
+    one = Rules(monthly=1_300_000.0, max_holdings=5, cost_rate=0.0025, min_trade=10_000.0)
+    r = simulate(ds, stocks, vintages, V, one, lambda a, b: 1.0, lambda d: {"A", "C"}, {ds[0], split_day})
+    a = trade(r, "A")
+    first = 1_300_000.0 * 0.9975 / 50.0
+    assert a.reason == "보유 중" and a.shares > first * 5 - 1                    # 분할 배수만큼 주식 수가 늘었어요
+    assert [t.code for t in r.trades] == ["A"]                                    # C는 분할로 싸 보여도 사지 않아요
+    assert r.value[ds.index(split_day)] == pytest.approx(first * 5 * 10.0 + 1_300_000.0 * 0.9975, rel=1e-6)
+
+
+def test_rights_offering_is_not_a_split():
+    ds = span(date(2020, 1, 2), date(2020, 1, 8))
+    issue_day = date(2020, 1, 6)
+
+    def stocks(day):
+        return {"A": PriceRow(day, "A", "종목A", "KOSPI", 50.0, 1.6e6 if day >= issue_day else 1e6)}
+
+    r = simulate(ds, stocks, {"A": [vin("A", 100.0)]}, V, RULES, lambda a, b: 1.0, lambda d: {"A"}, {ds[0]})
+    assert trade(r, "A").shares == pytest.approx(1_300_000.0 * 0.9975 / 50.0)
+
+
+def test_trading_halt_holds_at_last_close():
+    ds = span(date(2020, 1, 2), date(2020, 3, 31))
+    table = {d: ({"A": 50.0} if d == ds[0] or d >= date(2020, 3, 2) else {}) for d in ds}
+    r = run(ds, table, {"A": [vin("A", 100.0)]}, listed=lambda d: {"A"}, month_starts={ds[0]})
+    shares = 1_300_000.0 * 0.9975 / 50.0
+    assert all(v == pytest.approx(shares * 50.0) for v in r.value[:40])
+    assert trade(r, "A").reason == "보유 중"
+
+
+def test_delisted_stock_is_sold_at_last_close():
+    ds = span(date(2020, 1, 2), date(2020, 2, 7))
+    table = {d: ({"A": 40.0} if d.month == 1 else {}) for d in ds}
+    table[ds[0]] = {"A": 50.0}
+    feb = date(2020, 2, 3)
+    r = run(ds, table, {"A": [vin("A", 100.0)]}, listed=lambda d: {"A"} if d.month == 1 else set(),
+            month_starts={ds[0], feb})
+    a = trade(r, "A")
+    assert (a.reason, a.sell_date, a.sell_price) == ("상장폐지", feb, 40.0)
+    assert a.proceeds == pytest.approx(a.shares * 40.0 * 0.9975)
+
+
+def test_big_drop_is_flagged():
+    ds = span(date(2020, 1, 2), date(2020, 1, 8))
+    table = flat(ds, {"A": 50.0})
+    for d in ds[2:]:
+        table[d] = {"A": 25.0}
+    a = trade(run(ds, table, {"A": [vin("A", 100.0)]}), "A")
+    assert a.flags.count("하루에 40% 넘게 떨어졌어요(분할·합병 확인 필요)") == 1

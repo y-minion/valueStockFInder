@@ -9,6 +9,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 
+from vsf.data.assemble import current_dps
 from vsf.data.dart import DartError, DartQuotaExceeded
 from vsf.data.http import NetworkError
 
@@ -79,10 +80,8 @@ def parse_treasury_changes(rows: list[dict]) -> tuple[float | None, float | None
 
 
 def _common_dps(rows: list[dict] | None) -> float | None:
-    for r in rows or []:
-        if str(r.get("se", "")).startswith(_DPS_SE) and str(r.get("stock_knd", "")).strip() == "보통주":
-            return _num(r.get("thstrm"))
-    return None
+    """분기·반기 배당 표의 보통주 주당 현금배당금. '보통주식'·'보 통 주'·종류 칸 '-' 같은 모양도 사업보고서처럼 읽어요."""
+    return current_dps(rows) if rows else None
 
 
 def interim_payouts(q1_rows: list[dict] | None, half_rows: list[dict] | None) -> int | None:

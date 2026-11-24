@@ -126,6 +126,16 @@ def preferred_kind(name: str) -> str:
     return "우선" if number == 1 else f"{number}우선"
 
 
+_EVENT = re.compile(r"(중간|결산|분기|반기|기말)배당")   # 배당 때를 나타내는 말 ('배당우선주'의 '배당'은 주식 종류예요)
+
+
+def _events_or_first(rows: list[dict]) -> dict | None:
+    """같은 종류 줄이 여럿이고 모두 배당 때(중간·결산·분기…)로 나뉘었으면 더한 한 줄, 아니면 첫 줄."""
+    if len(rows) > 1 and all(_EVENT.search(_knd(r)) for r in rows) and not any("주주" in _knd(r) for r in rows):
+        return _event_sum(rows)
+    return rows[0] if rows else None
+
+
 def _event_sum(rows: list[dict]) -> dict:
     """결산배당·중간배당처럼 배당 때마다 나눠 적은 줄을 한 줄로 더해요.
 
@@ -148,6 +158,7 @@ def _dps_row(rows: list[dict], kind: str = "보통") -> dict | None:
 
     우선주: 그 번호의 우선주 줄(2우선주·제3우선주 …). 없으면 번호 없는 우선주 줄(우선주·종류주·종류주식).
     번호 없는 줄은 우선주 종류가 여럿이어도 회사가 한 줄로만 적은 거라 모든 우선주가 같이 써요.
+    고른 줄들이 중간배당·결산배당처럼 배당 때마다 나뉘었으면 더해요 (보통주도 같아요).
     종류 칸이 빈 줄이 정확히 둘이면 두 번째 줄 (서식 순서: 보통주 다음이 우선주).
 
     보통주:
@@ -167,10 +178,11 @@ def _dps_row(rows: list[dict], kind: str = "보통") -> dict | None:
         generic = [r for r, number in prefs if number is None]
         if not prefs and len(per_share) == 2 and all(k == "" or k in _DASHES for k in kinds):
             return per_share[1]      # 종류 칸이 빈 줄 둘: 서식 순서대로 보통주 다음 줄이 우선주 (동원시스템즈 2019)
-        return (exact or generic or [None])[0]
+        return _events_or_first(exact or generic)
     common = [r for r, k in zip(per_share, kinds, strict=True) if k.startswith(("보통", "의결권있는"))]
     if common:
-        return next((r for r in common if "소액" in _knd(r)), common[0])
+        small = next((r for r in common if "소액" in _knd(r)), None)
+        return small if small is not None else _events_or_first(common)
     if per_share and all("주주" in k for k in kinds):
         return next((r for r in per_share if "소액" in _knd(r)), None)
     if len(per_share) > 1 and all("배당" in k for k in kinds):
@@ -230,6 +242,11 @@ def _faces(div_reports: dict[int, list[dict]]) -> tuple[float | None, dict[int, 
             if face is not None and y not in at_year:
                 at_year[y] = face
     return now, at_year
+
+
+def current_dps(rows: list[dict] | None, kind: str = "보통") -> float | None:
+    """배당 표 하나의 당기 주당 현금배당금. 줄 고르기는 사업보고서와 같아요. 대시는 0.0, 줄이 없거나 못 읽으면 None."""
+    return _dps_values(_dps_row(rows or [], kind), 0)[0][0]
 
 
 def dps_from_report(rows: list[dict], year: int, kind: str = "보통") -> dict[int, float | None]:

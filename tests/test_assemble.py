@@ -1138,3 +1138,20 @@ def test_year_end_per_that_rounds_to_zero_is_flagged():
     a = assemble(co, L, fin_a, huge, divs, ye, price, d)
     assert a.inputs.years[0].per == 0.0
     assert "2021년 연말 PER이 0배로 비정상적이에요(단위 오류 가능성). 숫자를 확인해 주세요." in a.flags
+
+def test_preferred_event_rows_are_added_like_the_common_ones():
+    rows = [_dps("중간배당(보통주)", "500", "400", "-"), _dps("결산배당(보통주)", "1,000", "900", "-"),
+            _dps("중간배당(우선주)", "550", "450", "-"), _dps("결산배당(우선주)", "1,050", "950", "-")]
+    assert dps_from_report(rows, 2025) == {2025: 1500.0, 2024: 1300.0, 2023: 0.0}
+    assert dps_from_report(rows, 2025, "우선") == {2025: 1600.0, 2024: 1400.0, 2023: 0.0}
+
+
+def test_common_event_rows_that_start_with_the_class_are_added():
+    rows = [_dps("보통주 중간배당", "500", "-", "-"), _dps("보통주 결산배당", "1,000", "-", "-")]
+    assert dps_from_report(rows, 2025)[2025] == 1500.0
+
+
+def test_preferred_classes_named_with_dividend_are_not_added():
+    # '배당우선전환주식'·'배당우선상환주식'은 배당 때가 아니라 주식 종류 이름이에요 (2015 사업보고서 5건의 모양).
+    rows = [_dps("보통주", "300", "-", "-"), _dps("배당우선전환주식", "350", "-", "-"), _dps("배당우선상환주식", "400", "-", "-")]
+    assert dps_from_report(rows, 2025, "우선")[2025] == 350.0

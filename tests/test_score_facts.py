@@ -169,3 +169,10 @@ def test_quarter_report_without_income_lines_is_not_treated_as_missing():
     e["quarterly_fin"] = {(2026, "11014"): FinRows([row], "CFS", "20261114000001")}
     f = fetch_score_facts(FakeDart({"000270": e}), corp_of("000270"), 2025, 674.0, set(), 30.0)
     assert f.ttm_is_annual is False and f.ttm_eps is None
+
+def test_interim_payouts_read_other_common_share_names():
+    # 저장된 분기·반기 배당 표 2,410건 중 347건이 '보통주식'·'보 통 주'·종류 칸 '-' 같은 모양이었어요.
+    def row(knd, value, se="주당 현금배당금(원)"):
+        return {"se": se, "stock_knd": knd, "thstrm": value, "frmtrm": "-", "lwfr": "-"}
+    assert interim_payouts([row("보통주식", "500"), row("종류주식", "-")], None) == 4
+    assert interim_payouts([row("-", "-"), row("-", "-")], [row("보 통 주", "300", se="주당현금배당금(원)")]) == 2

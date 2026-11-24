@@ -163,7 +163,10 @@ class KrxClient:
 
     def _closes(self, key: str, service: str, group: str, day: date, name_field: str,
                 close_field: str) -> dict[str, float]:
-        """그날 상품마다 종가 하나. 지난 날은 빈 날(휴장)까지 저장해요: 휴장이면 KRX가 빈 목록을 줘요."""
+        """그날 상품마다 종가 하나. 지난 날만, 자료가 있을 때만 저장해요.
+
+        빈 응답은 아직 안 올라온 날일 수 있어서 저장하지 않아요 (휴장일은 백테스트 시세 창고가 따로 기억해요).
+        """
         cacheable = day < self._today()
         if cacheable:
             cached = self._store.get_json(key)
@@ -175,7 +178,7 @@ class KrxClient:
             close = _close(r.get(close_field))
             if name and close is not None:
                 out[name] = close
-        if cacheable:
+        if cacheable and out:
             self._store.put_json(key, out)
         return out
 

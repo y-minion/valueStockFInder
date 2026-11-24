@@ -269,10 +269,11 @@ def test_etf_daily_maps_code_to_close_and_caches_past_days(store):
     assert t.requests[0].url.path.endswith("/svc/apis/etp/etf_bydd_trd")
 
 
-def test_etf_daily_holiday_is_cached_as_empty(store):
+def test_etf_daily_empty_reply_is_asked_again(store):
+    # 빈 응답은 저장하지 않아요. 아직 안 올라온 날이면 다음에 다시 물어야 해요 (휴장일은 백테스트가 따로 기억해요).
     t = FakeKrx(bodies={"etf_bydd_trd": EMPTY})
     krx = make(store, t)
-    assert krx.etf_daily(date(2018, 5, 7)) == {} and krx.etf_daily(date(2018, 5, 7)) == {} and t.calls == 1
+    assert krx.etf_daily(date(2018, 5, 7)) == {} and krx.etf_daily(date(2018, 5, 7)) == {} and t.calls == 2
 
 
 def test_etf_daily_today_is_not_cached(store):

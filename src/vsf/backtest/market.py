@@ -16,6 +16,7 @@ from vsf.data.store import PriceRow, Store
 PAUSED = ("KRX 자료를 받다가 멈췄어요 ({error}). 받은 자료는 저장했으니, 내일 다시 `uv run backtest.py`를 "
           "실행하면 이어서 받아요.")
 PROGRESS_EVERY = 100
+SETTLED_DAYS = 10       # 이 날 수보다 오래된 빈 평일만 휴장일로 기억해요 (최근 날은 KRX가 아직 안 올렸을 수 있어요)
 
 
 class MarketPaused(Exception):
@@ -28,7 +29,7 @@ def _holiday_key(d: date) -> str:
 
 class Market:
     def __init__(self, krx, store: Store, start: date, end: date, today: date | None = None) -> None:
-        """today: 이날과 그 뒤는 시세가 비어도 휴장일로 기억하지 않아요 (아직 안 올라온 날일 수 있어요)."""
+        """today: 이날부터 SETTLED_DAYS일 안쪽은 시세가 비어도 휴장일로 기억하지 않아요 (아직 안 올라온 날일 수 있어요)."""
         self.krx = krx
         self._store = store
         self.start, self.end = start, end
@@ -52,7 +53,7 @@ class Market:
             return False
         if self.krx.daily(d):
             return True
-        if d < self._today:
+        if (self._today - d).days > SETTLED_DAYS:
             self._store.set_meta(_holiday_key(d), "1")
         return False
 
@@ -84,11 +85,17 @@ class Market:
         return self.krx.index_daily(day).get(name)
 
     def listing(self, day: date) -> list[Listed]:
-        """그 달 첫 거래일의 KRX 종목 목록이에요 (그때 상장돼 있다가 나중에 사라진 종목도 들어 있어요)."""
+        """그 달 첫 거래일의 KRX 종목 목록이에요 (그때 상장돼 있다가 나중에 사라진 종목도 들어 있어요).
+
+        빈 목록이면 MarketPaused예요. 빈 목록을 쓰면 들고 있던 종목이 모두 상장폐지로 팔려요.
+        """
         starts = [d for d in self.month_starts() if (d.year, d.month) == (day.year, day.month) and d <= day]
         first = starts[0] if starts else day
         if first not in self._listings:
-            self._listings[first] = self.krx.listed(first)
+            got = self.krx.listed(first)
+            if not got:
+                raise MarketPaused(PAUSED.format(error=f"{first} KRX 종목 목록이 비어 있어요"))
+            self._listings[first] = got
         return self._listings[first]
 
     def download(self, progress: Callable[[str], None] = print) -> None:

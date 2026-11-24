@@ -11,7 +11,7 @@ from datetime import date
 
 from vsf.data.accounts import parse_amount
 from vsf.data.assemble import Assembled, CompanyInfo, PreferredShare, dividend_history, preferred_kind
-from vsf.data.fisis import LIFE_EQUITY, ROE_TABLES
+from vsf.data.fisis import EQUITY_TABLES, ROE_TABLES
 from vsf.data.store import PriceRow
 from vsf.excelfn import excel_round
 from vsf.financial import CapitalRatio
@@ -63,9 +63,13 @@ def _roe(info: CompanyInfo, fisis, names: tuple[str, ...], latest: int,
         part, list_no, account = ROE_TABLES[info.financial_kind]
         got = fisis.annual_values(part, names, list_no, account, latest - 4, latest)
         return {y: got.get(y) for y in years}
-    if info.financial_kind == "보험":            # 생명보험: (별도)당기순이익 ÷ 개별 자본총계(연말 평균)
-        part, list_no, account = LIFE_EQUITY
-        equity = {y: v / 1e8 for y, v in fisis.annual_values(part, names, list_no, account, latest - 5, latest).items()}
+    tables = EQUITY_TABLES.get(info.financial_kind or "")
+    if tables:                                   # 보험·증권: (별도)당기순이익 ÷ 개별 자본총계(연말 평균)
+        equity: dict[int, float] = {}
+        for part, list_no, account in tables:
+            equity = {y: v / 1e8 for y, v in fisis.annual_values(part, names, list_no, account, latest - 5, latest).items()}
+            if equity:
+                break
         roe: dict[int, float | None] = {}
         for y in years:
             income = values.get(y, {}).get("ni_sep")

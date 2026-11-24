@@ -1,4 +1,5 @@
 """백테스트: DART 재무제표 API에 없는 해의 금융회사 입력 (2026-11-24 백테스트 설계 4장)."""
+from dataclasses import replace
 from datetime import date
 
 from helpers import div_rows, synthetic_company
@@ -81,8 +82,20 @@ def test_life_insurer_roe_is_separate_income_over_average_equity():
     assert roe[2014] is None                                                # 자본 자료가 없는 해
 
 
-def test_non_life_insurer_without_tables_leaves_roe_blank():
+def test_insurer_without_fisis_values_leaves_roe_blank():
     nonlife = CompanyInfo(corp_code="00139214", code="000810", name="삼성화재", market="KOSPI", induty_code="65121",
                           acc_mt="12", financial_kind="보험")
     got = substitute_inputs(nonlife, 2018, HANA_DIVS, HANA_YE, HANA_PRICE, D, FakeFisis({}), ("삼성화재해상보험(주)",), None)
     assert all(y.roe is None for y in got.inputs.years) and got.inputs.years[-1].eps == 7360.0
+
+
+def test_non_life_insurer_and_securities_roe_from_fisis_equity():
+    from vsf.data.fisis import EQUITY_TABLES
+    divs = {2018: _alot(2018, ("9,000", "8,000", "7,000"), ("600,000", "500,000", "400,000"), ("2,000", "1,800", "1,600"),
+                        sep=("550,000", "480,000", "390,000"))}
+    equity = {2015: 4.0e12, 2016: 4.2e12, 2017: 4.6e12, 2018: 4.9e12}
+    for kind, table in (("보험", EQUITY_TABLES["보험"][1]), ("증권", EQUITY_TABLES["증권"][0])):
+        info = replace(HANA, financial_kind=kind)
+        got = substitute_inputs(info, 2018, divs, {}, HANA_PRICE, D, FakeFisis({table: equity}), NAMES, None)
+        roe = {y.year: y.roe for y in got.inputs.years}
+        assert roe[2018] == round(5500.0 / ((49000.0 + 46000.0) / 2) * 100, 2), kind

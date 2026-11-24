@@ -33,6 +33,8 @@ PREF_NOTE = ("우선주예요. 재무(EPS·ROE·현금흐름)는 보통주와 �
 PREF_MEMO = "우선주: 재무는 보통주({code}) 것, 주가·배당은 우선주. "
 PRE_FOUNDING_NOTE = "{years}년은 회사 설립일({founded}) 전이라 배당 칸을 비웠어요"
 EPS_DIV_NOTE = "{years}년 EPS는 재무제표에서 찾지 못해 '배당에 관한 사항'의 주당순이익을 썼어요"
+EPS_SCALE_NOTE = "{y}년 EPS가 재무제표에 {k:,}배로 적혀 있어서 '배당에 관한 사항'의 주당순이익을 썼어요"
+_UNIT_SCALES = (1_000, 1_000_000)     # 회사가 XBRL 단위를 잘못 적은 배수 (LG 2016 사업보고서: 100만 배)
 CURRENCY_FLAG = "원화가 아닌 재무제표예요(통화: {currency}). 숫자를 확인해 주세요."
 EQUITY_FLAG = "{y}년 자본이 0 이하예요. ROE·부채비율을 확인해 주세요."
 SIGN_FLAG = "{y}년 EPS와 순이익의 부호가 달라요. 숫자를 확인해 주세요."
@@ -514,6 +516,7 @@ def _eps_from_dividends(eps: dict[int, float | None], div_reports: dict[int, lis
     filled: list[int] = []
     for y in sorted(eps):
         if eps[y] is not None:
+            _fix_unit(eps, y, div_reports, latest, divisor, fs, reports, out)
             continue
         for report_year in reports:
             row = _div_eps_row(div_reports.get(report_year), fs) if report_year - 2 <= y <= report_year else None
@@ -531,6 +534,37 @@ def _eps_from_dividends(eps: dict[int, float | None], div_reports: dict[int, lis
     if filled:
         out.note(EPS_DIV_NOTE.format(years="·".join(map(str, filled))))
     return eps
+
+
+def _div_eps(div_reports: dict[int, list[dict]], y: int, latest: int, divisor: float, fs: str,
+             reports: tuple[int, ...]) -> tuple[float, str] | None:
+    """y년 '배당에 관한 사항' 주당순이익과 출처 글 (재무제표와 같은 보고서에서, 분할 조정까지)."""
+    for report_year in reports:
+        row = _div_eps_row(div_reports.get(report_year), fs) if report_year - 2 <= y <= report_year else None
+        value = parse_amount(str((row or {}).get(_DPS_COLUMNS[report_year - y]) or "")) if row else None
+        if value is None:
+            continue
+        source = f"{report_year} 사업보고서 배당에 관한 사항({row.get('se')}{_receipt(row.get('rcept_no'))})"
+        if report_year != latest and divisor != 1.0:
+            value /= divisor
+            source += f" ÷ {divisor:g}(액면분할 조정)"
+        return value, source
+    return None
+
+
+def _fix_unit(eps: dict[int, float | None], y: int, div_reports: dict[int, list[dict]], latest: int,
+              divisor: float, fs: str, reports: tuple[int, ...], out: _Out) -> None:
+    """재무제표 EPS가 배당 공시 주당순이익의 정확히 1,000배·1,000,000배면 단위를 잘못 적은 거라 바로잡아요."""
+    got = _div_eps(div_reports, y, latest, divisor, fs, reports)
+    value = eps[y]
+    if got is None or not got[0] or value is None:
+        return
+    for k in _UNIT_SCALES:
+        if abs(value / got[0] - k) <= 0.01 * k:
+            eps[y] = got[0]
+            out.sources[_cell(y, latest, 27)] = got[1]
+            out.note(EPS_SCALE_NOTE.format(y=y, k=k))
+            return
 
 
 def _dps_cell(y: int, latest: int) -> str:
@@ -738,7 +772,7 @@ def _number_checks(a: dict[int, _Period], b: dict[int, _Period], main: dict[int,
         if e and income and (e > 0) != (income > 0):       # 0은 부호가 없어서 건너뛰어요
             out.flag(SIGN_FLAG.format(y=y))
         v = per.get(y)
-        if v is not None and (v > PER_MAX or 0 < v < PER_MIN):
+        if v is not None and (v > PER_MAX or v < PER_MIN):        # 0으로 반올림된 PER도 단위 오류예요
             out.flag(PER_UNIT_FLAG.format(y=y, per=v))
     y = latest - 2                                          # A·B 보고서가 함께 적은 해
     if y in a and y in b:

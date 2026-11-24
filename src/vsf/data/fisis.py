@@ -24,7 +24,12 @@ TABLES: dict[str, list[tuple[str, str, tuple[str, ...]]]] = {
 }
 # 과거 금융회사 ROE (2026-11-24 백테스트): 종류 → (partDiv, listNo, 계정). 금융지주·은행은 FISIS가 ROE를 줘요.
 ROE_TABLES: dict[str, tuple[str, str, str]] = {"금융지주": ("L", "SL010", "G"), "은행": ("A", "SA017", "A7")}
-LIFE_EQUITY: tuple[str, str, str] = ("H", "SH004", "A2")     # 생명보험 개별 자본총계(원). 손해보험 표는 아직 못 찾았어요
+# 개별 자본총계(원): 순이익 ÷ 연말 자본 평균으로 ROE를 계산해요. 보험은 생명보험(H) 다음 손해보험(I) 순서로 찾아요.
+EQUITY_TABLES: dict[str, list[tuple[str, str, str]]] = {
+    "보험": [("H", "SH004", "A2"), ("I", "SI004", "A2")],
+    "증권": [("F", "SF304", "L")],
+}
+LIFE_EQUITY: tuple[str, str, str] = EQUITY_TABLES["보험"][0]
 _AUTH_CODES = {"010", "011", "012", "013"}
 _CLOSED = ("[폐]", "[closed]")
 _KR_DROP = re.compile(r"\(주\)|주식회사|\s+")

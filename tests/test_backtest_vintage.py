@@ -114,3 +114,17 @@ def test_non_payer_stays_quick_fail_without_fair_value():
 def test_non_december_company_is_a_listed_failure():
     vintages, failures = _build(FakeDart({"000270": FakeDart.entry(acc_mt="03")}), items=(KIA,))
     assert vintages == {} and failures == [("000270", 2025, "결산월이 12월이 아니에요")]
+
+
+def _no_current_assets(fin: FinRows) -> FinRows:
+    return replace(fin, rows=[r for r in fin.rows if r["account_id"] != "ifrs-full_CurrentAssets"])
+
+
+def test_financial_holding_is_recognised_from_statements_filed_after_the_period():
+    # 금융지주(64992)는 유동자산이 없는 재무상태표로 가려요. 그해 표가 없으면 지금 해까지의 표로 회사 종류만 봐요.
+    holding = FakeDart({"000270": FakeDart.entry(induty_code="64992", fin={2026: _no_current_assets(_BASE[2])},
+                                                 dividends={y: _alot_rows(y) for y in (2025, 2023, 2021, 2019, 2017)})})
+    market = Market(_krx((KIA,)), mem_store(), date(2026, 3, 2), date(2026, 4, 30), today=date(2027, 6, 1))
+    vintages, failures = build_vintages({"000270": KIA}, {(corp_of("000270"), 2025): FILED}, YEARS, market, holding,
+                                        settings_with(), lambda day: None, progress=lambda s: None)
+    assert failures == [] and vintages["000270"][0].substitute

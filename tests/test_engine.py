@@ -63,3 +63,14 @@ def test_gate2_fail_is_out_even_if_cheap():
     inputs, c, _ = load_oracle("kia_zero_dps")
     s = summarize(compute(replace(inputs, price=10000.0), c))
     assert s.gate2 == "탈락" and watch_state(s, ReportSettings()) == "out"
+
+
+def test_zero_fair_value_leaves_ratio_blank_instead_of_crashing():
+    # 연말 PER이 0으로 반올림된 해들만 '정상'이면 방법 B가 0이 돼요. 엑셀은 #DIV/0!, 여기서는 빈칸이에요.
+    from dataclasses import replace as _replace
+    from vsf.engine import compute
+    from vsf.model import Criteria, StockInputs, YearRow
+    years = tuple(YearRow(year=y, eps=e, per=p, dps=100.0) for y, e, p in
+                  ((2014, 4.8e9, 0.0), (2015, 5.4e9, 0.0), (2016, 6114.0, 11.0), (2017, 13630.0, 6.0), (2018, 10603.0, 7.0)))
+    cells = compute(StockInputs(name="x", code="003550", price=70000.0, years=years), Criteria())
+    assert cells["B105"] == 0.0 and cells["B108"] is None and cells["D110"] == "탈락"

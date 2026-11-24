@@ -36,6 +36,10 @@ class Market:
         self._days: list[date] | None = None
         self._listings: dict[date, list[Listed]] = {}
 
+    @property
+    def today(self) -> date:
+        return self._today
+
     def _weekdays(self) -> Iterator[date]:
         d = self.start
         while d <= self.end:

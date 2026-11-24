@@ -1107,3 +1107,27 @@ def test_preferred_is_the_second_of_two_unlabeled_rows():
     assert dps_from_report(rows, 2019) == {2019: 500.0, 2018: 500.0, 2017: 250.0}
     assert dps_from_report(rows, 2019, "우선") == {2019: 550.0, 2018: 550.0, 2017: 300.0}
     assert dps_from_report(rows * 2, 2019, "우선") == {2019: None, 2018: None, 2017: None}   # 넷이면 몰라요
+
+
+def test_statement_eps_with_unit_error_is_fixed_from_dividend_table():
+    # LG 2016 사업보고서 XBRL: EPS를 100만 배로 적었어요 (6,114 → 6,114,000,000). 배당 공시의 주당순이익은 맞아요.
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    good = assemble(co, L, fin_a, fin_b, divs, ye, price, d)
+    bad_b = replace(fin_b, rows=[{**r, **{f"{p}_amount": str(int(float(r[f"{p}_amount"].replace(",", "")) * 1_000_000))
+                                          for p in ("thstrm", "frmtrm", "bfefrmtrm") if r.get(f"{p}_amount")}}
+                                 if r["account_id"] == "ifrs-full_BasicEarningsLossPerShare" else r for r in fin_b.rows])
+    eps = [y.eps for y in good.inputs.years]
+    eps_row = {**divs[2023][0], "se": "(연결)주당순이익(원)", "stock_knd": "", "thstrm": f"{eps[2]:,.0f}",
+               "frmtrm": f"{eps[1]:,.0f}", "lwfr": f"{eps[0]:,.0f}"}
+    a = assemble(co, L, fin_a, bad_b, {**divs, 2023: divs[2023] + [eps_row]}, ye, price, d)
+    assert [y.eps for y in a.inputs.years] == eps
+    assert any("재무제표에 1,000,000배로 적혀" in n for n in a.notes)
+
+
+def test_year_end_per_that_rounds_to_zero_is_flagged():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    huge = replace(fin_b, rows=[{**r, "bfefrmtrm_amount": "9000000000"} if r["account_id"] == "ifrs-full_BasicEarningsLossPerShare"
+                                else r for r in fin_b.rows])
+    a = assemble(co, L, fin_a, huge, divs, ye, price, d)
+    assert a.inputs.years[0].per == 0.0
+    assert "2021년 연말 PER이 0배로 비정상적이에요(단위 오류 가능성). 숫자를 확인해 주세요." in a.flags

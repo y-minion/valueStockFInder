@@ -136,7 +136,7 @@ def build_vintages(universe: dict[str, Listed], filings: dict[tuple[str, int], d
             except _Failed as e:
                 if str(e) != NO_FIN.format(year=year):
                     raise
-                info, asm = _substitute(ctx, dart, item, common, year, market.end.year - 1)
+                info, asm = _substitute(ctx, dart, item, common, year, max(market.today.year, year + 1) - 1)
                 substitute = True
             verdicts = {name: _verdict(info, asm, settings, overrides)
                         for name, overrides in settings.backtest.variants}

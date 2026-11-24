@@ -4,7 +4,7 @@ from datetime import date
 
 from fakes import D, KIA_CORP, FakeDart, FakeKrx, _listed, mem_store, noop
 from helpers import div_rows, synthetic
-from vsf.collect import FISIS_FAIL_NOTE, FISIS_KEY_NOTE, NO_FIN, collect, collect_one
+from vsf.collect import FISIS_FAIL_NOTE, FISIS_KEY_NOTE, NO_FIN, collect, collect_one, prior_div_years
 from vsf.data.dart import DartError, DartQuotaExceeded
 from vsf.data.fisis import FisisAuthError, FisisError
 from vsf.financial import CapitalRatio
@@ -450,3 +450,23 @@ def test_context_for_uses_that_days_prices_and_year_ends():
     ctx = context_for(FakeDart.default(), krx, SYN_PRICE_DATE, {})
     assert ctx.today == ctx.price_date == SYN_PRICE_DATE and "000270" in ctx.prices
     assert set(ctx.year_ends) == {2021, 2022, 2023, 2024, 2025}
+
+def test_prior_dividend_reports_cover_ten_years():
+    # 보고서 하나가 3년 치라 두 해씩 건너뛰어요. 짝수 해 묶음은 2013년이 비어서 2015 보고서도 읽어요.
+    assert prior_div_years(2020) == [2018, 2016, 2015] and prior_div_years(2018) == [2016, 2015]
+    assert prior_div_years(2022) == [2020, 2018, 2016, 2015]
+    assert prior_div_years(2019) == [2017, 2015] and prior_div_years(2025) == [2023, 2021, 2019, 2017]
+    assert prior_div_years(2024) == [2022, 2020, 2018, 2016]
+
+
+def test_filings_list_error_does_not_stop_the_weekly_run():
+    # 바뀐 보고서 확인(공시 목록)이 한 번 실패해도 주간 실행은 계속해요. 다음 주에 같은 날부터 다시 확인해요.
+    dart = FakeDart.default()
+
+    def down(*args, **kwargs):
+        raise DartError("800", "시스템 점검 중")
+    dart.filings = down
+    store = mem_store()
+    store.set_meta("filings_checked", "2026-11-10")
+    c = collect(dart, FakeKrx.default(), store, D, progress=noop)
+    assert c.records and store.get_meta("filings_checked") == "2026-11-10"

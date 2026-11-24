@@ -29,11 +29,25 @@ UNEXPECTED = "예상하지 못한 오류: {kind}: {error}"
 PREFERRED = "우선주"                     # listing_exclusion이 우선주에 주는 사유
 NO_COMMON = "우선주(보통주 없음)"
 NO_COMMON_PRICE = "보통주 주가 자료가 없어요"
+FILINGS_SKIPPED = "DART 공시 목록을 받지 못해서 이번에는 바뀐 보고서를 다시 받지 않아요. 다음 실행 때 다시 확인해요."
 
 
 def preferred_base(code: str) -> str:
     """우선주 코드 → 같은 회사 보통주 코드 (앞 다섯 자리 + "0"). 2026-11-20 목록 109개 모두 이 규칙이에요."""
     return code[:5] + "0"
+
+
+def prior_div_years(latest: int) -> list[int]:
+    """latest 앞에 받을 배당 보고서 해들 (latest−9 ~ latest 열 해 치).
+
+    보고서 하나가 3년 치(그해·전해·전전해)라 두 해씩 건너뛰어요. FIRST_DIV_YEAR 아래로 내려가 옛 해가 비면,
+    FIRST_DIV_YEAR 보고서로 남은 해를 채워요 (짝수 해 묶음의 2013년).
+    """
+    years = [y for y in range(latest - 2, latest - 9, -2) if y >= FIRST_DIV_YEAR]
+    oldest = min(years, default=latest)
+    if FIRST_DIV_YEAR < oldest and oldest - 2 > latest - 9:
+        years.append(FIRST_DIV_YEAR)
+    return years
 
 
 def _common_exclusion(common: Listed | None) -> str | None:
@@ -160,11 +174,10 @@ def _assemble_year(ctx: _Context, item: Listed, common: str | None, prep: _Prepa
                 raise _Excluded("금융지주")
             info = replace(info, financial_kind="금융지주")
     fin_b = dart.financials(corp, latest - 2)
-    for y in range(latest - 2, latest - 9, -2):
-        if y >= FIRST_DIV_YEAR:
-            rows = dart.dividends(corp, y)
-            if rows is not None:
-                div_reports[y] = rows
+    for y in prior_div_years(latest):
+        rows = dart.dividends(corp, y)
+        if rows is not None:
+            div_reports[y] = rows
     base = prep.base
     year_end = {y: rows[base] for y, rows in ctx.year_ends.items() if base in rows}
     pref = None if common is None else PreferredShare(
@@ -262,7 +275,13 @@ def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None
     listed = krx.listed(price_date)
     result = Collected(today=today, price_date=price_date, total_listed=len(listed))
     try:
-        _check_filings(dart, store, today)
+        try:
+            _check_filings(dart, store, today)
+        except DartQuotaExceeded:
+            raise
+        except (DartError, NetworkError):        # 확인한 날을 그대로 둬서 다음 실행이 같은 날부터 다시 봐요
+            log.warning("DART 공시 목록을 받지 못했어요", exc_info=True)
+            progress(FILINGS_SKIPPED)
         corp = dart.corp_codes()
     except DartQuotaExceeded:
         _defer(result, listed)

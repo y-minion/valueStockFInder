@@ -1022,6 +1022,13 @@ def test_interim_and_final_dividend_rows_add_up():
         {2025: 200.0, 2024: None, 2023: 0.0}
 
 
+def test_event_rows_split_by_class_do_not_add_the_preferred_dividend():
+    # 배당 때마다 나눈 줄에 주식 종류가 붙어 있으면 우선주 줄은 보통주 합계에 넣지 않아요.
+    rows = [_dps("결산배당(보통주)", "1,000", "900", "-"), _dps("결산배당(우선주)", "1,050", "950", "-")]
+    assert dps_from_report(rows, 2025) == {2025: 1000.0, 2024: 900.0, 2023: 0.0}
+    assert dps_from_report(rows, 2025, "우선") == {2025: 1050.0, 2024: 950.0, 2023: 0.0}
+
+
 def test_preferred_dps_rows_named_jongryu_or_numbered():
     common = _dps("보통주", "600", "600", "600")
     # 동원시스템즈·크라운제과: '종류주', 두산·유화증권: '종류주식', CJ제일제당: '제1종 우선주', 한국금융지주: '1종 종류주식'

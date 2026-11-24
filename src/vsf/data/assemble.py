@@ -153,7 +153,7 @@ def _dps_row(rows: list[dict], kind: str = "보통") -> dict | None:
     보통주:
     - 주식 종류가 '보통'·'의결권 있는'으로 시작하는 줄. 최대주주·소액주주로 나눴으면 소액주주 줄.
     - 줄을 대주주·소액주주로만 나눴으면(차등배당) 소액주주 줄. 계산기에 넣는 건 소액주주가 받는 배당이에요.
-    - 줄을 결산배당·중간배당으로 나눴으면 둘을 더한 한 줄.
+    - 줄을 결산배당·중간배당으로 나눴으면 둘을 더한 한 줄. 그 줄에 우선주가 붙어 있으면 우선주 줄은 빼고 더해요.
     - 종류 칸이 빈 줄('-' 포함)이 정확히 둘이면 첫 줄. 공시 서식이 보통주 줄을 우선주 줄보다 먼저 적어요
       (한국쉘석유·SK텔레콤·오뚜기 등). 셋 이상이면 어느 줄인지 몰라요.
     - 그 밖에는 줄이 하나뿐이고 우선주가 아닐 때만 그 줄.
@@ -174,7 +174,8 @@ def _dps_row(rows: list[dict], kind: str = "보통") -> dict | None:
     if per_share and all("주주" in k for k in kinds):
         return next((r for r in per_share if "소액" in _knd(r)), None)
     if len(per_share) > 1 and all("배당" in k for k in kinds):
-        return _event_sum(per_share)
+        events = [r for r, k in zip(per_share, kinds, strict=True) if not _is_pref_kind(k)]
+        return _event_sum(events) if events else None
     if len(per_share) == 2 and all(k == "" or k in _DASHES for k in kinds):
         return per_share[0]
     if len(per_share) == 1 and not _is_pref_kind(kinds[0]):

@@ -35,6 +35,11 @@ def preferred_base(code: str) -> str:
     """우선주 코드 → 같은 회사 보통주 코드 (앞 다섯 자리 + "0"). 2026-11-20 목록 109개 모두 이 규칙이에요."""
     return code[:5] + "0"
 
+
+def _common_exclusion(common: Listed | None) -> str | None:
+    """우선주를 뺄 사유: 보통주가 없거나, 보통주가 빠지는 회사(리츠·스팩·외국 회사 등)면 그 사유를 따라가요."""
+    return NO_COMMON if common is None else listing_exclusion(common)
+
 log = logging.getLogger("vsf.collect")
 
 
@@ -270,7 +275,7 @@ def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None
         progress(f"{done}/{len(listed)} 종목 처리 중 (오늘 DART 호출 {dart.calls_today:,}회)")
 
     # 보통주를 먼저 다 받고, 우선주는 그 뒤에 받아요 (같은 회사 재무는 캐시를 다시 써요).
-    codes = {x.code for x in listed}
+    by_code = {x.code: x for x in listed}
     prefs: list[Listed] = []
     done, stopped = 0, False
     for i, item in enumerate(listed):
@@ -290,8 +295,9 @@ def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None
     if not stopped:
         for j, item in enumerate(prefs):
             base = preferred_base(item.code)
-            if base not in codes:
-                result.excluded.setdefault(NO_COMMON, []).append((item.code, item.name))
+            reason = _common_exclusion(by_code.get(base))
+            if reason:
+                result.excluded.setdefault(reason, []).append((item.code, item.name))
                 continue
             try:
                 _one(ctx, result, item, base)
@@ -330,8 +336,9 @@ def collect_one(dart, krx, store: Store, today: date, code: str, *,
     if item is None:
         return f"{code} 종목을 찾지 못했어요"
     is_pref = listing_exclusion(item) == PREFERRED
-    if is_pref and not any(x.code == preferred_base(code) for x in listed):
-        return f"{code}은(는) 분석 대상이 아니에요: {NO_COMMON}"
+    reason = _common_exclusion(next((x for x in listed if x.code == preferred_base(code)), None)) if is_pref else None
+    if reason:
+        return f"{code}은(는) 분석 대상이 아니에요: {reason}"
     try:
         ctx = _Context(dart, today, price_date, prices, dart.corp_codes(), _year_ends(krx, today)[0],
                        include_financial, fisis)

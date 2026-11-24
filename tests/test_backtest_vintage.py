@@ -165,3 +165,11 @@ def test_substitute_without_any_roe_is_not_built():
                                         settings_with(), lambda day: _RoeFisis({2023: 9.0, 2024: 9.5, 2025: 10.0}),
                                         progress=lambda s: None)
     assert failures == [] and with_roe["000270"][0].substitute
+
+
+def test_preferred_of_an_excluded_common_is_skipped():
+    # 우선주는 보통주가 빠지는 사유(리츠·스팩·외국 회사 등)를 따라가요.
+    reit, pref = _listed("000270", "기아", group="부동산투자회사"), _listed("000275", "기아우", kind="구형우선주")
+    vintages, failures = _build(FakeDart.two_companies(), items=(reit, pref),
+                                filings={(corp_of("000270"), 2025): FILED})
+    assert vintages == {} and failures == []

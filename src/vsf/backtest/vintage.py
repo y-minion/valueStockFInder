@@ -93,8 +93,8 @@ def build_vintages(universe: dict[str, Listed], filings: dict[tuple[str, int], d
         common = None
         if reason == PREFERRED:
             common = preferred_base(code)
-            if common not in universe:
-                continue
+            if common not in universe or listing_exclusion(universe[common]):
+                continue                      # 보통주가 없거나 빠지는 회사(리츠·스팩 등)면 우선주도 빼요
         elif reason:
             continue
         corp = corp_map.get(common or code)

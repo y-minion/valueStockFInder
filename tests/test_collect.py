@@ -2,7 +2,7 @@ import logging
 from dataclasses import replace
 from datetime import date
 
-from fakes import D, KIA_CORP, FakeDart, FakeKrx, mem_store, noop
+from fakes import D, KIA_CORP, FakeDart, FakeKrx, _listed, mem_store, noop
 from helpers import div_rows, synthetic
 from vsf.collect import FISIS_FAIL_NOTE, FISIS_KEY_NOTE, NO_FIN, collect, collect_one
 from vsf.data.dart import DartError, DartQuotaExceeded
@@ -378,6 +378,15 @@ def test_preferred_share_is_collected_with_company_financials_and_its_own_divide
 def test_preferred_without_a_listed_common_is_excluded():
     c = collect(FakeDart.exclusion_mix(), FakeKrx.exclusion_mix(), mem_store(), D, progress=noop)
     assert c.excluded["우선주(보통주 없음)"] == [("005935", "삼성전자우")]
+
+
+def test_preferred_of_an_excluded_common_takes_the_common_reason():
+    # 스팩의 우선주는 스팩으로 빠져요. 보통주가 빠지는 회사를 우선주로 다시 분석하지 않아요.
+    krx = FakeKrx.with_listed([_listed("000270", "기아"), _listed("123450", "하나30호스팩"),
+                               _listed("123455", "하나30호스팩우", kind="우선주")])
+    c = collect(FakeDart({"000270": FakeDart.entry()}), krx, mem_store(), D, progress=noop)
+    assert c.excluded["스팩"] == [("123450", "하나30호스팩"), ("123455", "하나30호스팩우")]
+    assert collect_one(FakeDart({}), krx, mem_store(), D, "123455") == "123455은(는) 분석 대상이 아니에요: 스팩"
 
 
 def test_quota_defers_preferred_to_pending():

@@ -99,3 +99,13 @@ def test_non_life_insurer_and_securities_roe_from_fisis_equity():
         got = substitute_inputs(info, 2018, divs, {}, HANA_PRICE, D, FakeFisis({table: equity}), NAMES, None)
         roe = {y.year: y.roe for y in got.inputs.years}
         assert roe[2018] == round(5500.0 / ((49000.0 + 46000.0) / 2) * 100, 2), kind
+
+def test_separate_only_net_income_still_fills_net_income():
+    # (연결) 줄이 '-'이고 (별도) 줄에만 순이익이 있는 증권사예요 (저장된 금융회사 배당 공시 49건이 이 모양).
+    # 순이익이 비면 관문 ①의 '5년 흑자' 확인이 빠져서 적자 회사도 통과해요.
+    broker = CompanyInfo(corp_code="00145190", code="001500", name="증권사", market="KOSPI", induty_code="66121",
+                         acc_mt="12", financial_kind="증권")
+    divs = {2019: _alot(2019, ("-50", "30", "25"), ("-", "-", "-"), ("100", "100", "100"), sep=("-1,200", "800", "700"))}
+    got = substitute_inputs(broker, 2019, divs, {}, HANA_PRICE, D, FakeFisis({}), ("증권사",), None)
+    ni = {y.year: y.net_income for y in got.inputs.years}
+    assert (ni[2017], ni[2018], ni[2019]) == (7.0, 8.0, -12.0)

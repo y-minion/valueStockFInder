@@ -88,6 +88,7 @@ def substitute_inputs(info: CompanyInfo, latest: int, div_reports: dict[int, lis
     """사업연도 latest의 금융회사 계산기 입력을 배당 공시와 FISIS로 채워요.
 
     PER은 연말 종가 ÷ EPS(EPS > 0)이에요. 우선주면 주가·연말 종가·배당이 우선주 것이에요.
+    순이익은 (연결) 줄을 먼저 쓰고, 없으면 (별도) 줄을 써요 (별도 재무제표만 내는 회사).
     """
     kind = preferred_kind(preferred.name) if preferred else "보통"
     dps, flags, notes = dividend_history(div_reports, latest, kind, info.est_dt)
@@ -101,7 +102,8 @@ def substitute_inputs(info: CompanyInfo, latest: int, div_reports: dict[int, lis
         row = closes.get(y)
         per = (excel_round(row.close / eps, 2)
                if row is not None and row.close is not None and eps is not None and eps > 0 else None)
-        income = values.get(y, {}).get("ni")
+        got = values.get(y, {})
+        income = got.get("ni", got.get("ni_sep"))
         years.append(YearRow(year=y, eps=eps, per=per, dps=dps.get(y), roe=roe.get(y),
                              net_income=None if income is None else excel_round(income, 2)))
     prior = range(latest - 9, latest - 4)

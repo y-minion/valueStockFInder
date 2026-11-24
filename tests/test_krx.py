@@ -299,3 +299,11 @@ def test_etf_and_index_services_without_approval_name_the_service(store):
         with pytest.raises(KrxError, match="이용 승인") as e:
             getattr(make(store, t), call)(date(2018, 4, 2))
         assert label in str(e.value) and KEY not in str(e.value)
+
+def test_year_end_and_latest_trading_day_do_not_ask_weekends(store):
+    t = FakeKrx()
+    krx = make(store, t)
+    assert krx.year_end(2023) == date(2023, 12, 29)                          # 12/31 일요일, 12/30 토요일
+    assert krx.latest_trading_day(date(2026, 11, 8)) == date(2026, 11, 6)    # 일요일 → 금요일
+    asked = {r.url.params["basDd"] for r in t.requests}
+    assert all(date(int(d[:4]), int(d[4:6]), int(d[6:])).weekday() < 5 for d in asked)

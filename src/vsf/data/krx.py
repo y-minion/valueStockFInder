@@ -194,14 +194,14 @@ class KrxClient:
     def latest_trading_day(self, today: date, max_back: int = 10) -> date:
         for i in range(max_back + 1):
             d = today - timedelta(days=i)
-            if self.daily(d):
+            if d.weekday() < 5 and self.daily(d):          # 주말엔 장이 안 서서 묻지 않아요
                 return d
         raise KrxError(f"{today.isoformat()} 기준 최근 {max_back}일 안에 거래일 자료가 없어요")
 
     def year_end(self, year: int) -> date:
         for i in range(10):
             d = date(year, 12, 31) - timedelta(days=i)
-            if self.daily(d):
+            if d.weekday() < 5 and self.daily(d):
                 return d
         raise KrxError(f"{year}년 마지막 거래일 자료를 찾지 못했어요")
 

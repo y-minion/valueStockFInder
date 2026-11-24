@@ -244,3 +244,22 @@ def test_annual_values_keeps_december_rows_and_caches():
 def test_annual_values_for_unknown_company_is_empty():
     c, calls = _annual_client([])
     assert c.annual_values("L", ("없는회사",), "SL010", "G", 2017, 2019) == {} and calls == []
+
+def test_backtest_client_only_uses_quarters_published_by_then():
+    # 분기 자본비율은 분기 끝 뒤 45일 안에 분기보고서로 처음 나와요. 백테스트는 60일 전까지 끝난 분기만 봐요.
+    seen = []
+
+    def handler(request):
+        q = request.url.params
+        if request.url.path.endswith("companySearch.json"):
+            return httpx.Response(200, json=_load(f"company_{q['partDiv']}_{q['lang']}"))
+        seen.append(dict(q))
+        return httpx.Response(200, json={"result": {"err_cd": "000", "err_msg": "정상",
+                                                    "list": [_row("201812", "D", "210"), _row("201903", "D", "230")]}})
+    store = mem_store()
+    c = FisisClient(KEY, store, http=httpx.Client(transport=httpx.MockTransport(handler)),
+                    today=lambda: date(2019, 4, 1), ratio_lag_days=60, call_day=lambda: TODAY,
+                    min_interval=0, sleep=lambda s: None)
+    got = c._latest(_life_cd(), "SH021", ("D", "A"))
+    assert got.base_month == "2018-12" and seen[-1]["endBaseMm"] == "201901"
+    assert store.count_calls("fisis", TODAY) == 1 and store.count_calls("fisis", date(2019, 4, 1)) == 0

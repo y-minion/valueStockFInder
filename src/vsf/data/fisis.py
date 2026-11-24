@@ -5,7 +5,7 @@ import math
 import re
 import time
 from collections.abc import Callable
-from datetime import date
+from datetime import date, timedelta
 
 import httpx
 
@@ -84,11 +84,18 @@ class FisisClient:
         min_interval: float = 0.2,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
+        ratio_lag_days: int = 0,
+        call_day: Callable[[], date] | None = None,
     ) -> None:
+        """ratio_lag_days: 자본비율은 '오늘'보다 이만큼 앞서 끝난 분기까지만 봐요 (백테스트: 그때 나와 있던 분기).
+        call_day: 호출 수를 적는 날. 없으면 today예요 (백테스트는 today를 과거 날로 바꿔 써서 따로 줘요).
+        """
         self._key = auth_key
         self._store = store
         self._http = http or httpx.Client(timeout=30)
         self._today = today
+        self._ratio_lag = ratio_lag_days
+        self._call_day = call_day or today
         self._min_interval = min_interval
         self._sleep = sleep
         self._clock = clock
@@ -104,7 +111,7 @@ class FisisClient:
                                   params={"auth": self._key, **params})
         finally:
             self._last = self._clock()
-            self._store.add_call("fisis", self._today())
+            self._store.add_call("fisis", self._call_day())
         if resp.status_code >= 400:
             raise FisisError(f"금감원 FISIS 요청이 거절됐어요 (HTTP {resp.status_code})")
         try:
@@ -143,18 +150,20 @@ class FisisClient:
         return None
 
     def _latest(self, finance_cd: str, list_no: str, accounts: tuple[str, ...]) -> CapitalRatio | None:
-        today = self._today()
-        key = f"fisis:ratio:{finance_cd}:{list_no}:{_ym(today)}"
+        asof = self._today() - timedelta(days=self._ratio_lag)
+        end = _ym(asof)
+        key = f"fisis:ratio:{finance_cd}:{list_no}:{end}"
         cached = self._store.get_json(key)
         if cached is not None:
             return CapitalRatio(**cached) if cached else None       # type: ignore[arg-type]
         result = self._call("statisticsInfoSearch", {
             "lang": "kr", "financeCd": finance_cd, "listNo": list_no, "term": "Q",
-            "startBaseMm": _ym(today, 12), "endBaseMm": _ym(today)})
+            "startBaseMm": _ym(asof, 12), "endBaseMm": end})
         rows = _rows(result)
         found: CapitalRatio | None = None
         good = [(str(r.get("base_month", "")), accounts.index(r["account_cd"]), v, r) for r in rows
-                if r.get("account_cd") in accounts and (v := _positive(r.get("a"))) is not None]
+                if r.get("account_cd") in accounts and str(r.get("base_month", "")) <= end
+                and (v := _positive(r.get("a"))) is not None]
         if good:        # 값이 있는 가장 최근 달을 먼저 고르고, 그 달 안에서 계정 우선순위를 따라요
             month = max(g[0] for g in good)
             _, pref, value, row = min((g for g in good if g[0] == month), key=lambda g: g[1])

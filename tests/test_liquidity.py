@@ -11,7 +11,8 @@ class Krx:
         self.asked = []
 
     def week_ends(self, until, weeks=52):
-        return sorted(d for d in self.days if d < until)[-weeks:]
+        """진짜 KrxClient.week_ends처럼 until이 거래일이면 until도 마지막에 들어 있어요."""
+        return sorted(d for d in self.days if d <= until)[-weeks:]
 
     def daily(self, day, need_value=False):
         self.asked.append((day, need_value))
@@ -24,6 +25,7 @@ def test_average_over_week_ends_and_the_base_day():
     k = Krx(days)
     got = average_value(k, {"A", "B", "Z"}, date(2026, 11, 20), weeks=13)
     assert got == {"A": (200.0, 3), "B": (50.0, 1)}                     # 값이 없는 날은 빼요, 없는 종목은 결과에 없어요
+    assert [d for d, _ in k.asked].count(date(2026, 11, 20)) == 1      # 기준일은 한 번만 세요
     assert all(need for _, need in k.asked)
 
 

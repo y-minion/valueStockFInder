@@ -361,6 +361,6 @@ test('preferred shares carry chips in lists', () => {
 test('preferred card compares with the common share', () => {
   const h = r.renderStock(data, 'P');
   for (const s of ['<h3>우선주</h3>', 'href="stock.html#A"', '가나다산업', '30,000원', '21,000원', '30%', '1,350원', '1,400원',
-    '0.5억 원', '13일', '거래 적음', 'DART는 우선주 배당을 회사당 한 줄']) assert.ok(h.includes(s), s);
+    '0.5억 원', '13일', '거래 적음', '우선주 배당을 한 줄로만 적었으면']) assert.ok(h.includes(s), s);
   assert.ok(!r.renderStock(data, 'A').includes('<h3>우선주</h3>'));
 });

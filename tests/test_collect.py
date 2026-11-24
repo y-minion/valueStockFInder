@@ -399,3 +399,9 @@ def test_preferred_quick_fail_uses_preferred_dividend():
     dart = FakeDart({"000270": FakeDart.entry(dividends=divs), "030000": FakeDart.entry()})
     c = collect(dart, FakeKrx.with_preferred(), mem_store(), D, progress=noop)
     assert c.records["000275"][1].quick_fail and not c.records["000270"][1].quick_fail
+
+
+def test_company_founding_date_is_kept_for_dividend_years():
+    dart = FakeDart({"000270": FakeDart.entry(est_dt="20170302")})
+    info, _ = collect_one(dart, FakeKrx.default(), mem_store(), D, "000270")
+    assert info.est_dt == "20170302"

@@ -114,8 +114,8 @@ class FakeDart:
         self.invalidated.append(corp_code)
 
     @staticmethod
-    def entry(induty_code: str = "30121", acc_mt: str = "12", dividends=None, fin=None) -> dict:
-        return {"company": {"induty_code": induty_code, "acc_mt": acc_mt},
+    def entry(induty_code: str = "30121", acc_mt: str = "12", dividends=None, fin=None, est_dt: str = "") -> dict:
+        return {"company": {"induty_code": induty_code, "acc_mt": acc_mt, "est_dt": est_dt},
                 "dividends": _DEFAULT_DIVS if dividends is None else dividends,
                 "fin": _DEFAULT_FIN if fin is None else fin}
 

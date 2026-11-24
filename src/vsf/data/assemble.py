@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
@@ -28,8 +29,10 @@ DPS_FLAG = "{y}년 DPS가 보고서마다 달라요. 확인해 주세요."
 DPS_TEXT_FLAG = "{y}년 주당 현금배당금 값을 읽지 못했어요('{text}'). 확인해 주세요."
 DPS_ROW_FLAG = "{year}년 사업보고서 배당 표에서 {kind}주 주당 현금배당금을 찾지 못했어요. 확인해 주세요."
 PREF_NOTE = ("우선주예요. 재무(EPS·ROE·현금흐름)는 보통주와 같은 회사 숫자이고, 주가·배당만 우선주 것이에요. "
-             "DART는 우선주 배당을 회사당 한 줄로만 줘서, 우선주 종류가 여럿이면 같은 배당으로 계산했어요.")
+             "배당은 그 우선주 종류의 줄(예: 2우선주)을 쓰고, 회사가 우선주 배당을 한 줄로만 적었으면 모든 우선주가 그 줄을 같이 써요.")
 PREF_MEMO = "우선주: 재무는 보통주({code}) 것, 주가·배당은 우선주. "
+PRE_FOUNDING_NOTE = "{years}년은 회사 설립일({founded}) 전이라 배당 칸을 비웠어요"
+EPS_DIV_NOTE = "{years}년 EPS는 재무제표에서 찾지 못해 '배당에 관한 사항'의 주당순이익을 썼어요"
 CURRENCY_FLAG = "원화가 아닌 재무제표예요(통화: {currency}). 숫자를 확인해 주세요."
 EQUITY_FLAG = "{y}년 자본이 0 이하예요. ROE·부채비율을 확인해 주세요."
 SIGN_FLAG = "{y}년 EPS와 순이익의 부호가 달라요. 숫자를 확인해 주세요."
@@ -64,6 +67,7 @@ class CompanyInfo:
     acc_mt: str
     financial_kind: str | None = None
     common_code: str | None = None       # 우선주면 같은 회사 보통주 코드
+    est_dt: str = ""                     # DART 설립일 (YYYYMMDD). 그 전 해의 배당 '-'는 빈칸으로 둬요
 
 
 @dataclass(frozen=True)
@@ -95,26 +99,83 @@ def _receipt(rcept_no: str | None) -> str:
 
 # ---- 배당 보고서 ----
 
+_PREF_NUMBER = re.compile(r"(\d+)종?(?:우선|종류)")     # '2우선주'·'제3우선주'·'제1종우선주'·'1종종류주식'
+
+
+def _knd(row: dict) -> str:
+    """주식 종류 칸을 비교하기 좋게 공백을 모두 뺀 글자 ('보 통 주' → '보통주')."""
+    return re.sub(r"\s+", "", str(row.get("stock_knd") or ""))
+
+
+def _is_pref_kind(k: str) -> bool:
+    """우선주 종류 이름: 우선주·n우선주·제n종 우선주·종류주·종류주식·1종 종류주식·의결권 없는 주식."""
+    return "우선" in k or "종류주" in k or k.startswith("의결권없는")
+
+
+def _pref_number(k: str) -> int | None:
+    m = _PREF_NUMBER.search(k)
+    return int(m.group(1)) if m else None
+
+
+def preferred_kind(name: str) -> str:
+    """KRX 우선주 이름 → 배당 줄을 고르는 종류. '기아우'·'LX홀딩스1우' → "우선", '현대차2우B' → "2우선"."""
+    m = re.search(r"(\d)우", name or "")
+    number = int(m.group(1)) if m else 1
+    return "우선" if number == 1 else f"{number}우선"
+
+
+def _event_sum(rows: list[dict]) -> dict:
+    """결산배당·중간배당처럼 배당 때마다 나눠 적은 줄을 한 줄로 더해요.
+
+    한 줄이라도 비었거나 읽지 못한 칸은 합계를 모르니, 그 글을 그대로 남겨 빈칸(또는 확인 표시)이 되게 해요.
+    """
+    out = {**rows[0], "stock_knd": "+".join(_knd(r) for r in rows)}
+    for column in _DPS_COLUMNS:
+        texts = [str(r.get(column) or "").strip() for r in rows]
+        values = [_dps_number(t) for t in texts]
+        if all(v is not None for v in values):
+            total = sum(v for v in values if v is not None)
+            out[column] = str(int(total)) if float(total).is_integer() else str(total)
+        else:
+            out[column] = next(t for t, v in zip(texts, values, strict=True) if v is None)
+    return out
+
+
 def _dps_row(rows: list[dict], kind: str = "보통") -> dict | None:
-    """보통주(kind="보통") 또는 우선주(kind="우선") '주당 현금배당금' 줄.
+    """보통주(kind="보통") 또는 우선주(kind="우선"·"2우선"…) '주당 현금배당금' 줄. 종류 이름은 공백을 빼고 봐요.
 
-    우선주는 주식 종류가 '우선'으로 시작하는 첫 줄이에요 (DART는 우선주를 한 줄로만 줘요).
+    우선주: 그 번호의 우선주 줄(2우선주·제3우선주 …). 없으면 번호 없는 우선주 줄(우선주·종류주·종류주식).
+    번호 없는 줄은 우선주 종류가 여럿이어도 회사가 한 줄로만 적은 거라 모든 우선주가 같이 써요.
+    종류 칸이 빈 줄이 정확히 둘이면 두 번째 줄 (서식 순서: 보통주 다음이 우선주).
 
-    - 주식 종류가 '보통'으로 시작하는 줄 (보통주·보통주식).
+    보통주:
+    - 주식 종류가 '보통'·'의결권 있는'으로 시작하는 줄. 최대주주·소액주주로 나눴으면 소액주주 줄.
+    - 줄을 대주주·소액주주로만 나눴으면(차등배당) 소액주주 줄. 계산기에 넣는 건 소액주주가 받는 배당이에요.
+    - 줄을 결산배당·중간배당으로 나눴으면 둘을 더한 한 줄.
     - 종류 칸이 빈 줄('-' 포함)이 정확히 둘이면 첫 줄. 공시 서식이 보통주 줄을 우선주 줄보다 먼저 적어요
       (한국쉘석유·SK텔레콤·오뚜기 등). 셋 이상이면 어느 줄인지 몰라요.
     - 그 밖에는 줄이 하나뿐이고 우선주가 아닐 때만 그 줄.
     """
     per_share = [r for r in rows if "주당현금배당금" in (r.get("se") or "").replace(" ", "")]
-    kinds = [(r.get("stock_knd") or "").strip() for r in per_share]
-    if kind == "우선":
-        return next((r for r, k in zip(per_share, kinds, strict=True) if k.startswith("우선")), None)
-    common = [r for r, kind in zip(per_share, kinds, strict=True) if kind.startswith("보통")]
+    kinds = [_knd(r) for r in per_share]
+    if kind.endswith("우선"):
+        want = int(kind[:-2]) if kind[:-2] else 1
+        prefs = [(r, _pref_number(k)) for r, k in zip(per_share, kinds, strict=True) if _is_pref_kind(k)]
+        exact = [r for r, number in prefs if number == want]
+        generic = [r for r, number in prefs if number is None]
+        if not prefs and len(per_share) == 2 and all(k == "" or k in _DASHES for k in kinds):
+            return per_share[1]      # 종류 칸이 빈 줄 둘: 서식 순서대로 보통주 다음 줄이 우선주 (동원시스템즈 2019)
+        return (exact or generic or [None])[0]
+    common = [r for r, k in zip(per_share, kinds, strict=True) if k.startswith(("보통", "의결권있는"))]
     if common:
-        return common[0]
-    if len(per_share) == 2 and all(kind == "" or kind in _DASHES for kind in kinds):
+        return next((r for r in common if "소액" in _knd(r)), common[0])
+    if per_share and all("주주" in k for k in kinds):
+        return next((r for r in per_share if "소액" in _knd(r)), None)
+    if len(per_share) > 1 and all("배당" in k for k in kinds):
+        return _event_sum(per_share)
+    if len(per_share) == 2 and all(k == "" or k in _DASHES for k in kinds):
         return per_share[0]
-    if len(per_share) == 1 and "우선" not in kinds[0]:
+    if len(per_share) == 1 and not _is_pref_kind(kinds[0]):
         return per_share[0]
     return None
 
@@ -431,16 +492,72 @@ def _eps(main: dict[int, _Period], b: dict[int, _Period], divisor: float, latest
     return eps
 
 
+_EPS_DIV_LABELS = {"CFS": ("(연결)주당순이익", "주당순이익"), "OFS": ("(별도)주당순이익", "주당순이익")}
+
+
+def _div_eps_row(rows: list[dict] | None, fs: str) -> dict | None:
+    for label in _EPS_DIV_LABELS.get(fs, _EPS_DIV_LABELS["CFS"]):
+        for r in rows or []:
+            if (r.get("se") or "").replace(" ", "").startswith(label):
+                return r
+    return None
+
+
+def _eps_from_dividends(eps: dict[int, float | None], div_reports: dict[int, list[dict]], latest: int,
+                        divisor: float, fs: str, reports: tuple[int, ...], out: _Out) -> dict[int, float | None]:
+    """재무제표에서 EPS 줄을 못 읽은 해는 같은 사업보고서 '배당에 관한 사항'의 주당순이익으로 채워요.
+
+    회사가 EPS 줄 이름을 잘못 적으면(대상 2025: 보통주 EPS를 '우선주기본주당순이익'으로) 그 해가 빈칸이 되고,
+    정상 EPS가 남은 해만으로 평균이 나와 조용히 '싸요'가 될 수 있어요.
+    reports: 재무제표를 받은 사업보고서 연도(L·L−2). 보고서 자체가 없는 해는 다른 숫자처럼 빈칸으로 둬요.
+    """
+    filled: list[int] = []
+    for y in sorted(eps):
+        if eps[y] is not None:
+            continue
+        for report_year in reports:
+            row = _div_eps_row(div_reports.get(report_year), fs) if report_year - 2 <= y <= report_year else None
+            value = parse_amount(str((row or {}).get(_DPS_COLUMNS[report_year - y]) or "")) if row else None
+            if value is None:
+                continue
+            source = f"{report_year} 사업보고서 배당에 관한 사항({row.get('se')}{_receipt(row.get('rcept_no'))})"
+            if report_year != latest and divisor != 1.0:
+                value /= divisor
+                source += f" ÷ {divisor:g}(액면분할 조정)"
+            eps[y] = value
+            out.sources[_cell(y, latest, 27)] = source
+            filled.append(y)
+            break
+    if filled:
+        out.note(EPS_DIV_NOTE.format(years="·".join(map(str, filled))))
+    return eps
+
+
 def _dps_cell(y: int, latest: int) -> str:
     """y년 DPS 칸: 29행(최근 5년) 또는 42행(그 이전 5년)."""
     return _cell(y, latest, 29) if y > latest - 5 else f"{_COLS[y - latest + 9]}42"
 
 
+def _founded_year(est_dt: str) -> int | None:
+    return int(est_dt[:4]) if re.fullmatch(r"\d{8}", est_dt or "") else None
+
+
 def _dps(div_reports: dict[int, list[dict]], latest: int, years: range, out: _Out,
-         kind: str = "보통") -> dict[int, float | None]:
-    """years의 DPS. 출처는 29행(최근 5년)과 42행(그 이전 5년)에 남겨요."""
+         kind: str = "보통", est_dt: str = "") -> dict[int, float | None]:
+    """years의 DPS. 출처는 29행(최근 5년)과 42행(그 이전 5년)에 남겨요.
+
+    회사가 생기기 전 해(설립 연도보다 앞선 해)의 '-'는 배당을 거른 게 아니라 회사가 없던 거라 빈칸으로 둬요.
+    인적분할·지주 전환으로 생긴 회사(크라운제과·우리금융지주 등)가 관문 ②에서 그 해 때문에 떨어지지 않게요.
+    """
     values, origin, flags, scaled = _merge_dps(div_reports, kind)
     out.flag(*flags)
+    founded = _founded_year(est_dt)
+    blanked = [y for y in years if founded is not None and y < founded and values.get(y) == 0.0]
+    for y in blanked:
+        values[y] = None
+    if blanked:
+        out.note(PRE_FOUNDING_NOTE.format(years="·".join(map(str, blanked)),
+                                          founded=f"{est_dt[:4]}-{est_dt[4:6]}-{est_dt[6:8]}"))
     for y in years:
         if values.get(y) is not None:
             out.sources[_dps_cell(y, latest)] = origin[y]
@@ -675,9 +792,12 @@ def assemble(company: CompanyInfo, latest_year: int, fin_a: FinRows | None, fin_
     _currency([fin for fin, used in ((fin_a, a), (fin_b, b)) if used], out)
     divisor, after = _split_divisor(a, b, year_end, price, L, out, _faces(div_reports))
     eps = _eps(main, b, divisor, L, out)
-    kind = "우선" if preferred else "보통"
+    if a:
+        got = tuple(y for y, used in ((L, a), (L - 2, b)) if used)
+        eps = _eps_from_dividends(eps, div_reports, L, divisor, fin_a.fs if fin_a else "CFS", got, out)
+    kind = preferred_kind(preferred.name) if preferred else "보통"
     shown = preferred.price if preferred else price          # 계산기에 넣는 현재가
-    dps = _dps(div_reports, L, range(L - 9, L + 1), out, kind)
+    dps = _dps(div_reports, L, range(L - 9, L + 1), out, kind, company.est_dt)
     per = _per(eps, year_end, L, out, preferred.year_end if preferred else None)   # PER은 주식 수 기준과 무관해요
     if after != 1.0:                         # L년 말 뒤 분할: 주당 값을 현재가·현재 주식 수 기준으로 맞춰요
         eps = _rebase(eps, after, L, lambda y: _cell(y, L, 27), out)
@@ -718,7 +838,7 @@ def assemble_quick_fail(company: CompanyInfo, latest_year: int, div_reports: dic
     """관문 ② 탈락이 확실한 종목: 이름·코드·주가·날짜·연도와 D–F열 DPS만 채워요. 우선주면 kind="우선"."""
     L = latest_year
     out = _Out()
-    dps = _dps(div_reports, L, range(L - 2, L + 1), out, kind)
+    dps = _dps(div_reports, L, range(L - 2, L + 1), out, kind, company.est_dt)
     years = tuple(YearRow(year=y, dps=dps.get(y)) for y in range(L - 4, L + 1))
     _basic_sources(company, price, price_date, L, out)
     out.note(QUICK_FAIL_NOTE)

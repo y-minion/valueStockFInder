@@ -339,7 +339,7 @@ function scoreBox(s) {
     rowsTable(["항목", "이 회사 (출처)", "구간", "점수 / 배점"], rows, { align: "lllr", widths: ["22%", "36%", "28%", "14%"], cls: "fixed" });
 }
 var PREF_LIMIT = "재무(EPS·ROE·현금흐름)는 보통주와 같은 회사 숫자이고, 주가·배당만 우선주 것이에요. " +
-  "DART는 우선주 배당을 회사당 한 줄로만 줘서, 우선주 종류가 여럿이면 같은 배당으로 계산했어요.";
+  "배당은 그 우선주 종류의 줄(예: 2우선주)을 쓰고, 회사가 우선주 배당을 한 줄로만 적었으면 모든 우선주가 그 줄을 같이 써요.";
 function prefBox(s, data) {
   if (s.share_class !== "우선") return "";
   var common = (data.stocks || {})[s.common_code], ys = (s.inputs && s.inputs.years) || [];

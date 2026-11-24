@@ -7,7 +7,7 @@ from dataclasses import dataclass, field, replace
 from datetime import date
 
 from vsf.data.assemble import (Assembled, CompanyInfo, PreferredShare, assemble, assemble_quick_fail,
-                               quick_fail_check)
+                               preferred_kind, quick_fail_check)
 from vsf.data.dart import DartError, DartQuotaExceeded
 from vsf.data.fisis import TABLES, FisisAuthError, FisisError
 from vsf.data.http import NetworkError
@@ -123,8 +123,9 @@ def _process(ctx: _Context, item: Listed, common: str | None = None) -> tuple[Co
         raise _Excluded(reason)
     info = CompanyInfo(corp_code=corp, code=code, name=item.name, market=item.market,
                        induty_code=str(raw.get("induty_code") or ""), acc_mt=str(raw.get("acc_mt") or ""),
-                       financial_kind=financial_kind(raw) if ctx.include_financial else None, common_code=common)
-    kind = "우선" if common else "보통"
+                       financial_kind=financial_kind(raw) if ctx.include_financial else None, common_code=common,
+                       est_dt=str(raw.get("est_dt") or ""))
+    kind = preferred_kind(item.name) if common else "보통"
 
     latest = today.year - 1
     div_reports: dict[int, list[dict]] = {}

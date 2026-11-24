@@ -12,6 +12,7 @@ import sys
 import traceback
 from collections import Counter
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import date, datetime
 
 from vsf.backtest.benchmark import benchmark
@@ -88,11 +89,13 @@ def _reason(text: str) -> str:
 def _rows(settings: Settings, market: Market, vintages, days: list[date], month_starts: set[date],
           benchmarks: tuple[tuple[str, str], ...]) -> list[Row]:
     bt = settings.backtest
-    rules = Rules(bt.monthly, bt.max_holdings, bt.cost_rate, bt.min_trade)
+    rules = Rules(bt.monthly, bt.max_holdings, bt.cost_rate, bt.min_trade, bt.max_weight, bt.min_trading_value)
     listed = lambda d: {x.code for x in market.listing(d)}     # noqa: E731
     cma = _cma_growth(market, bt.cma)
-    rows = [summarize_row(name, "규칙", simulate(days, market.stocks, vintages, name, rules, cma, listed, month_starts))
-            for name, _ in bt.variants]
+    rows = [summarize_row(v.name, "규칙", simulate(days, market.stocks, vintages, v.name,
+                                                  replace(rules, sell_on_gate_fail=v.sell_on_gate_fail), cma, listed,
+                                                  month_starts))
+            for v in bt.variants]
     rows += [summarize_row(label, "비교", benchmark(days, _closer(market, target), rules, month_starts))
              for label, target in benchmarks]
     return rows
@@ -126,6 +129,7 @@ def _run(settings: Settings, keys: Keys, store: Store, deps: Deps, no_open: bool
                    if second_days else [])
     meta = {"start": bt.start, "end": bt.end, "second_start": bt.second_start,
             "monthly": bt.monthly, "max_holdings": bt.max_holdings, "cost_rate": bt.cost_rate,
+            "max_weight": bt.max_weight, "min_trading_value": bt.min_trading_value,
             "vintages": sum(len(v) for v in vintages.values()),
             "substitutes": sum(1 for vs in vintages.values() for v in vs if v.substitute),
             "blocked": sum(1 for vs in vintages.values() for v in vs if v.blocked),

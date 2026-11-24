@@ -30,7 +30,7 @@ class Vintage:
     common_code: str | None
     year: int                 # 사업연도 L
     filed: date               # 원본 공시일
-    valid_from: date          # 공시일 이후 첫 거래일
+    valid_from: date          # 공시일 다음 첫 거래일 (공시일 당일은 빼요)
     shares: float | None      # valid_from 날 상장주식수
     dps: float | None         # L년 DPS (우선주면 우선주 DPS), valid_from 주식 수 기준
     substitute: bool          # 금융회사 대체 자료로 만듦

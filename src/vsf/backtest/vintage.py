@@ -2,12 +2,13 @@
 
 계산은 주간 실행과 같은 조립(assemble_for_year)과 판정(evaluate_one)을 써요. 사업연도 L의 묶음은
 그 사업보고서가 처음 공시된 날 다음 첫 거래일의 주가로 조립하고, 그날부터 다음 해 묶음 전까지 써요.
+공시일 당일은 빼요. 장 마감 뒤에 올라온 보고서는 그날 종가로 사고팔 수 없었어요.
 """
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 
 from vsf.backtest.model import Verdict, Vintage
 from vsf.backtest.past_financial import substitute_inputs
@@ -119,7 +120,7 @@ def build_vintages(universe: dict[str, Listed], filings: dict[tuple[str, int], d
             filed = filings.get((corp, year))
             if filed is None:
                 continue
-            valid_from = market.first_trading_day_on_or_after(filed)
+            valid_from = market.first_trading_day_on_or_after(filed + timedelta(days=1))
             if valid_from is None or valid_from > market.end:
                 continue
             work.append((valid_from, code, year, item, common, corp, payer, filed))

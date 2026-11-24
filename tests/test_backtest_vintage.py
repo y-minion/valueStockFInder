@@ -42,6 +42,14 @@ def test_vintage_starts_on_first_trading_day_after_filing():
     assert set(v.verdicts) == {"지금 규칙", "배당성향 하한 없음"}
 
 
+def test_report_filed_on_a_trading_day_starts_the_next_trading_day():
+    # 사업보고서는 장 마감 뒤에도 올라와요. 공시일 종가로는 아직 볼 수 없었으니 다음 거래일부터 써요.
+    filed = date(2026, 3, 30)                                   # 월요일 (거래일)
+    vintages, _ = _build(FakeDart.two_companies(), filings={(corp_of("000270"), 2025): filed})
+    v = vintages["000270"][0]
+    assert (v.filed, v.valid_from) == (filed, date(2026, 3, 31))
+
+
 def test_vintage_after_period_end_is_not_built():
     vintages, _ = _build(FakeDart.two_companies(), filings={(corp_of("000270"), 2025): date(2026, 5, 4)})
     assert vintages == {}

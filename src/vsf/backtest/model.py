@@ -35,3 +35,4 @@ class Vintage:
     dps: float | None         # L년 DPS (우선주면 우선주 DPS), valid_from 주식 수 기준
     substitute: bool          # 금융회사 대체 자료로 만듦
     verdicts: dict[str, Verdict]
+    blocked: bool = False     # 연말 뒤 주식 수가 크게 바뀌어 주당 숫자를 믿기 어려움: 이 묶음으로는 사지 않아요

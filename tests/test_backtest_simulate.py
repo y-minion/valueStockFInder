@@ -1,4 +1,5 @@
 """백테스트 시뮬레이션 (2026-11-24 백테스트 설계 3장). 묶음·시세를 직접 만들어요 (DART·KRX 없음)."""
+from dataclasses import replace
 from datetime import date, timedelta
 
 import pytest
@@ -243,3 +244,10 @@ def test_big_drop_is_flagged():
         table[d] = {"A": 25.0}
     a = trade(run(ds, table, {"A": [vin("A", 100.0)]}), "A")
     assert a.flags.count("하루에 40% 넘게 떨어졌어요(분할·합병 확인 필요)") == 1
+
+def test_blocked_bundle_is_not_bought():
+    # 주당 숫자를 믿기 어려운 묶음(연말 뒤 주식 수가 크게 바뀜)으로는 사지 않아요.
+    ds = weekdays(date(2020, 1, 6), 3)
+    v = replace(vin("000270", 10_000.0), blocked=True)
+    r = run(ds, flat(ds, {"000270": 5_000.0}), {"000270": [v]})
+    assert r.trades == [] and r.cash[-1] == RULES.monthly

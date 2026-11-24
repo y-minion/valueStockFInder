@@ -27,8 +27,8 @@ def _krx(items=(KIA, CHEIL)) -> FakeKrx:
     return FakeKrx(list(items), days)
 
 
-def _build(dart, items=(KIA, CHEIL), filings=None, end=date(2026, 4, 30)):
-    market = Market(_krx(items), mem_store(), date(2026, 3, 2), end, today=date(2026, 11, 24))
+def _build(dart, items=(KIA, CHEIL), filings=None, end=date(2026, 4, 30), krx=None):
+    market = Market(krx or _krx(items), mem_store(), date(2026, 3, 2), end, today=date(2026, 11, 24))
     filings = filings if filings is not None else {(corp_of(x.code), 2025): FILED for x in items}
     return build_vintages({x.code: x for x in items}, filings, YEARS, market, dart, settings_with(),
                           lambda day: None, progress=lambda s: None)
@@ -173,3 +173,44 @@ def test_preferred_of_an_excluded_common_is_skipped():
     vintages, failures = _build(FakeDart.two_companies(), items=(reit, pref),
                                 filings={(corp_of("000270"), 2025): FILED})
     assert vintages == {} and failures == []
+
+def _shares_doubled(close_after: float) -> FakeKrx:
+    """2025년 말 종가 60,000원 → 2026-03-23부터 주식 수 두 배, 종가 close_after."""
+    krx = _krx((KIA,))
+    end = _BASE[5][2025].date
+    krx._days[end]["000270"] = replace(krx._days[end]["000270"], close=60_000.0)
+    for d, rows in krx._days.items():
+        if d >= date(2026, 3, 23):
+            rows["000270"] = replace(rows["000270"], shares=rows["000270"].shares * 2, close=close_after)
+    return krx
+
+
+def test_share_jump_after_year_end_blocks_buying_unless_the_price_confirms_a_split():
+    # 연말 뒤 주식 수가 두 배인데 주가가 그대로면 유상증자·합병 같은 일이에요. 주당 숫자가 지금 주식 수와 안 맞아서
+    # 이 묶음으로는 사지 않아요. 주가도 반이 됐으면 분할이라 조립이 이미 맞췄어요.
+    unconfirmed = _build(FakeDart.two_companies(), items=(KIA,), krx=_shares_doubled(60_000.0))[0]["000270"][0]
+    split = _build(FakeDart.two_companies(), items=(KIA,), krx=_shares_doubled(30_000.0))[0]["000270"][0]
+    plain = _build(FakeDart.two_companies(), items=(KIA,))[0]["000270"][0]
+    assert unconfirmed.blocked and not split.blocked and not plain.blocked
+
+
+def test_substitute_bundle_with_a_share_jump_is_blocked_even_for_a_split():
+    # 금융회사 대체 자료는 분할 조정을 하지 않아요. 주식 수가 크게 바뀐 해가 있으면 그 묶음으로는 사지 않아요.
+    bank = FakeDart({"000270": FakeDart.entry(induty_code="64121", fin={},
+                                              dividends={y: _alot_rows(y) for y in (2025, 2023, 2021, 2019, 2017)})})
+    market = Market(_shares_doubled(30_000.0), mem_store(), date(2026, 3, 2), date(2026, 4, 30), today=date(2026, 11, 24))
+    vintages, failures = build_vintages({"000270": KIA}, {(corp_of("000270"), 2025): FILED}, YEARS, market, bank,
+                                        settings_with(), lambda day: _RoeFisis({2024: 9.0, 2025: 9.5}),
+                                        progress=lambda s: None)
+    v = vintages["000270"][0]
+    assert failures == [] and v.substitute and v.blocked
+
+
+def test_variant_overrides_win_over_industry_overrides():
+    # 업종 기준값이 배당성향 하한을 0.5로 올려도, '배당성향 하한 없음' 변형은 그 업종에서도 하한 없이 봐요.
+    market = Market(_krx((KIA,)), mem_store(), date(2026, 3, 2), date(2026, 4, 30), today=date(2026, 11, 24))
+    vintages, _ = build_vintages({"000270": KIA}, {(corp_of("000270"), 2025): FILED}, YEARS, market,
+                                 FakeDart.two_companies(), settings_with(overrides={"30": {"payout_min": 0.5}}),
+                                 lambda day: None, progress=lambda s: None)
+    v = vintages["000270"][0].verdicts
+    assert v["지금 규칙"].gate2 == "탈락" and v["배당성향 하한 없음"].gate2 != "탈락"

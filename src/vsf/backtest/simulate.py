@@ -253,7 +253,7 @@ class _Sim:
             if row is None or row.close is None:
                 continue
             found = self._verdict(code, day)
-            if found is None or not found[1].cheap_ok():
+            if found is None or not found[1].cheap_ok() or found[0].blocked:
                 continue
             v, verdict = found
             fair, buy = self._levels(code, v, verdict)

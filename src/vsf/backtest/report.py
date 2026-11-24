@@ -256,6 +256,7 @@ def write_backtest_report(main: list[Row], second: list[Row], meta: dict, out_di
     fail_text = " · ".join(f"{_e(k)} {v:,}개" for k, v in sorted(failures.items(), key=lambda kv: -kv[1])) or "없음"
     parts += ["<h2>자료 안내</h2><ul>",
               f"<li>판정 묶음 {meta.get('vintages', 0):,}개 (그중 금융회사 대체 자료 {meta.get('substitutes', 0):,}개)</li>",
+              f"<li>연말 뒤 주식 수가 크게 바뀌어 주당 숫자를 믿기 어려워 사는 데 쓰지 않은 묶음 {meta.get('blocked', 0):,}개</li>",
               f"<li>못 만든 묶음: {fail_text}</li>"]
     notes = (*NOTES, COST_NOTE.format(cost=_percent(cost)))
     parts += [f"<li>{_e(n)}</li>" for n in notes] + ["</ul>"]

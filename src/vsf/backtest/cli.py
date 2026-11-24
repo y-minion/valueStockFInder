@@ -20,12 +20,13 @@ from vsf.backtest.market import Market, MarketPaused
 from vsf.backtest.report import Row, annual, money, summarize_row, write_backtest_report
 from vsf.backtest.simulate import Rules, simulate
 from vsf.backtest.vintage import build_vintages
-from vsf.cli import Deps, _run_log
+from vsf.cli import Deps, _run_log, redact
 from vsf.config import ConfigError, Keys, Settings, load_keys, load_settings
 from vsf.data.dart import DartQuotaExceeded
 from vsf.data.fisis import FisisClient
 from vsf.data.store import Store
 
+RATIO_LAG_DAYS = 60     # 분기 자본비율은 분기 끝 뒤 45일 안에 분기보고서로 처음 나와요. 60일 전까지 끝난 분기만 써요
 CMA_LOOKBACK = 10      # CMA 대용 ETF 시세가 빈 날, 그 전 종가를 이만큼(거래일) 거슬러 찾아요
 PAUSE = ("오늘 자료 받기 한도에 닿아 여기서 멈췄어요. 받은 자료는 저장했으니, 내일 `uv run backtest.py`를 다시 "
          "실행하면 이어서 받아요.")
@@ -36,7 +37,8 @@ def _fisis_for(keys: Keys, store: Store) -> Callable[[date], object | None]:
     if not keys.fisis:
         return lambda day: None
     holder: dict[str, date] = {}
-    client = FisisClient(keys.fisis, store, today=lambda: holder.get("day") or date.today())
+    client = FisisClient(keys.fisis, store, today=lambda: holder.get("day") or date.today(),
+                         ratio_lag_days=RATIO_LAG_DAYS, call_day=date.today)
 
     def at(day: date):
         holder["day"] = day
@@ -126,6 +128,7 @@ def _run(settings: Settings, keys: Keys, store: Store, deps: Deps, no_open: bool
             "monthly": bt.monthly, "max_holdings": bt.max_holdings, "cost_rate": bt.cost_rate,
             "vintages": sum(len(v) for v in vintages.values()),
             "substitutes": sum(1 for vs in vintages.values() for v in vs if v.substitute),
+            "blocked": sum(1 for vs in vintages.values() for v in vs if v.blocked),
             "failures": dict(Counter(_reason(r) for _, _, r in failures))}
     path = write_backtest_report(main_rows, second_rows, meta, settings.reports_dir, today)
     for r in main_rows:
@@ -158,10 +161,7 @@ def main(argv: list[str] | None = None, deps: Deps | None = None) -> int:
     except Exception as e:  # noqa: BLE001 - 마지막 안전망: 트레이스백은 로그에만, 키는 지워요
         log = settings.data_dir / "logs" / f"backtest-error-{now:%Y%m%d-%H%M%S}.log"
         log.parent.mkdir(parents=True, exist_ok=True)
-        text, message = traceback.format_exc(), str(e)
-        for secret in (keys.dart, keys.krx, keys.naver_id, keys.naver_secret, keys.fisis):
-            if secret:
-                text, message = text.replace(secret, "REMOVED"), message.replace(secret, "REMOVED")
+        text, message = redact(traceback.format_exc(), keys), redact(str(e), keys)
         log.write_text(text, encoding="utf-8")
         print(f"예상하지 못한 오류가 났어요: {message}. 받은 자료는 저장돼 있어요. 자세한 내용은 {log}에 남겼어요.",
               file=sys.stderr)

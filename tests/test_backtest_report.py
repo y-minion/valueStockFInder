@@ -62,3 +62,7 @@ def test_trades_table_shows_basis_reason_flags_and_escapes_names(tmp_path):
               "+34.3%", "2020-11-02"):
         assert s in html, s
     assert "<b>이상한</b>" not in html
+
+def test_blocked_bundles_are_counted_on_the_page(tmp_path):
+    path = write_backtest_report([_row("지금 규칙", "규칙")], [], {**META, "blocked": 7}, tmp_path, date(2026, 11, 24))
+    assert "사는 데 쓰지 않은 묶음 7개" in path.read_text(encoding="utf-8")

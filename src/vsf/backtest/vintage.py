@@ -13,11 +13,12 @@ from datetime import date, timedelta
 from vsf.backtest.model import Verdict, Vintage
 from vsf.backtest.past_financial import substitute_inputs
 from vsf.collect import (FIRST_DIV_YEAR, NO_CORP, NO_FIN, PREFERRED, _capital, _Excluded, _Failed, _prepare,
-                         _year_ends, assemble_for_year, context_for, preferred_base)
+                         _year_ends, assemble_for_year, context_for, preferred_base, prior_div_years)
 from vsf.config import Settings
 from vsf.data.assemble import Assembled, CompanyInfo, PreferredShare, dividend_history, preferred_kind
 from vsf.data.dart import DartQuotaExceeded
 from vsf.data.krx import Listed
+from vsf.data.splits import close_factor, confirmed_split
 from vsf.data.universe import is_financial_holding, is_holding_like, listing_exclusion
 from vsf.evaluate import evaluate_one
 from vsf.excelfn import is_num
@@ -29,12 +30,34 @@ PROGRESS_EVERY = 200
 
 def _verdict(info: CompanyInfo, asm: Assembled, settings: Settings,
              overrides: tuple[tuple[str, float], ...]) -> Verdict:
-    s = replace(settings, criteria=replace(settings.criteria, **dict(overrides)))
+    """변형 기준값은 업종 기준값([industry.overrides])보다 나중에 덮어써요. 변형 이름대로 모든 업종에 같이 써요."""
+    values = dict(overrides)
+    industry = {code: {**rule, **values} for code, rule in settings.industry.overrides.items()}
+    s = replace(settings, criteria=replace(settings.criteria, **values),
+                industry=replace(settings.industry, overrides=industry))
     res = evaluate_one(info, asm, s, None)
     b105, b107 = res.cells.get("B105"), res.cells.get("B107")
     return Verdict(gate1=res.summary.gate1, gate2=res.summary.gate2,
                    fair=float(b105) if is_num(b105) else None, buy_line=float(b107) if is_num(b107) else None,
                    method=res.summary.method, uncomputable=b105 == "계산 불가")
+
+
+def _share_jump(ctx, base: str, year: int, substitute: bool) -> bool:
+    """묶음 날 주식 수가 연말과 크게 달라 주당 숫자(EPS·DPS·적정가)가 지금 주식 수와 안 맞을 수 있는지.
+
+    보통 조립은 주가로 확인한 분할만 맞춰요. 주가로 확인되지 않은 변화(유상증자·합병 등)면 막아요.
+    금융회사 대체 자료는 분할 조정을 하지 않아서, 다섯 해 중 한 해 말이라도 크게 다르면 막아요.
+    """
+    now = ctx.prices.get(base)
+    if now is None:
+        return False
+    for y in (range(year - 4, year + 1) if substitute else (year,)):
+        end = ctx.year_ends.get(y, {}).get(base)
+        if end is None or close_factor(end.shares, now.shares) == 1.0:
+            continue
+        if substitute or confirmed_split(end.shares, now.shares, end.close, now.close) is None:
+            return True
+    return False
 
 
 def _payer(dart, corp: str, years: range, kind: str, est_dt: str) -> bool:
@@ -61,7 +84,7 @@ def _substitute(ctx, dart, item: Listed, common: str | None, year: int,
     if kind is None:
         raise _Failed(NO_FIN.format(year=year))
     info = replace(prep.info, financial_kind=kind)
-    div_reports = {y: rows for y in range(year, year - 9, -2)
+    div_reports = {y: rows for y in (year, *prior_div_years(year))
                    if y >= FIRST_DIV_YEAR and (rows := dart.dividends(prep.corp, y)) is not None}
     year_end = {y: rows[prep.base] for y, rows in ctx.year_ends.items() if prep.base in rows}
     pref = None if common is None else PreferredShare(
@@ -157,7 +180,8 @@ def build_vintages(universe: dict[str, Listed], filings: dict[tuple[str, int], d
         vintages.setdefault(code, []).append(Vintage(
             code=code, corp_code=corp, name=item.name, common_code=common, year=year, filed=filed,
             valid_from=valid_from, shares=row.shares if row is not None else None,
-            dps=asm.inputs.years[-1].dps, substitute=substitute, verdicts=verdicts))
+            dps=asm.inputs.years[-1].dps, substitute=substitute, verdicts=verdicts,
+            blocked=_share_jump(ctx, common or code, year, substitute)))
         if i % PROGRESS_EVERY == 0 or i == len(work):
             progress(f"판정 묶음 {i}/{len(work)}")
     return vintages, failures

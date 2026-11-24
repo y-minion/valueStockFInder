@@ -92,7 +92,10 @@ def _alot_rows(year: int) -> list[dict]:
 def test_financial_without_statements_uses_substitute():
     bank = FakeDart({"000270": FakeDart.entry(induty_code="64121", fin={},
                                               dividends={y: _alot_rows(y) for y in (2025, 2023, 2021, 2019, 2017)})})
-    vintages, failures = _build(bank, items=(KIA,))
+    market = Market(_krx((KIA,)), mem_store(), date(2026, 3, 2), date(2026, 4, 30), today=date(2026, 11, 24))
+    vintages, failures = build_vintages({"000270": KIA}, {(corp_of("000270"), 2025): FILED}, YEARS, market, bank,
+                                        settings_with(), lambda day: _RoeFisis({2024: 9.0, 2025: 9.5}),
+                                        progress=lambda s: None)
     v = vintages["000270"][0]
     assert v.substitute and failures == []
     assert v.verdicts["지금 규칙"].fair is not None and v.dps == 3000.0
@@ -126,5 +129,31 @@ def test_financial_holding_is_recognised_from_statements_filed_after_the_period(
                                                  dividends={y: _alot_rows(y) for y in (2025, 2023, 2021, 2019, 2017)})})
     market = Market(_krx((KIA,)), mem_store(), date(2026, 3, 2), date(2026, 4, 30), today=date(2027, 6, 1))
     vintages, failures = build_vintages({"000270": KIA}, {(corp_of("000270"), 2025): FILED}, YEARS, market, holding,
-                                        settings_with(), lambda day: None, progress=lambda s: None)
+                                        settings_with(), lambda day: _RoeFisis({2025: 9.0}), progress=lambda s: None)
     assert failures == [] and vintages["000270"][0].substitute
+
+
+class _RoeFisis:
+    """은행 ROE만 주는 가짜 FISIS (자본비율은 없음)."""
+    def __init__(self, roe: dict[int, float]):
+        self.roe = roe
+
+    def annual_values(self, part_div, names, list_no, account, y0, y1):
+        return {y: v for y, v in self.roe.items() if y0 <= y <= y1}
+
+    def capital_ratio(self, kind, names):
+        return None
+
+
+def test_substitute_without_any_roe_is_not_built():
+    # 과거 ROE를 하나도 못 구한 금융회사는 관문 ①을 '확인 필요'로 공짜 통과하지 않게 묶음을 만들지 않아요.
+    bank = FakeDart({"000270": FakeDart.entry(induty_code="64121", fin={},
+                                              dividends={y: _alot_rows(y) for y in (2025, 2023, 2021, 2019, 2017)})})
+    market = Market(_krx((KIA,)), mem_store(), date(2026, 3, 2), date(2026, 4, 30), today=date(2026, 11, 24))
+    vintages, failures = build_vintages({"000270": KIA}, {(corp_of("000270"), 2025): FILED}, YEARS, market, bank,
+                                        settings_with(), lambda day: None, progress=lambda s: None)
+    assert vintages == {} and failures == [("000270", 2025, "과거 ROE 자료가 없는 금융회사예요 (대체 자료)")]
+    with_roe, failures = build_vintages({"000270": KIA}, {(corp_of("000270"), 2025): FILED}, YEARS, market, bank,
+                                        settings_with(), lambda day: _RoeFisis({2023: 9.0, 2024: 9.5, 2025: 10.0}),
+                                        progress=lambda s: None)
+    assert failures == [] and with_roe["000270"][0].substitute

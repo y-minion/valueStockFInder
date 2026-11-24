@@ -22,6 +22,7 @@ from vsf.evaluate import evaluate_one
 from vsf.excelfn import is_num
 
 NON_DECEMBER = "결산월이 12월이 아니에요"
+NO_PAST_ROE = "과거 ROE 자료가 없는 금융회사예요 (대체 자료)"
 PROGRESS_EVERY = 200
 
 
@@ -68,6 +69,9 @@ def _substitute(ctx, dart, item: Listed, common: str | None, year: int,
     names = (str(prep.raw.get("corp_name") or ""), str(prep.raw.get("corp_name_eng") or ""), item.name)
     asm = substitute_inputs(info, year, div_reports, year_end, prep.base_price, ctx.price_date, ctx.fisis, names,
                             capital, preferred=pref)
+    if all(y.roe is None for y in asm.inputs.years):
+        # ROE 칸이 다 비면 관문 ①이 '확인 필요'로 공짜 통과해요. 자료가 없어서 생긴 통과라 묶음을 만들지 않아요.
+        raise _Failed(NO_PAST_ROE)
     return info, replace(asm, notes=asm.notes + notes) if notes else asm
 
 

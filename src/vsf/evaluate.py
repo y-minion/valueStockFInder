@@ -76,9 +76,10 @@ def evaluate_one(company: CompanyInfo, assembled: Assembled, settings: Settings,
 
 
 def evaluate(collected: Collected, settings: Settings) -> RunResult:
+    # 업종 묶음은 보통주만으로 만들어요. 우선주는 같은 회사 보통주의 업종 정보를 그대로 써요 (두 번 세지 않게).
     stocks = {code: (company.induty_code, *industry_inputs(assembled.inputs))
-              for code, (company, assembled) in collected.records.items()}
+              for code, (company, assembled) in collected.records.items() if company.common_code is None}
     table = build_industry(stocks, settings.industry.min_group_size)
-    results = {code: evaluate_one(company, assembled, settings, table.get(code))
+    results = {code: evaluate_one(company, assembled, settings, table.get(company.common_code or code))
                for code, (company, assembled) in collected.records.items()}
     return RunResult(collected=collected, settings_fp=settings_fingerprint(settings), results=results)

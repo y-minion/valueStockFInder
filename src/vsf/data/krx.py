@@ -16,7 +16,8 @@ BASE = "https://data-dbg.krx.co.kr/svc/apis/sto/"
 
 # 응답 필드 이름. 제3자 자료에서 가져온 값이라, tools/record_fixtures.py krx로
 # 실제 응답을 녹화해 확인하기 전까지는 검증되지 않았어요.
-DAILY_FIELDS = {"code": "ISU_CD", "name": "ISU_NM", "close": "TDD_CLSPRC", "shares": "LIST_SHRS"}
+DAILY_FIELDS = {"code": "ISU_CD", "name": "ISU_NM", "close": "TDD_CLSPRC", "shares": "LIST_SHRS",
+                "value": "ACC_TRDVAL"}
 BASE_FIELDS = {"code": "ISU_SRT_CD", "name": "ISU_ABBRV", "group": "SECUGRP_NM",
                "kind": "KIND_STKCERT_TP_NM", "shares": "LIST_SHRS"}
 
@@ -129,15 +130,16 @@ class KrxClient:
             self._store.put_json(key, [x.__dict__ for x in out])
         return out
 
-    def daily(self, day: date) -> dict[str, PriceRow]:
+    def daily(self, day: date, need_value: bool = False) -> dict[str, PriceRow]:
         """그날 두 시장 시세. 지난 날은 두 시장 모두 자료가 있을 때만 저장해요.
 
         한 시장만 받은 날을 저장하면, 다음부터 다른 시장 종목이 그날 시세 없이 조용히 빠져요.
+        need_value: 거래대금이 필요해요. 거래대금 칸이 생기기 전에 저장한 날이면 한 번 다시 받아 저장해요.
         """
         cacheable = day < self._today()
         if cacheable:
             stored = self._store.get_prices(day)
-            if stored:
+            if stored and not (need_value and all(r.value is None for r in stored.values())):
                 return stored
         f = DAILY_FIELDS
         out: dict[str, PriceRow] = {}
@@ -150,7 +152,7 @@ class KrxClient:
                 if code in out:
                     raise KrxError(f"종목코드 {code}가 코스피와 코스닥 응답에 모두 있어요")
                 out[code] = PriceRow(day, code, str(r.get(f["name"]) or "").strip(), market,
-                                     _close(r.get(f["close"])), _num(r.get(f["shares"])))
+                                     _close(r.get(f["close"])), _num(r.get(f["shares"])), _num(r.get(f["value"])))
                 markets_with_rows.add(market)
         if cacheable and len(markets_with_rows) == len(MARKETS):
             self._store.put_prices(out.values())

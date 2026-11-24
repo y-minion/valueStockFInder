@@ -27,6 +27,7 @@ from vsf.engine import compute, summarize, watch_state
 from vsf.evaluate import evaluate, evaluate_one, evaluation_flags
 from vsf.export_xlsx import export_xlsx
 from vsf.extras import gather_extras
+from vsf.liquidity import average_value
 from vsf.financial import financial_memo
 from vsf.report.payload import build_payload, write_report
 from vsf.score import eligible, score_stock
@@ -129,6 +130,18 @@ def _scores(run, dart, krx, settings: Settings) -> tuple[dict[str, dict | None],
     return {code: score_stock(r, facts.get(code), settings.score) for code, r in run.results.items()}, partial
 
 
+def _liquidity(run, krx) -> dict[str, tuple[float, int]]:
+    """우선주와 그 보통주의 거래대금 평균. 못 받아도 리포트는 계속 만들어요 (칩만 빠져요)."""
+    codes = {c for c, r in run.results.items() if r.company.common_code}
+    codes |= {r.company.common_code for r in run.results.values() if r.company.common_code}
+    if not codes:
+        return {}
+    try:
+        return average_value(krx, codes, run.collected.price_date)
+    except (KrxError, NetworkError):
+        return {}
+
+
 def _weekly_run(settings: Settings, keys: Keys, store: Store, deps: Deps, today: date,
                 runs_dir: Path, no_open: bool) -> int:
     dart, krx, naver = deps.make_dart(keys, store, settings), deps.make_krx(keys, store), deps.make_naver(keys)
@@ -149,7 +162,8 @@ def _weekly_run(settings: Settings, keys: Keys, store: Store, deps: Deps, today:
     codes = [c for c, r in run.results.items() if r.state in ("buy", "watch")]
     extras = gather_extras(codes, run, dart, krx, naver, today)
     scores, score_partial = _scores(run, dart, krx, settings)
-    payload = build_payload(run, changes, crit_changes, prev, extras, settings, scores, score_partial)
+    payload = build_payload(run, changes, crit_changes, prev, extras, settings, scores, score_partial,
+                            _liquidity(run, krx))
     index = write_report(payload, settings.reports_dir)
     try:
         save_snapshot(run, runs_dir, carry_from=prev, scores=scores)

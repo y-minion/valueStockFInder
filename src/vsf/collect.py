@@ -6,8 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import date
 
-from vsf.data.assemble import (Assembled, CompanyInfo, assemble, assemble_quick_fail,
-                               quick_fail_check)
+from vsf.data.assemble import (Assembled, CompanyInfo, PreferredShare, assemble, assemble_quick_fail,
+                               preferred_kind, quick_fail_check)
 from vsf.data.dart import DartError, DartQuotaExceeded
 from vsf.data.fisis import TABLES, FisisAuthError, FisisError
 from vsf.data.http import NetworkError
@@ -26,6 +26,14 @@ NO_FIN = "{year}년 사업보고서 재무제표가 없어요"
 FISIS_KEY_NOTE = "금감원 FISIS 인증키가 맞지 않아 자본비율을 가져오지 못했어요. keys.toml의 [fisis] 값을 확인해 주세요."
 FISIS_FAIL_NOTE = "자본비율을 금감원 FISIS에서 받지 못했어요"
 UNEXPECTED = "예상하지 못한 오류: {kind}: {error}"
+PREFERRED = "우선주"                     # listing_exclusion이 우선주에 주는 사유
+NO_COMMON = "우선주(보통주 없음)"
+NO_COMMON_PRICE = "보통주 주가 자료가 없어요"
+
+
+def preferred_base(code: str) -> str:
+    """우선주 코드 → 같은 회사 보통주 코드 (앞 다섯 자리 + "0"). 2026-11-20 목록 109개 모두 이 규칙이에요."""
+    return code[:5] + "0"
 
 log = logging.getLogger("vsf.collect")
 
@@ -87,18 +95,26 @@ def _year_ends(krx, today: date) -> tuple[dict[int, dict[str, PriceRow]], list[i
     return out, missing
 
 
-def _process(ctx: _Context, item: Listed) -> tuple[CompanyInfo, Assembled]:
-    """종목 하나. 제외면 _Excluded, 못 받으면 _Failed, 한도·네트워크 오류는 그대로 올라가요."""
+def _process(ctx: _Context, item: Listed, common: str | None = None) -> tuple[CompanyInfo, Assembled]:
+    """종목 하나. 제외면 _Excluded, 못 받으면 _Failed, 한도·네트워크 오류는 그대로 올라가요.
+
+    common: 우선주면 같은 회사 보통주 코드. 회사 정보·재무는 보통주 회사 것, 주가·배당은 우선주 것이에요.
+    """
     dart, today, code = ctx.dart, ctx.today, item.code
-    reason = listing_exclusion(item)
-    if reason:
-        raise _Excluded(reason)
-    corp = ctx.corp.get(code)
+    if common is None:
+        reason = listing_exclusion(item)
+        if reason:
+            raise _Excluded(reason)
+    base = common or code
+    corp = ctx.corp.get(base)
     if not corp:
         raise _Failed(NO_CORP)
     price = ctx.prices.get(code)
     if price is None or price.close is None:
         raise _Failed(NO_PRICE)
+    base_price = ctx.prices.get(base) if common else price      # 분할 확인은 보통주 시세로 해요
+    if base_price is None or base_price.close is None:
+        raise _Failed(NO_COMMON_PRICE)
     raw = dart.company(corp)
     if raw is None:
         raise _Failed(NO_CORP)
@@ -107,7 +123,9 @@ def _process(ctx: _Context, item: Listed) -> tuple[CompanyInfo, Assembled]:
         raise _Excluded(reason)
     info = CompanyInfo(corp_code=corp, code=code, name=item.name, market=item.market,
                        induty_code=str(raw.get("induty_code") or ""), acc_mt=str(raw.get("acc_mt") or ""),
-                       financial_kind=financial_kind(raw) if ctx.include_financial else None)
+                       financial_kind=financial_kind(raw) if ctx.include_financial else None, common_code=common,
+                       est_dt=str(raw.get("est_dt") or ""))
+    kind = preferred_kind(item.name) if common else "보통"
 
     latest = today.year - 1
     div_reports: dict[int, list[dict]] = {}
@@ -119,8 +137,8 @@ def _process(ctx: _Context, item: Listed) -> tuple[CompanyInfo, Assembled]:
     if divs is not None:
         div_reports[latest] = divs
 
-    if quick_fail_check(divs, latest):
-        return info, assemble_quick_fail(info, latest, div_reports, price, ctx.price_date)
+    if quick_fail_check(divs, latest, kind):
+        return info, assemble_quick_fail(info, latest, div_reports, price, ctx.price_date, kind)
     fin_a = dart.financials(corp, latest)
     if fin_a is None:
         raise _Failed(NO_FIN.format(year=latest))
@@ -135,9 +153,12 @@ def _process(ctx: _Context, item: Listed) -> tuple[CompanyInfo, Assembled]:
             rows = dart.dividends(corp, y)
             if rows is not None:
                 div_reports[y] = rows
-    year_end = {y: rows[code] for y, rows in ctx.year_ends.items() if code in rows}
+    year_end = {y: rows[base] for y, rows in ctx.year_ends.items() if base in rows}
+    pref = None if common is None else PreferredShare(
+        code, item.name, price, {y: rows[code] for y, rows in ctx.year_ends.items() if code in rows})
     capital, notes = _capital(ctx, info, raw, item)
-    got = assemble(info, latest, fin_a, fin_b, div_reports, year_end, price, ctx.price_date, capital)
+    got = assemble(info, latest, fin_a, fin_b, div_reports, year_end, base_price, ctx.price_date, capital,
+                   preferred=pref)
     if notes:
         got = replace(got, notes=got.notes + notes)
     return info, got
@@ -163,10 +184,10 @@ def _capital(ctx: _Context, info: CompanyInfo, raw: dict, item: Listed) -> tuple
 
 
 def _defer(result: Collected, items: list[Listed]) -> None:
-    """못 받은 종목을 pending에. 목록 단계에서 걸러지는 종목은 제외 목록으로 보내요."""
+    """못 받은 종목을 pending에. 목록 단계에서 걸러지는 종목은 제외 목록으로 보내요 (우선주는 다음에 받아요)."""
     for item in items:
         reason = listing_exclusion(item)
-        if reason:
+        if reason and reason != PREFERRED:
             result.excluded.setdefault(reason, []).append((item.code, item.name))
         else:
             result.pending.append((item.code, item.name))
@@ -202,28 +223,55 @@ def collect(dart, krx, store: Store, today: date, progress: Callable[[str], None
     def report(done: int) -> None:
         progress(f"{done}/{len(listed)} 종목 처리 중 (오늘 DART 호출 {dart.calls_today:,}회)")
 
-    done = 0
+    # 보통주를 먼저 다 받고, 우선주는 그 뒤에 받아요 (같은 회사 재무는 캐시를 다시 써요).
+    codes = {x.code for x in listed}
+    prefs: list[Listed] = []
+    done, stopped = 0, False
     for i, item in enumerate(listed):
-        try:
-            result.records[item.code] = _process(ctx, item)
-        except _Excluded as e:
-            result.excluded.setdefault(str(e), []).append((item.code, item.name))
-        except _Failed as e:
-            result.failed.append((item.code, item.name, str(e)))
-        except DartQuotaExceeded:
-            _defer(result, listed[i:])
-            break
-        except (NetworkError, DartError, KrxError, ValueError) as e:
-            result.failed.append((item.code, item.name, str(e)))
-        except Exception as e:  # noqa: BLE001 - 한 종목의 뜻밖의 오류로 몇 시간짜리 실행을 멈추지 않아요
-            log.exception("%s(%s) 종목을 처리하다 예상하지 못한 오류가 났어요", item.name, item.code)
-            result.failed.append((item.code, item.name, UNEXPECTED.format(kind=type(e).__name__, error=e)))
+        if listing_exclusion(item) == PREFERRED:
+            prefs.append(item)
+        else:
+            try:
+                _one(ctx, result, item)
+            except DartQuotaExceeded:
+                _defer(result, listed[i:])
+                result.pending[:0] = [(x.code, x.name) for x in prefs]
+                stopped = True
+                break
         done = i + 1
         if done % PROGRESS_EVERY == 0:
             report(done)
+    if not stopped:
+        for j, item in enumerate(prefs):
+            base = preferred_base(item.code)
+            if base not in codes:
+                result.excluded.setdefault(NO_COMMON, []).append((item.code, item.name))
+                continue
+            try:
+                _one(ctx, result, item, base)
+            except DartQuotaExceeded:
+                result.pending.extend((x.code, x.name) for x in prefs[j:])
+                break
     if done % PROGRESS_EVERY != 0 or not done:
         report(done)
     return result
+
+
+def _one(ctx: _Context, result: Collected, item: Listed, common: str | None = None) -> None:
+    """종목 하나를 처리해 결과에 넣어요. 하루 한도 예외만 위로 올려요."""
+    try:
+        result.records[item.code] = _process(ctx, item, common)
+    except _Excluded as e:
+        result.excluded.setdefault(str(e), []).append((item.code, item.name))
+    except _Failed as e:
+        result.failed.append((item.code, item.name, str(e)))
+    except DartQuotaExceeded:
+        raise
+    except (NetworkError, DartError, KrxError, ValueError) as e:
+        result.failed.append((item.code, item.name, str(e)))
+    except Exception as e:  # noqa: BLE001 - 한 종목의 뜻밖의 오류로 몇 시간짜리 실행을 멈추지 않아요
+        log.exception("%s(%s) 종목을 처리하다 예상하지 못한 오류가 났어요", item.name, item.code)
+        result.failed.append((item.code, item.name, UNEXPECTED.format(kind=type(e).__name__, error=e)))
 
 
 def collect_one(dart, krx, store: Store, today: date, code: str, *,
@@ -231,13 +279,17 @@ def collect_one(dart, krx, store: Store, today: date, code: str, *,
     """종목 하나만 받아요 (엑셀 내보내기용). 못 받으면 한국어 사유 글을 돌려줘요."""
     price_date = krx.latest_trading_day(today)
     prices = krx.daily(price_date)
-    item = next((x for x in krx.listed(price_date) if x.code == code), None)
+    listed = krx.listed(price_date)
+    item = next((x for x in listed if x.code == code), None)
     if item is None:
         return f"{code} 종목을 찾지 못했어요"
+    is_pref = listing_exclusion(item) == PREFERRED
+    if is_pref and not any(x.code == preferred_base(code) for x in listed):
+        return f"{code}은(는) 분석 대상이 아니에요: {NO_COMMON}"
     try:
         ctx = _Context(dart, today, price_date, prices, dart.corp_codes(), _year_ends(krx, today)[0],
                        include_financial, fisis)
-        return _process(ctx, item)
+        return _process(ctx, item, preferred_base(code) if is_pref else None)
     except _Excluded as e:
         return f"{code}은(는) 분석 대상이 아니에요: {e}"
     except (_Failed, NetworkError, DartError, KrxError, ValueError) as e:

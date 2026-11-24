@@ -232,3 +232,21 @@ def test_pacing_sleeps_between_requests(store):
                     clock=lambda: now[0])
     krx.daily(date(2025, 12, 30))
     assert len(sleeps) == 1 and sleeps[0] == pytest.approx(0.2)
+
+
+# ---- 거래대금 ----
+
+def test_daily_parses_trading_value(store):
+    rows = make(store, FakeKrx()).daily(date(2026, 11, 13))
+    assert rows["000270"].value == 1_000_000.0
+
+
+def test_need_value_refetches_a_cached_day_without_values_once(store):
+    from vsf.data.store import PriceRow
+    d = date(2026, 11, 13)
+    store.put_prices([PriceRow(d, "000270", "기아", "KOSPI", 128500.0, 1.0)])   # 거래대금 칸이 생기기 전 캐시
+    t = FakeKrx()
+    krx = make(store, t)
+    assert krx.daily(d)["000270"].value is None and t.calls == 0           # 평소엔 캐시 그대로
+    assert krx.daily(d, need_value=True)["000270"].value == 1_000_000.0 and t.calls == 2
+    assert krx.daily(d, need_value=True)["000270"].value == 1_000_000.0 and t.calls == 2   # 다시 저장했어요

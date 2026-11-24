@@ -420,3 +420,17 @@ def test_weekly_run_score_quota_is_partial(tmp_path):
     assert data["score_summary"]["partial"] is True
     s = data["stocks"]["000270"]["score"]
     assert s is not None and s["missing"] > 0                    # 자료를 못 받은 항목은 '자료 없음'
+
+
+def test_weekly_run_includes_preferred_shares(tmp_path):
+    from helpers import _SYN_DPS, div_rows
+    plus = lambda v: v if v.strip() in ("-", "") else f"{int(v.replace(',', '')) + 50:,}"   # noqa: E731
+    divs = {y: div_rows(*v, year=y, pref=tuple(plus(x) for x in v)) for y, v in _SYN_DPS.items()}
+    d = fake_deps(tmp_path)
+    d.dart = FakeDart({"000270": FakeDart.entry(dividends=divs), "030000": FakeDart.entry()})
+    d.make_krx = lambda keys, store: FakeKrx.with_preferred()
+    assert run(tmp_path, d) == 0
+    data = report_data(tmp_path)
+    s = data["stocks"]["000275"]
+    assert s["share_class"] == "우선" and s["common_code"] == "000270" and s["score"] is not None
+    assert "000275" in data["score_rank"]

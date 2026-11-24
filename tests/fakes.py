@@ -114,8 +114,8 @@ class FakeDart:
         self.invalidated.append(corp_code)
 
     @staticmethod
-    def entry(induty_code: str = "30121", acc_mt: str = "12", dividends=None, fin=None) -> dict:
-        return {"company": {"induty_code": induty_code, "acc_mt": acc_mt},
+    def entry(induty_code: str = "30121", acc_mt: str = "12", dividends=None, fin=None, est_dt: str = "") -> dict:
+        return {"company": {"induty_code": induty_code, "acc_mt": acc_mt, "est_dt": est_dt},
                 "dividends": _DEFAULT_DIVS if dividends is None else dividends,
                 "fin": _DEFAULT_FIN if fin is None else fin}
 
@@ -170,7 +170,7 @@ class FakeKrx:
         self._log["listed"].append((day,))
         return list(self._listed)
 
-    def daily(self, day: date) -> dict[str, PriceRow]:
+    def daily(self, day: date, need_value: bool = False) -> dict[str, PriceRow]:
         self._log["daily"].append((day,))
         if self._weekdays_only:
             if day.weekday() >= 5:
@@ -205,6 +205,12 @@ class FakeKrx:
     @classmethod
     def many(cls, n: int = 10) -> "FakeKrx":
         return cls.with_listed([_listed(code, name) for code, name in _many_codes(n)])
+
+    @classmethod
+    def with_preferred(cls) -> "FakeKrx":
+        """기아(000270) · 기아우(000275, 구형우선주) · 제일기획(030000). 우선주 시세는 보통주와 같은 합성 값이에요."""
+        return cls.with_listed([_listed("000270", "기아"), _listed("000275", "기아우", kind="구형우선주"),
+                                _listed("030000", "제일기획")])
 
     @classmethod
     def exclusion_mix(cls) -> "FakeKrx":

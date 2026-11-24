@@ -938,3 +938,172 @@ def test_recent_share_jump_stays_flagged_even_with_face_value_change():
     ye = {**ye, 2021: replace(ye[2021], shares=SYN_SHARES / 50)}
     a = assemble(co, L, fin_a, fin_b, divs, ye, price, d)
     assert SPLIT_FLAG in a.flags and a.inputs.years[0].dps == 1444
+
+
+# ---- 우선주 (2026-11-24 우선주 설계 4장) ----
+
+from vsf.data.assemble import PREF_NOTE, PreferredShare  # noqa: E402
+from vsf.data.store import PriceRow as _PR  # noqa: E402
+
+
+def _plus50(v: str) -> str:
+    return v if v.strip() in ("-", "") else f"{int(v.replace(',', '')) + 50:,}"
+
+
+def preferred_case(pref_dps: bool = True):
+    """합성 회사의 우선주: 배당은 보통주 + 50원, 주가는 보통주의 60%."""
+    from helpers import _SYN_DPS
+    company, L, fa, fb, divs, ye, price, d = synthetic_company()
+    pdivs = {y: div_rows(*v, year=y, pref=tuple(_plus50(x) for x in v) if pref_dps else ("-", "-", "-"))
+             for y, v in _SYN_DPS.items()}
+    p_ye = {y: _PR(r.date, "000275", "기아우", "KOSPI", r.close * 0.6, 1_000_000.0) for y, r in ye.items()}
+    pref = PreferredShare(code="000275", name="기아우", price=_PR(d, "000275", "기아우", "KOSPI", price.close * 0.6, 1e6),
+                          year_end=p_ye)
+    info = replace(company, code="000275", name="기아우", common_code="000270")
+    common = assemble(company, L, fa, fb, pdivs, ye, price, d)
+    got = assemble(info, L, fa, fb, pdivs, ye, price, d, preferred=pref)
+    return common, got
+
+
+def test_preferred_uses_its_own_dividends_price_and_year_end_per():
+    common, got = preferred_case()
+    ci, pi = common.inputs, got.inputs
+    assert (pi.name, pi.code) == ("기아우", "000275") and pi.price == ci.price * 0.6
+    assert [y.dps for y in pi.years] == [None if v is None else v + 50 for v in (y.dps for y in ci.years)]
+    assert [v for v in pi.prior_dps] == [None if v is None else v + 50 for v in ci.prior_dps]
+    for cy, py in zip(ci.years, pi.years, strict=True):
+        assert py.eps == cy.eps and py.roe == cy.roe and py.net_income == cy.net_income   # 같은 회사 재무
+        if cy.per is not None:
+            assert abs(py.per - cy.per * 0.6) < 0.02                                         # 우선주 연말 종가 ÷ EPS
+    assert abs(pi.pbr - ci.pbr * 0.6) < 0.02
+    assert "우선주" in got.sources["E29"] and pi.memo.startswith("우선주: 재무는 보통주(000270) 것")
+    assert PREF_NOTE in got.notes
+
+
+def test_preferred_without_dividend_row_is_flagged():
+    _, got = preferred_case(pref_dps=False)
+    assert all(y.dps in (None, 0.0) for y in got.inputs.years)
+
+
+def test_quick_fail_check_by_share_kind():
+    rows = div_rows("1,000", "900", "800", pref=("-", "950", "850"))
+    assert quick_fail_check(rows, 2025) is False
+    assert quick_fail_check(rows, 2025, kind="우선") is True
+
+
+# ---- 2026-11-24 오일전문가 매수 재현 검토에서 찾은 모양들 ----
+
+from vsf.data.assemble import EPS_DIV_NOTE, PRE_FOUNDING_NOTE, preferred_kind  # noqa: E402
+
+
+def test_common_dps_row_names_for_voting_shares_holders_and_spacing():
+    # KCC·KCC글라스 2025: '의결권 있는 주식'·'의결권 없는 주식', 신라교역: '의결권있는주식수'
+    assert dps_from_report([_dps("의결권 있는 주식", "15,000", "11,000", "10,000"),
+                            _dps("의결권 없는 주식", "-", "-", "-")], 2025) == {2025: 15000.0, 2024: 11000.0, 2023: 10000.0}
+    assert dps_from_report([_dps("의결권있는주식수", "500", "450", "400"),
+                            _dps("의결권없는주식수", "-", "-", "-")], 2025) == {2025: 500.0, 2024: 450.0, 2023: 400.0}
+    # 남화산업 2025: 대주주·소액주주로 나눠 적어요. 계산기에 넣는 건 소액주주가 받는 배당이에요.
+    assert dps_from_report([_dps("대주주", "180", "200", "200"), _dps("소액주주", "200", "200", "200")], 2025) == \
+        {2025: 200.0, 2024: 200.0, 2023: 200.0}
+    # 남성: 보통주를 최대주주·소액주주로 나눠요
+    assert dps_from_report([_dps("보통주(최대주주)", "50", "50", "50"), _dps("보통주(소액주주)", "70", "60", "60"),
+                            _dps("우선주", "-", "-", "-")], 2025) == {2025: 70.0, 2024: 60.0, 2023: 60.0}
+    # 네패스: '보 통 주'처럼 띄어 써요
+    assert dps_from_report([_dps("보 통 주", "300", "250", "-"), _dps("우 선 주", "-", "-", "-")], 2025) == \
+        {2025: 300.0, 2024: 250.0, 2023: 0.0}
+
+
+def test_interim_and_final_dividend_rows_add_up():
+    # 에스피지 2025: 결산배당 150 + 중간배당 100
+    assert dps_from_report([_dps("결산배당", "150", "150", "-"), _dps("중간배당", "100", "-", "-")], 2025) == \
+        {2025: 250.0, 2024: 150.0, 2023: 0.0}
+    # 풍국주정 2025: '중간 배당'·'결산 배당'. 한 줄이라도 비어 있으면 그해 합계는 몰라요.
+    assert dps_from_report([_dps("중간 배당", "-", "-", "-"), _dps("결산 배당", "200", "", "-")], 2025) == \
+        {2025: 200.0, 2024: None, 2023: 0.0}
+
+
+def test_preferred_dps_rows_named_jongryu_or_numbered():
+    common = _dps("보통주", "600", "600", "600")
+    # 동원시스템즈·크라운제과: '종류주', 두산·유화증권: '종류주식', CJ제일제당: '제1종 우선주', 한국금융지주: '1종 종류주식'
+    for name in ("종류주", "종류주식", "제1종 우선주", "1종 종류주식"):
+        assert dps_from_report([common, _dps(name, "650", "650", "-")], 2025, "우선") == \
+            {2025: 650.0, 2024: 650.0, 2023: 0.0}, name
+    # 미래에셋증권: 1우선주·2우선주가 따로 있어요
+    mirae = [_dps("보통주", "300", "250", "200"), _dps("1우선주", "330", "275", "220"),
+             _dps("2우선주", "300", "250", "200")]
+    assert dps_from_report(mirae, 2025, "우선")[2025] == 330.0
+    assert dps_from_report(mirae, 2025, "2우선")[2025] == 300.0
+    assert dps_from_report(mirae, 2025, "3우선") == {2025: None, 2024: None, 2023: None}   # 그 종류 줄이 없으면 비워요
+    # 한화: 제1우선주·제3우선주, CJ: 우선주·4우선주
+    hanwha = [_dps("보통주", "1,100", "1,000", "800"), _dps("제1우선주", "1,150", "1,050", "850"),
+              _dps("제3우선주", "1,200", "1,050", "850")]
+    assert dps_from_report(hanwha, 2025, "우선")[2025] == 1150.0
+    assert dps_from_report(hanwha, 2025, "3우선")[2025] == 1200.0
+    cj = [_dps("보통주", "6,000", "5,000", "4,000"), _dps("우선주", "6,050", "5,050", "4,050"),
+          _dps("4우선주", "6,500", "-", "-")]
+    assert dps_from_report(cj, 2025, "우선")[2025] == 6050.0
+    assert dps_from_report(cj, 2025, "4우선")[2025] == 6500.0
+    # 우선주 줄이 종류 구분 없이 하나뿐이면(현대차·두산) 모든 우선주가 그 줄을 같이 써요
+    doosan = [_dps("보통주식", "4,000", "2,000", "2,000"), _dps("종류주식", "4,050", "2,050", "2,050")]
+    assert dps_from_report(doosan, 2025, "2우선")[2025] == 4050.0
+    # 보통주를 고를 때 우선주 종류 줄은 쓰지 않아요
+    assert dps_from_report([_dps("종류주", "650", "650", "650")], 2025) == {2025: None, 2024: None, 2023: None}
+
+
+def test_preferred_kind_from_krx_name():
+    names = ("기아우", "LX홀딩스1우", "현대차2우B", "한화3우B", "아모레퍼시픽홀딩스3우C", "CJ4우(전환)", "DL이앤씨2우(전환)")
+    assert [preferred_kind(n) for n in names] == ["우선", "우선", "2우선", "3우선", "3우선", "4우선", "2우선"]
+
+
+def test_numbered_preferred_share_uses_its_own_dividend_row():
+    common, L, fa, fb, divs, ye, price, d = synthetic_company()
+    rows = {y: v + [{**v[-1], "stock_knd": "2우선주", "thstrm": "9,999", "frmtrm": "9,999", "lwfr": "9,999"}]
+            for y, v in divs.items()}
+    pref = PreferredShare(code="00027K", name="기아2우B", price=price, year_end=ye)
+    two = assemble(replace(common, code="00027K", name="기아2우B", common_code="000270"), L, fa, fb, rows, ye,
+                   price, d, preferred=pref)
+    assert all(y.dps == 9999.0 for y in two.inputs.years)
+    assert "2우선주" in two.sources["F29"]
+
+
+def test_dividend_years_before_the_company_existed_are_blank():
+    # 크라운제과(2017-03-02 설립, 인적분할)·우리금융지주(2019-01-11 설립): 설립 전 해를 DART가 '-'로 적어요.
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    divs = {**divs, 2017: div_rows("800", "-", "-", year=2017)}            # 2016·2015년이 '-'
+    plain = assemble(co, L, fin_a, fin_b, divs, ye, price, d)
+    founded = assemble(replace(co, est_dt="20170302"), L, fin_a, fin_b, divs, ye, price, d)
+    assert plain.inputs.prior_dps[0] == 0.0                                # 설립일을 모르면 지금처럼 0
+    assert founded.inputs.prior_dps[0] is None                             # 2016년: 설립 전이라 빈칸
+    assert "B42" not in founded.sources
+    assert PRE_FOUNDING_NOTE.format(years="2016", founded="2017-03-02") in founded.notes
+    assert compute(plain.inputs, Criteria())["D86"] == "탈락"
+    assert compute(founded.inputs, Criteria())["D86"] == "통과"
+    # 설립한 해 자체의 '-'는 그대로 '배당을 안 준 해'예요
+    q = assemble_quick_fail(replace(KIA_CO, est_dt="20250101"), 2025, {2025: div_rows("-", "-", "-")}, PRICE, D)
+    assert [y.dps for y in q.inputs.years[2:]] == [None, None, 0.0]
+
+
+def test_eps_missing_from_statements_comes_from_dividend_table():
+    # 대상 2025 사업보고서: 보통주 EPS를 '우선주기본주당순이익' 이름으로 올려서 재무제표에서 못 찾아요.
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    no_eps = replace(fin_a, rows=[r for r in fin_a.rows if "PerShare" not in r["account_id"]])
+    eps_row = {**divs[2025][0], "se": "(연결)주당순이익(원)", "stock_knd": "", "thstrm": "19,382", "frmtrm": "24,893",
+               "lwfr": "22,168"}
+    divs = {**divs, 2025: divs[2025] + [eps_row]}
+    full = assemble(co, L, fin_a, fin_b, divs, ye, price, d)
+    a = assemble(co, L, no_eps, fin_b, divs, ye, price, d)
+    assert [y.eps for y in a.inputs.years[3:]] == [24893.0, 19382.0]
+    assert a.inputs.years[2].eps == full.inputs.years[2].eps               # 2023년은 B 보고서에 있어요
+    assert a.sources["F27"].startswith("2025 사업보고서 배당에 관한 사항((연결)주당순이익")
+    assert EPS_DIV_NOTE.format(years="2024·2025") in a.notes
+    assert a.inputs.years[4].per is not None
+    # 재무제표에 EPS가 있으면 재무제표 값을 그대로 써요
+    assert EPS_DIV_NOTE.format(years="2024·2025") not in full.notes
+
+
+def test_preferred_is_the_second_of_two_unlabeled_rows():
+    # 동원시스템즈 2019 사업보고서: 두 줄 모두 종류 칸이 '-'. 서식 순서대로 보통주가 먼저, 우선주가 다음이에요.
+    rows = [_dps("-", "500", "500", "250"), _dps("-", "550", "550", "300")]
+    assert dps_from_report(rows, 2019) == {2019: 500.0, 2018: 500.0, 2017: 250.0}
+    assert dps_from_report(rows, 2019, "우선") == {2019: 550.0, 2018: 550.0, 2017: 300.0}
+    assert dps_from_report(rows * 2, 2019, "우선") == {2019: None, 2018: None, 2017: None}   # 넷이면 몰라요

@@ -266,9 +266,9 @@ test('score ranking is the first table, calculator lists come after', () => {
 });
 test('score table shows grade, group points, missing points, weekly change, rest folded', () => {
   const h = r.renderIndex(data);
-  for (const s of ['85점', 'A', '72점', '자료 없는', '▲5', '▼2', '7.5배', '전체 3개 보기']) assert.ok(h.includes(s), s);
+  for (const s of ['85점', 'A', '72점', '자료 없는', '▲5', '▼2', '7.5배', '전체 4개 보기']) assert.ok(h.includes(s), s);
   assert.ok(h.indexOf('가나다산업') < h.indexOf('라마바식품'));
-  const folded = h.slice(h.indexOf('전체 3개 보기'));
+  const folded = h.slice(h.indexOf('전체 4개 보기'));
   assert.ok(folded.includes('KB금융'));
 });
 test('score tiles', () => {
@@ -347,4 +347,20 @@ test('score list shows the yield the score used', () => {
   d.stocks.A.score.items.push({ key: 'yield', label: '배당수익률', group: 'return', value: '5.4% (정상 DPS 2,799원)', rule: '', points: 7, max: 10, status: 'ok', source: '' });
   const h = r.renderIndex(d);
   assert.ok(h.includes('>5.4%</td>') && h.includes('정상 DPS'));
+});
+
+
+// ---- 우선주 (2026-11-24) ----
+test('preferred shares carry chips in lists', () => {
+  const h = r.renderIndex(data);
+  const row = h.slice(h.indexOf('가나다산업우'), h.indexOf('가나다산업우') + 600);
+  assert.ok(row.includes('>우선주<') && row.includes('거래 적음'));
+  assert.ok(!r.renderIndex({ ...data, stocks: { ...data.stocks, P: { ...data.stocks.P, liquidity: { avg: 5e8, days: 13, thin: false } } } })
+    .slice(0).includes('거래 적음'));
+});
+test('preferred card compares with the common share', () => {
+  const h = r.renderStock(data, 'P');
+  for (const s of ['<h3>우선주</h3>', 'href="stock.html#A"', '가나다산업', '30,000원', '21,000원', '30%', '1,350원', '1,400원',
+    '0.5억 원', '13일', '거래 적음', '우선주 배당을 한 줄로만 적었으면']) assert.ok(h.includes(s), s);
+  assert.ok(!r.renderStock(data, 'A').includes('<h3>우선주</h3>'));
 });

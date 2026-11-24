@@ -215,7 +215,8 @@ def load_price(name: str, day: date):
 
 
 def div_rows(thstrm: str, frmtrm: str, lwfr: str, year: int = 2025,
-             face: tuple[str, str, str] = ("5,000", "5,000", "5,000")) -> list[dict]:
+             face: tuple[str, str, str] = ("5,000", "5,000", "5,000"),
+             pref: tuple[str, str, str] = ("-", "-", "-")) -> list[dict]:
     """alotMatter 목록 (문서화된 모양). 보통주 '주당 현금배당금(원)' 줄이 당기·전기·전전기 값을 가져요.
 
     face는 '주당액면가액(원)' 줄의 당기·전기·전전기 값이에요.
@@ -232,7 +233,7 @@ def div_rows(thstrm: str, frmtrm: str, lwfr: str, year: int = 2025,
             row("현금배당수익률(%)", "보통주", "5.6", "6.4", "5.6"),
             row("현금배당수익률(%)", "우선주", "-", "-", "-"),
             row("주당 현금배당금(원)", "보통주", thstrm, frmtrm, lwfr),
-            row("주당 현금배당금(원)", "우선주", "-", "-", "-")]
+            row("주당 현금배당금(원)", "우선주", *pref)]
 
 
 ORIGINAL_OLD_EPS = 11874.0   # 합성 회사 B 보고서(2023 사업보고서)에 적힌 2021년 EPS

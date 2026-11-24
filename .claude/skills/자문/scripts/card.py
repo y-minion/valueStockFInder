@@ -100,6 +100,16 @@ def main() -> None:
     ind = (s.get("industry") or {}).get("group_name", "업종 정보 없음")
     print(f"{s['name']} ({s['code']}) · {s['market']} · {ind} · 상태 {s['state']}"
           f"{' (매수선 근처)' if s.get('near') else ''}")
+    if s.get("share_class") == "우선":
+        common = data["stocks"].get(s.get("common_code") or "", {})
+        cp, liq = s.get("common_price"), s.get("liquidity")
+        disc = f"{(1 - inp['price'] / cp) * 100:.0f}%" if cp else "—"
+        print(f"우선주예요 · 보통주 {common.get('name', '')}({s.get('common_code')}) {n(cp)}원 · 보통주 대비 할인 {disc}"
+              f" · 최근 해 DPS 우선주 {n(inp['years'][-1]['dps'])}원 / 보통주 {n(s.get('common_dps'))}원")
+        if liq:
+            print(f"거래대금 평균 {liq['avg'] / 1e8:.1f}억 원 (최근 {liq['days']}일){' · 거래 적음' if liq['thin'] else ''}")
+        print("재무는 보통주와 같은 회사 숫자이고 주가·배당만 우선주 것이에요. "
+              "배당은 그 우선주 종류의 줄(예: 2우선주)을 쓰고, 회사가 우선주 배당을 한 줄로만 적었으면 모든 우선주가 그 줄을 같이 써요.")
     if s.get("quick_fail"):
         print("빠른 탈락 종목이에요:", s["quick_fail"])
     print(f"관문 ① {c.get('D82')} · ② {c.get('D90')} · ③ {c.get('D110')} · ④ {c.get('D135')}")

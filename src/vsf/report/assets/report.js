@@ -280,8 +280,15 @@ function scoreTiles(data) {
   if (!s) return "";
   return tile("점수 대상", s.eligible) + tile("A등급", s.A) + tile("B등급", s.B);
 }
+// 우선주 칩과, 거래대금이 적으면 '거래 적음' 칩 (우선주 설계 7·8장)
+function prefChips(s) {
+  if (s.share_class !== "우선") return "";
+  var l = s.liquidity;
+  return " " + chip("우선주", "info") + (l && l.thin ? " " + chip("거래 적음", "flag", "최근 " + l.days + "일 평균 거래대금 " + eok(l.avg)) : "");
+}
+function eok(won) { return isNum(won) ? fmt(Math.round(won / 1e7) / 10, "raw") + "억 원" : "—"; }
 function nameCell(code, s, extra) {
-  var chips = flagChip(s) + recentChip(s) + (s.financial ? " " + chip("금융", "info") : "");
+  var chips = prefChips(s) + flagChip(s) + recentChip(s) + (s.financial ? " " + chip("금융", "info") : "");
   return '<td class="name">' + stockLink(code, s.name) + (chips ? '<div class="chips">' + chips + "</div>" : "") + (extra || "") + "</td>";
 }
 function scoreYield(sc) {   // 점수에 쓴 배당수익률(정상 DPS 기준)만: "5.4% (정상 DPS …)" → "5.4%"
@@ -330,6 +337,20 @@ function scoreBox(s) {
   return "<h3>점수</h3>" + '<div class="box">' + gradeChip(sc) + (sc.max !== 100 ? ' <span class="muted">만점 ' + pts(sc.max) + "점</span>" : "") +
     " · 자료 없는 배점 " + pts(sc.missing) + "점</div>" +
     rowsTable(["항목", "이 회사 (출처)", "구간", "점수 / 배점"], rows, { align: "lllr", widths: ["22%", "36%", "28%", "14%"], cls: "fixed" });
+}
+var PREF_LIMIT = "재무(EPS·ROE·현금흐름)는 보통주와 같은 회사 숫자이고, 주가·배당만 우선주 것이에요. " +
+  "배당은 그 우선주 종류의 줄(예: 2우선주)을 쓰고, 회사가 우선주 배당을 한 줄로만 적었으면 모든 우선주가 그 줄을 같이 써요.";
+function prefBox(s, data) {
+  if (s.share_class !== "우선") return "";
+  var common = (data.stocks || {})[s.common_code], ys = (s.inputs && s.inputs.years) || [];
+  var price = s.inputs && s.inputs.price, cp = s.common_price, l = s.liquidity;
+  var discount = isNum(price) && isNum(cp) && cp > 0 ? Math.round((1 - price / cp) * 100) + "%" : "—";
+  var name = common ? stockLink(s.common_code, common.name) : esc(s.common_code || "보통주");
+  return "<h3>우선주</h3>" + '<div class="box">보통주 ' + name + " " + fmt(cp, "won") + "원 · 우선주 " + fmt(price, "won") +
+    "원 · <b>보통주 대비 할인 " + discount + "</b><br>최근 해 배당: 우선주 " + fmt(ys.length ? ys[ys.length - 1].dps : null, "won") +
+    "원 · 보통주 " + fmt(s.common_dps, "won") + "원" +
+    (l ? "<br>거래대금 평균 " + eok(l.avg) + " (최근 " + l.days + "일)" + (l.thin ? " " + chip("거래 적음", "flag") : "") : "") +
+    '<p class="muted">' + esc(PREF_LIMIT) + "</p></div>";
 }
 function judgmentBox(data) {
   var j = data.score_summary && data.score_summary.judgment;
@@ -463,7 +484,7 @@ function sourceTable(s) {
     rowsTable(["칸", "출처"], rows, { align: "ll", widths: ["30%", "70%"], cls: "fixed" }) + "</details>";
 }
 function cardHead(s) {
-  var chips = flagChip(s) + recentChip(s) + (s.criteria_overridden ? " " + chip("업종 기준 적용", "info") : "") +
+  var chips = prefChips(s) + flagChip(s) + recentChip(s) + (s.criteria_overridden ? " " + chip("업종 기준 적용", "info") : "") +
     (s.financial ? " " + chip(s.financial.kind + " · 금융업 기준으로 판정했어요", "info") : "");
   return '<p><a href="index.html">← 첫 페이지</a></p><h1>' + esc(s.name) + " (" + esc(s.code) + ")" + chips + '</h1><p class="muted">' +
     esc(s.industry ? s.industry.group_name : "업종 정보 없음") + " · " + esc(s.market) + " · 최근 연도 " + esc(s.latest_year) + "</p>";
@@ -607,9 +628,9 @@ function quickFailCard(s) {
 function renderStock(data, code) {
   var s = (data.stocks || {})[code];
   if (!s) return '<p><a href="index.html">← 첫 페이지</a></p><div class="banner warn">' + esc(NO_FIGURES) + "</div>";
-  if (s.quick_fail) return quickFailCard(s);
+  if (s.quick_fail) return quickFailCard(s) + prefBox(s, data);
   var c = s.cells;
-  return cardHead(s) + noteList(s.notes) + flagList(s) + gateBadges(s) + priceBox(s) + recentBanner(s) +
+  return cardHead(s) + noteList(s.notes) + flagList(s) + gateBadges(s) + priceBox(s) + recentBanner(s) + prefBox(s, data) +
     scoreBox(s) + (s.score ? judgmentBox(data) : "") +
     "<h3>적정가 A·B·C</h3>" + fairTable(c) +
     "<h3>관문 ① 좋은 회사인가</h3>" + gate1Table(s, data) +

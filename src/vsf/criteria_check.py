@@ -127,7 +127,8 @@ def _group(name, stocks, settings: Settings) -> dict:
 
 
 def criteria_check(results: dict[str, StockResult], settings: Settings, partial: bool) -> dict:
-    pop = [r for r in results.values() if not r.assembled.quick_fail]
+    # 같은 회사를 두 번 세지 않게 우선주는 빼요 (2026-11-24 우선주 설계 5장)
+    pop = [r for r in results.values() if not r.assembled.quick_fail and r.company.common_code is None]
     general = [r for r in pop if r.financial is None]
     fin = [r for r in pop if r.financial is not None]
     groups = [_group(n, s, settings) for n, s in (("일반 회사", general), ("금융회사", fin)) if s]

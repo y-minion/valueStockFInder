@@ -12,7 +12,8 @@ import httpx
 from vsf.data.http import get_with_retry
 from vsf.data.store import PriceRow, Store
 
-BASE = "https://data-dbg.krx.co.kr/svc/apis/sto/"
+ROOT = "https://data-dbg.krx.co.kr/svc/apis/"
+BASE = ROOT + "sto/"
 
 # 응답 필드 이름. 제3자 자료에서 가져온 값이라, tools/record_fixtures.py krx로
 # 실제 응답을 녹화해 확인하기 전까지는 검증되지 않았어요.
@@ -26,6 +27,8 @@ SERVICE_NAMES = {
     "ksq_bydd_trd": "코스닥 일별매매정보",
     "stk_isu_base_info": "유가증권 종목기본정보",
     "ksq_isu_base_info": "코스닥 종목기본정보",
+    "etf_bydd_trd": "ETF 일별매매정보",
+    "kospi_dd_trd": "KOSPI 시리즈 일별시세정보",
 }
 MARKETS: tuple[tuple[str, Literal["KOSPI", "KOSDAQ"]], ...] = (("stk", "KOSPI"), ("ksq", "KOSDAQ"))
 
@@ -83,14 +86,14 @@ class KrxClient:
         self._clock = clock
         self._last: float | None = None
 
-    def _rows(self, service: str, day: date) -> list[dict]:
+    def _rows(self, service: str, day: date, group: str = "sto") -> list[dict]:
         if self._last is not None:
             wait = self._min_interval - (self._clock() - self._last)
             if wait > 0:
                 self._sleep(wait)
         label = SERVICE_NAMES[service]
         try:
-            resp = get_with_retry(self._http, BASE + service,
+            resp = get_with_retry(self._http, f"{ROOT}{group}/{service}",
                                   params={"basDd": day.strftime("%Y%m%d")},
                                   headers={"AUTH_KEY": self._key})
         finally:
@@ -158,17 +161,47 @@ class KrxClient:
             self._store.put_prices(out.values())
         return out
 
+    def _closes(self, key: str, service: str, group: str, day: date, name_field: str,
+                close_field: str) -> dict[str, float]:
+        """그날 상품마다 종가 하나. 지난 날만, 자료가 있을 때만 저장해요.
+
+        빈 응답은 아직 안 올라온 날일 수 있어서 저장하지 않아요 (휴장일은 백테스트 시세 창고가 따로 기억해요).
+        """
+        cacheable = day < self._today()
+        if cacheable:
+            cached = self._store.get_json(key)
+            if cached is not None:
+                return dict(cached)  # type: ignore[arg-type]
+        out: dict[str, float] = {}
+        for r in self._rows(service, day, group):
+            name = str(r.get(name_field) or "").strip()
+            close = _close(r.get(close_field))
+            if name and close is not None:
+                out[name] = close
+        if cacheable and out:
+            self._store.put_json(key, out)
+        return out
+
+    def etf_daily(self, day: date) -> dict[str, float]:
+        """그날 ETF 종가: 종목코드(ISU_CD) → 종가. 분배금은 들어 있지 않아요."""
+        return self._closes(f"krx:etf:{day.strftime('%Y%m%d')}", "etf_bydd_trd", "etp", day, "ISU_CD", "TDD_CLSPRC")
+
+    def index_daily(self, day: date) -> dict[str, float]:
+        """그날 KOSPI 시리즈 지수 종가: 지수 이름(IDX_NM) → 종가. 배당이 빠진 가격 지수예요."""
+        return self._closes(f"krx:idx:kospi:{day.strftime('%Y%m%d')}", "kospi_dd_trd", "idx", day,
+                            "IDX_NM", "CLSPRC_IDX")
+
     def latest_trading_day(self, today: date, max_back: int = 10) -> date:
         for i in range(max_back + 1):
             d = today - timedelta(days=i)
-            if self.daily(d):
+            if d.weekday() < 5 and self.daily(d):          # 주말엔 장이 안 서서 묻지 않아요
                 return d
         raise KrxError(f"{today.isoformat()} 기준 최근 {max_back}일 안에 거래일 자료가 없어요")
 
     def year_end(self, year: int) -> date:
         for i in range(10):
             d = date(year, 12, 31) - timedelta(days=i)
-            if self.daily(d):
+            if d.weekday() < 5 and self.daily(d):
                 return d
         raise KrxError(f"{year}년 마지막 거래일 자료를 찾지 못했어요")
 

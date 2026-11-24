@@ -213,3 +213,69 @@ def test_fingerprint_survives_json_round_trip():
     fp = settings_fingerprint(load_settings(ROOT / "settings.toml"))
     import json as _json
     assert _json.loads(_json.dumps(fp)) == fp          # 다음 주에 '배점이 바뀌었어요'가 잘못 뜨지 않게
+
+
+# ---- 백테스트 설정 (2026-11-24 백테스트 설계 7장) ----
+
+import re  # noqa: E402
+from datetime import date  # noqa: E402
+
+from vsf.config import BacktestSettings  # noqa: E402
+
+
+def _backtest_settings(tmp_path, body: str | None) -> Path:
+    """배포용 settings.toml에서 [backtest] 부분(하위표 포함)을 빼고, body가 있으면 끝에 붙여요."""
+    text = (ROOT / "settings.toml").read_text(encoding="utf-8")
+    text = re.sub(r"^\[backtest(\.[^\]]+)?\][^\n]*\n.*?(?=^\[(?!backtest)|\Z)", "", text, flags=re.S | re.M)
+    out = tmp_path / "settings.toml"
+    out.write_text(text + ("\n" + body if body else ""), encoding="utf-8")
+    return out
+
+
+def test_backtest_defaults_when_section_missing(tmp_path):
+    assert load_settings(_backtest_settings(tmp_path, None)).backtest == BacktestSettings()
+
+
+def test_backtest_section_parses_dates_tables_and_variants(tmp_path):
+    s = load_settings(_backtest_settings(tmp_path, '''
+[backtest]
+start = 2019-01-02
+end = 2020-12-30
+monthly = 1000000
+max_holdings = 3
+cma = [["214980", 2018-01-01], ["357870", 2020-07-07]]
+[backtest.benchmarks]
+"나스닥100" = "etf:133690"
+"코스피" = "index:코스피"
+[backtest.variants]
+"지금 규칙" = {}
+"배당성향 하한 없음" = { payout_min = 0.0 }
+''')).backtest
+    assert (s.start, s.end, s.monthly, s.max_holdings) == (date(2019, 1, 2), date(2020, 12, 30), 1_000_000.0, 3)
+    assert s.cma == (("214980", date(2018, 1, 1)), ("357870", date(2020, 7, 7)))
+    assert s.benchmarks == (("나스닥100", "etf:133690"), ("코스피", "index:코스피"))
+    assert s.variants == (("지금 규칙", ()), ("배당성향 하한 없음", (("payout_min", 0.0),)))
+    assert s.second_benchmarks == BacktestSettings().second_benchmarks       # 안 적은 표는 기본값
+
+
+@pytest.mark.parametrize("body, word", [
+    ("max_holdings = 0", "max_holdings"),
+    ("cost_rate = 0.2", "cost_rate"),
+    ("monthly = 0", "monthly"),
+    ("start = 2020-01-01\nend = 2019-01-01", "end"),
+    ("second_start = 2010-01-01", "second_start"),
+    ('cma = [["357870", 2020-07-07], ["214980", 2018-01-01]]', "cma"),
+    ("startt = 2019-01-01", "startt"),
+    ('[backtest.benchmarks]\n"x" = "stock:1"', "etf:"),
+    ('[backtest.variants]\n"x" = { nope = 1 }', "nope"),
+    ('[backtest.variants]\n"x" = { payout_min = 1.5 }', "payout_min"),
+    ('[backtest.variants]\n"x" = { roe_min = -1 }', "roe_min"),
+    ('[backtest.variants]\n"x" = { payout_min = 0.7 }', "payout_min"),     # 상한(0.6)보다 커요
+])
+def test_backtest_rejects_bad_values(tmp_path, body, word):
+    with pytest.raises(ConfigError, match=word):
+        load_settings(_backtest_settings(tmp_path, "[backtest]\n" + body))
+
+
+def test_repo_settings_backtest_section_is_the_default():
+    assert load_settings(ROOT / "settings.toml").backtest == BacktestSettings()

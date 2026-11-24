@@ -33,6 +33,8 @@ PREF_NOTE = ("우선주예요. 재무(EPS·ROE·현금흐름)는 보통주와 �
 PREF_MEMO = "우선주: 재무는 보통주({code}) 것, 주가·배당은 우선주. "
 PRE_FOUNDING_NOTE = "{years}년은 회사 설립일({founded}) 전이라 배당 칸을 비웠어요"
 EPS_DIV_NOTE = "{years}년 EPS는 재무제표에서 찾지 못해 '배당에 관한 사항'의 주당순이익을 썼어요"
+EPS_SCALE_NOTE = "{y}년 EPS가 재무제표에 {k:,}배로 적혀 있어서 '배당에 관한 사항'의 주당순이익을 썼어요"
+_UNIT_SCALES = (1_000, 1_000_000)     # 회사가 XBRL 단위를 잘못 적은 배수 (LG 2016 사업보고서: 100만 배)
 CURRENCY_FLAG = "원화가 아닌 재무제표예요(통화: {currency}). 숫자를 확인해 주세요."
 EQUITY_FLAG = "{y}년 자본이 0 이하예요. ROE·부채비율을 확인해 주세요."
 SIGN_FLAG = "{y}년 EPS와 순이익의 부호가 달라요. 숫자를 확인해 주세요."
@@ -124,6 +126,16 @@ def preferred_kind(name: str) -> str:
     return "우선" if number == 1 else f"{number}우선"
 
 
+_EVENT = re.compile(r"(중간|결산|분기|반기|기말)배당")   # 배당 때를 나타내는 말 ('배당우선주'의 '배당'은 주식 종류예요)
+
+
+def _events_or_first(rows: list[dict]) -> dict | None:
+    """같은 종류 줄이 여럿이고 모두 배당 때(중간·결산·분기…)로 나뉘었으면 더한 한 줄, 아니면 첫 줄."""
+    if len(rows) > 1 and all(_EVENT.search(_knd(r)) for r in rows) and not any("주주" in _knd(r) for r in rows):
+        return _event_sum(rows)
+    return rows[0] if rows else None
+
+
 def _event_sum(rows: list[dict]) -> dict:
     """결산배당·중간배당처럼 배당 때마다 나눠 적은 줄을 한 줄로 더해요.
 
@@ -146,12 +158,13 @@ def _dps_row(rows: list[dict], kind: str = "보통") -> dict | None:
 
     우선주: 그 번호의 우선주 줄(2우선주·제3우선주 …). 없으면 번호 없는 우선주 줄(우선주·종류주·종류주식).
     번호 없는 줄은 우선주 종류가 여럿이어도 회사가 한 줄로만 적은 거라 모든 우선주가 같이 써요.
+    고른 줄들이 중간배당·결산배당처럼 배당 때마다 나뉘었으면 더해요 (보통주도 같아요).
     종류 칸이 빈 줄이 정확히 둘이면 두 번째 줄 (서식 순서: 보통주 다음이 우선주).
 
     보통주:
     - 주식 종류가 '보통'·'의결권 있는'으로 시작하는 줄. 최대주주·소액주주로 나눴으면 소액주주 줄.
     - 줄을 대주주·소액주주로만 나눴으면(차등배당) 소액주주 줄. 계산기에 넣는 건 소액주주가 받는 배당이에요.
-    - 줄을 결산배당·중간배당으로 나눴으면 둘을 더한 한 줄.
+    - 줄을 결산배당·중간배당으로 나눴으면 둘을 더한 한 줄. 그 줄에 우선주가 붙어 있으면 우선주 줄은 빼고 더해요.
     - 종류 칸이 빈 줄('-' 포함)이 정확히 둘이면 첫 줄. 공시 서식이 보통주 줄을 우선주 줄보다 먼저 적어요
       (한국쉘석유·SK텔레콤·오뚜기 등). 셋 이상이면 어느 줄인지 몰라요.
     - 그 밖에는 줄이 하나뿐이고 우선주가 아닐 때만 그 줄.
@@ -165,14 +178,16 @@ def _dps_row(rows: list[dict], kind: str = "보통") -> dict | None:
         generic = [r for r, number in prefs if number is None]
         if not prefs and len(per_share) == 2 and all(k == "" or k in _DASHES for k in kinds):
             return per_share[1]      # 종류 칸이 빈 줄 둘: 서식 순서대로 보통주 다음 줄이 우선주 (동원시스템즈 2019)
-        return (exact or generic or [None])[0]
+        return _events_or_first(exact or generic)
     common = [r for r, k in zip(per_share, kinds, strict=True) if k.startswith(("보통", "의결권있는"))]
     if common:
-        return next((r for r in common if "소액" in _knd(r)), common[0])
+        small = next((r for r in common if "소액" in _knd(r)), None)
+        return small if small is not None else _events_or_first(common)
     if per_share and all("주주" in k for k in kinds):
         return next((r for r in per_share if "소액" in _knd(r)), None)
     if len(per_share) > 1 and all("배당" in k for k in kinds):
-        return _event_sum(per_share)
+        events = [r for r, k in zip(per_share, kinds, strict=True) if not _is_pref_kind(k)]
+        return _event_sum(events) if events else None
     if len(per_share) == 2 and all(k == "" or k in _DASHES for k in kinds):
         return per_share[0]
     if len(per_share) == 1 and not _is_pref_kind(kinds[0]):
@@ -227,6 +242,11 @@ def _faces(div_reports: dict[int, list[dict]]) -> tuple[float | None, dict[int, 
             if face is not None and y not in at_year:
                 at_year[y] = face
     return now, at_year
+
+
+def current_dps(rows: list[dict] | None, kind: str = "보통") -> float | None:
+    """배당 표 하나의 당기 주당 현금배당금. 줄 고르기는 사업보고서와 같아요. 대시는 0.0, 줄이 없거나 못 읽으면 None."""
+    return _dps_values(_dps_row(rows or [], kind), 0)[0][0]
 
 
 def dps_from_report(rows: list[dict], year: int, kind: str = "보통") -> dict[int, float | None]:
@@ -514,6 +534,7 @@ def _eps_from_dividends(eps: dict[int, float | None], div_reports: dict[int, lis
     filled: list[int] = []
     for y in sorted(eps):
         if eps[y] is not None:
+            _fix_unit(eps, y, div_reports, latest, divisor, fs, reports, out)
             continue
         for report_year in reports:
             row = _div_eps_row(div_reports.get(report_year), fs) if report_year - 2 <= y <= report_year else None
@@ -531,6 +552,37 @@ def _eps_from_dividends(eps: dict[int, float | None], div_reports: dict[int, lis
     if filled:
         out.note(EPS_DIV_NOTE.format(years="·".join(map(str, filled))))
     return eps
+
+
+def _div_eps(div_reports: dict[int, list[dict]], y: int, latest: int, divisor: float, fs: str,
+             reports: tuple[int, ...]) -> tuple[float, str] | None:
+    """y년 '배당에 관한 사항' 주당순이익과 출처 글 (재무제표와 같은 보고서에서, 분할 조정까지)."""
+    for report_year in reports:
+        row = _div_eps_row(div_reports.get(report_year), fs) if report_year - 2 <= y <= report_year else None
+        value = parse_amount(str((row or {}).get(_DPS_COLUMNS[report_year - y]) or "")) if row else None
+        if value is None:
+            continue
+        source = f"{report_year} 사업보고서 배당에 관한 사항({row.get('se')}{_receipt(row.get('rcept_no'))})"
+        if report_year != latest and divisor != 1.0:
+            value /= divisor
+            source += f" ÷ {divisor:g}(액면분할 조정)"
+        return value, source
+    return None
+
+
+def _fix_unit(eps: dict[int, float | None], y: int, div_reports: dict[int, list[dict]], latest: int,
+              divisor: float, fs: str, reports: tuple[int, ...], out: _Out) -> None:
+    """재무제표 EPS가 배당 공시 주당순이익의 정확히 1,000배·1,000,000배면 단위를 잘못 적은 거라 바로잡아요."""
+    got = _div_eps(div_reports, y, latest, divisor, fs, reports)
+    value = eps[y]
+    if got is None or not got[0] or value is None:
+        return
+    for k in _UNIT_SCALES:
+        if abs(value / got[0] - k) <= 0.01 * k:
+            eps[y] = got[0]
+            out.sources[_cell(y, latest, 27)] = got[1]
+            out.note(EPS_SCALE_NOTE.format(y=y, k=k))
+            return
 
 
 def _dps_cell(y: int, latest: int) -> str:
@@ -566,6 +618,14 @@ def _dps(div_reports: dict[int, list[dict]], latest: int, years: range, out: _Ou
         shown = "·".join(str(y) for y in years if scaled.get(y) == old)
         out.note(FACE_NOTE.format(years=shown, old=old, now=now))
     return {y: values.get(y) for y in years}
+
+
+def dividend_history(div_reports: dict[int, list[dict]], latest: int, kind: str = "보통",
+                     est_dt: str = "") -> tuple[dict[int, float | None], tuple[str, ...], tuple[str, ...]]:
+    """L−9…L DPS와 플래그·메모. assemble와 같은 규칙(설립 전 해 빈칸, 액면가 맞춤)이에요 (백테스트가 같이 써요)."""
+    out = _Out()
+    values = _dps(div_reports, latest, range(latest - 9, latest + 1), out, kind, est_dt)
+    return values, tuple(out.flags), tuple(out.notes)
 
 
 def _rebase(values: dict[int, float | None], r: float, latest: int, cell: Callable[[int], str],
@@ -730,7 +790,7 @@ def _number_checks(a: dict[int, _Period], b: dict[int, _Period], main: dict[int,
         if e and income and (e > 0) != (income > 0):       # 0은 부호가 없어서 건너뛰어요
             out.flag(SIGN_FLAG.format(y=y))
         v = per.get(y)
-        if v is not None and (v > PER_MAX or 0 < v < PER_MIN):
+        if v is not None and (v > PER_MAX or v < PER_MIN):        # 0으로 반올림된 PER도 단위 오류예요
             out.flag(PER_UNIT_FLAG.format(y=y, per=v))
     y = latest - 2                                          # A·B 보고서가 함께 적은 해
     if y in a and y in b:

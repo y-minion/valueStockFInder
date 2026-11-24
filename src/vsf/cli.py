@@ -71,6 +71,14 @@ class RedactingFormatter(logging.Formatter):
         return text
 
 
+def redact(text: str, keys: Keys) -> str:
+    """글에서 키 글자를 지워요. 오류 글·트레이스백을 화면이나 파일에 남기기 전에 써요."""
+    for secret in (keys.dart, keys.krx, keys.naver_id, keys.naver_secret, keys.fisis):
+        if secret:
+            text = text.replace(secret, "REMOVED")
+    return text
+
+
 @contextmanager
 def _run_log(path: Path, keys: Keys) -> Iterator[None]:
     """실행하는 동안 vsf 로거 기록(트레이스백 포함)을 path에 남겨요. 남길 기록이 없으면 파일을 만들지 않아요."""
@@ -249,13 +257,14 @@ def main(argv: list[str] | None = None, deps: Deps | None = None) -> int:
         if args.excel:
             return _excel(args.excel, settings, keys, store, deps, today, runs_dir, args.no_open)
         return _weekly(settings, keys, store, deps, today, runs_dir, args.no_open, run_log)
-    except Exception as e:  # noqa: BLE001 - 마지막 안전망: 트레이스백은 로그에만
+    except Exception as e:  # noqa: BLE001 - 마지막 안전망: 트레이스백은 로그에만, 키는 지워요
         log.parent.mkdir(parents=True, exist_ok=True)
-        log.write_text(traceback.format_exc(), encoding="utf-8")
+        log.write_text(redact(traceback.format_exc(), keys), encoding="utf-8")
+        message = redact(str(e), keys)
         if isinstance(e, (KrxError, NetworkError)):
-            print(f"{e} 자세한 내용은 {log}에 남겼어요.", file=sys.stderr)
+            print(f"{message} 자세한 내용은 {log}에 남겼어요.", file=sys.stderr)
         else:
-            print(f"예상하지 못한 오류가 났어요: {e}. 자세한 내용은 {log}에 남겼어요.", file=sys.stderr)
+            print(f"예상하지 못한 오류가 났어요: {message}. 자세한 내용은 {log}에 남겼어요.", file=sys.stderr)
         return 1
     finally:
         if store is not None:

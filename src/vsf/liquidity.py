@@ -5,9 +5,12 @@ THIN_TRADING_WON = 100_000_000      # 평균 거래대금이 이보다 적으면
 
 
 def average_value(krx, codes: set[str], until: date, weeks: int = 13) -> dict[str, tuple[float, int]]:
-    """종목 → (거래대금 평균, 날 수). 최근 weeks주의 주말 거래일과 until 당일을 봐요. 값이 없는 날은 빼요."""
+    """종목 → (거래대금 평균, 날 수). 최근 weeks주의 주말 거래일과 until 당일을 봐요. 값이 없는 날은 빼요.
+
+    week_ends는 until이 거래일이면 until도 넣어 돌려줘서, 같은 날을 두 번 세지 않게 모아요.
+    """
     sums: dict[str, list[float]] = {}
-    for day in [*krx.week_ends(until, weeks), until]:
+    for day in sorted({*krx.week_ends(until, weeks), until}):
         rows = krx.daily(day, need_value=True)
         for code in codes:
             row = rows.get(code)

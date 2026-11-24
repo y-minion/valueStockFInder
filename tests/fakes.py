@@ -157,10 +157,13 @@ class FakeKrx:
     """
 
     def __init__(self, listed: list[Listed], days: dict[date, dict[str, PriceRow]] | None = None,
-                 weekdays_only: bool = False) -> None:
+                 weekdays_only: bool = False, etf: dict[date, dict[str, float]] | None = None,
+                 index: dict[date, dict[str, float]] | None = None) -> None:
         self._listed = listed
         self._days = days or {}
         self._weekdays_only = weekdays_only
+        self._etf = etf or {}
+        self._index = index or {}
         self._log: dict[str, list[tuple]] = defaultdict(list)
 
     def calls_of(self, name: str) -> int:
@@ -178,6 +181,14 @@ class FakeKrx:
             close = 50_000.0 + (day.toordinal() % 100) * 100
             return {x.code: PriceRow(day, x.code, x.name, x.market, close, x.shares) for x in self._listed}
         return dict(self._days.get(day, {}))
+
+    def etf_daily(self, day: date) -> dict[str, float]:
+        self._log["etf_daily"].append((day,))
+        return dict(self._etf.get(day, {}))
+
+    def index_daily(self, day: date) -> dict[str, float]:
+        self._log["index_daily"].append((day,))
+        return dict(self._index.get(day, {}))
 
     def latest_trading_day(self, today: date, max_back: int = 10) -> date:
         return KrxClient.latest_trading_day(self, today, max_back)  # type: ignore[arg-type]

@@ -434,3 +434,14 @@ def test_weekly_run_includes_preferred_shares(tmp_path):
     s = data["stocks"]["000275"]
     assert s["share_class"] == "우선" and s["common_code"] == "000270" and s["score"] is not None
     assert "000275" in data["score_rank"]
+
+def test_unexpected_error_message_and_log_hide_keys(tmp_path, capsys):
+    d = fake_deps(tmp_path)
+
+    def boom(keys, store):
+        raise RuntimeError("GET https://opendart.fss.or.kr/api/list.json?crtfc_key=fake-dart-key 실패")
+    d.make_krx = boom
+    assert run(tmp_path, d) == 1
+    err = capsys.readouterr().err
+    log = next((tmp_path / "data" / "logs").glob("*.log")).read_text(encoding="utf-8")
+    assert "fake-dart-key" not in err and "fake-dart-key" not in log and "REMOVED" in err

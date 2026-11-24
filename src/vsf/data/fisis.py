@@ -5,7 +5,7 @@ import math
 import re
 import time
 from collections.abc import Callable
-from datetime import date
+from datetime import date, timedelta
 
 import httpx
 
@@ -22,6 +22,14 @@ TABLES: dict[str, list[tuple[str, str, tuple[str, ...]]]] = {
     "보험": [("H", "SH021", ("D", "A")), ("I", "SI021", ("D", "A"))],
     "증권": [("F", "SF308", ("E",))],
 }
+# 과거 금융회사 ROE (2026-11-24 백테스트): 종류 → (partDiv, listNo, 계정). 금융지주·은행은 FISIS가 ROE를 줘요.
+ROE_TABLES: dict[str, tuple[str, str, str]] = {"금융지주": ("L", "SL010", "G"), "은행": ("A", "SA017", "A7")}
+# 개별 자본총계(원): 순이익 ÷ 연말 자본 평균으로 ROE를 계산해요. 보험은 생명보험(H) 다음 손해보험(I) 순서로 찾아요.
+EQUITY_TABLES: dict[str, list[tuple[str, str, str]]] = {
+    "보험": [("H", "SH004", "A2"), ("I", "SI004", "A2")],
+    "증권": [("F", "SF304", "L")],
+}
+LIFE_EQUITY: tuple[str, str, str] = EQUITY_TABLES["보험"][0]
 _AUTH_CODES = {"010", "011", "012", "013"}
 _CLOSED = ("[폐]", "[closed]")
 _KR_DROP = re.compile(r"\(주\)|주식회사|\s+")
@@ -76,11 +84,18 @@ class FisisClient:
         min_interval: float = 0.2,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
+        ratio_lag_days: int = 0,
+        call_day: Callable[[], date] | None = None,
     ) -> None:
+        """ratio_lag_days: 자본비율은 '오늘'보다 이만큼 앞서 끝난 분기까지만 봐요 (백테스트: 그때 나와 있던 분기).
+        call_day: 호출 수를 적는 날. 없으면 today예요 (백테스트는 today를 과거 날로 바꿔 써서 따로 줘요).
+        """
         self._key = auth_key
         self._store = store
         self._http = http or httpx.Client(timeout=30)
         self._today = today
+        self._ratio_lag = ratio_lag_days
+        self._call_day = call_day or today
         self._min_interval = min_interval
         self._sleep = sleep
         self._clock = clock
@@ -96,7 +111,7 @@ class FisisClient:
                                   params={"auth": self._key, **params})
         finally:
             self._last = self._clock()
-            self._store.add_call("fisis", self._today())
+            self._store.add_call("fisis", self._call_day())
         if resp.status_code >= 400:
             raise FisisError(f"금감원 FISIS 요청이 거절됐어요 (HTTP {resp.status_code})")
         try:
@@ -135,18 +150,20 @@ class FisisClient:
         return None
 
     def _latest(self, finance_cd: str, list_no: str, accounts: tuple[str, ...]) -> CapitalRatio | None:
-        today = self._today()
-        key = f"fisis:ratio:{finance_cd}:{list_no}:{_ym(today)}"
+        asof = self._today() - timedelta(days=self._ratio_lag)
+        end = _ym(asof)
+        key = f"fisis:ratio:{finance_cd}:{list_no}:{end}"
         cached = self._store.get_json(key)
         if cached is not None:
             return CapitalRatio(**cached) if cached else None       # type: ignore[arg-type]
         result = self._call("statisticsInfoSearch", {
             "lang": "kr", "financeCd": finance_cd, "listNo": list_no, "term": "Q",
-            "startBaseMm": _ym(today, 12), "endBaseMm": _ym(today)})
+            "startBaseMm": _ym(asof, 12), "endBaseMm": end})
         rows = _rows(result)
         found: CapitalRatio | None = None
         good = [(str(r.get("base_month", "")), accounts.index(r["account_cd"]), v, r) for r in rows
-                if r.get("account_cd") in accounts and (v := _positive(r.get("a"))) is not None]
+                if r.get("account_cd") in accounts and str(r.get("base_month", "")) <= end
+                and (v := _positive(r.get("a"))) is not None]
         if good:        # 값이 있는 가장 최근 달을 먼저 고르고, 그 달 안에서 계정 우선순위를 따라요
             month = max(g[0] for g in good)
             _, pref, value, row = min((g for g in good if g[0] == month), key=lambda g: g[1])
@@ -157,6 +174,35 @@ class FisisClient:
         self._store.put_json(key, {"value": found.value, "base_month": found.base_month,
                                    "source": found.source} if found else {})
         return found
+
+    def annual_values(self, part_div: str, names: tuple[str, ...], list_no: str, account: str,
+                      y0: int, y1: int) -> dict[int, float]:
+        """해마다(12월) 한 계정 값. term="Y"로 y0~y1년 12월을 받아요. 회사를 못 찾으면 {}예요.
+
+        ROE는 적자 해에 음수일 수 있어서 0 이하도 그대로 둬요. 받은 값은 저장해 두고 다시 써요.
+        """
+        code = self._match(part_div, names)
+        if code is None:
+            return {}
+        key = f"fisis:annual:{code}:{list_no}:{account}:{y0}:{y1}"
+        cached = self._store.get_json(key)
+        if cached is None:
+            result = self._call("statisticsInfoSearch", {
+                "lang": "kr", "financeCd": code, "listNo": list_no, "term": "Y",
+                "startBaseMm": f"{y0}12", "endBaseMm": f"{y1}12"})
+            cached = {}
+            for r in _rows(result):
+                month = str(r.get("base_month", ""))
+                if r.get("account_cd") != account or len(month) != 6 or not month.endswith("12"):
+                    continue
+                try:
+                    v = float(str(r.get("a")).replace(",", ""))
+                except ValueError:
+                    continue
+                if math.isfinite(v):
+                    cached[month[:4]] = v
+            self._store.put_json(key, cached)
+        return {int(y): float(v) for y, v in cached.items()}  # type: ignore[union-attr]
 
     def capital_ratio(self, kind: str, names: tuple[str, ...]) -> CapitalRatio | None:
         for part_div, list_no, accounts in TABLES.get(kind, []):

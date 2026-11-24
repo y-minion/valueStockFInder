@@ -135,7 +135,7 @@ def test_quarterly_missing_is_asked_again(store):
     assert t.calls == 4                       # CFS·OFS를 두 번씩: 없던 보고서는 다음에 다시 물어요
 
 
-def test_periodic_cached_and_013_not_cached(store):
+def test_periodic_cached_and_recent_013_asked_again(store):
     rows = {"status": "000", "message": "정상", "list": [{"se": "보통주", "istc_totqy": "100"}]}
     t = FakeDart({"stockTotqySttus.json": json.dumps(rows).encode()})
     d = make(store, t)
@@ -145,8 +145,46 @@ def test_periodic_cached_and_013_not_cached(store):
     assert (q["corp_code"], q["bsns_year"], q["reprt_code"]) == (KIA_CORP, "2025", "11011")
     missing = FakeDart({"tesstkAcqsDspsSttus.json": body("error_013.json")})
     d2 = make(store, missing)
+    assert d2.periodic("tesstkAcqsDspsSttus", KIA_CORP, 2025) is None
+    assert d2.periodic("tesstkAcqsDspsSttus", KIA_CORP, 2025) is None and missing.calls == 2
     assert d2.periodic("tesstkAcqsDspsSttus", KIA_CORP, 2014) is None
-    assert d2.periodic("tesstkAcqsDspsSttus", KIA_CORP, 2014) is None and missing.calls == 2
+    assert d2.periodic("tesstkAcqsDspsSttus", KIA_CORP, 2014) is None and missing.calls == 3   # 지난 해는 기억해요
+
+
+def test_old_missing_report_is_remembered(store):
+    t = FakeDart({"fnlttSinglAcntAll.json": body("error_013.json")})
+    d = make(store, t)
+    assert d.financials(KIA_CORP, 2024) is None
+    assert d.financials(KIA_CORP, 2024) is None
+    assert t.calls == 2                       # 두 해 넘게 지난 해의 '자료 없음'은 기억해요 (CFS·OFS 한 번씩)
+
+
+def test_recent_missing_report_is_asked_again(store):
+    t = FakeDart({"fnlttSinglAcntAll.json": body("error_013.json")})
+    d = make(store, t)
+    assert d.financials(KIA_CORP, 2025) is None
+    assert d.financials(KIA_CORP, 2025) is None
+    assert t.calls == 4                       # 작년 보고서는 아직 늦게 올라올 수 있어서 다시 물어요
+
+
+def test_old_missing_dividends_are_remembered(store):
+    t = FakeDart({"alotMatter.json": body("error_013.json")})
+    d = make(store, t)
+    assert d.dividends(KIA_CORP, 2015) is None
+    assert d.dividends(KIA_CORP, 2015) is None and t.calls == 1
+    recent = FakeDart({"alotMatter.json": body("error_013.json")})
+    d2 = make(store, recent)
+    assert d2.dividends(KIA_CORP, 2025) is None
+    assert d2.dividends(KIA_CORP, 2025) is None and recent.calls == 2
+
+
+def test_invalidate_forgets_remembered_missing(store):
+    t = FakeDart({"alotMatter.json": body("error_013.json")})
+    d = make(store, t)
+    d.dividends(KIA_CORP, 2015)
+    d.invalidate(KIA_CORP)
+    d.dividends(KIA_CORP, 2015)
+    assert t.calls == 2
 
 
 def test_periodic_keeps_report_code_apart(store):

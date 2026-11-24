@@ -1022,6 +1022,13 @@ def test_interim_and_final_dividend_rows_add_up():
         {2025: 200.0, 2024: None, 2023: 0.0}
 
 
+def test_event_rows_split_by_class_do_not_add_the_preferred_dividend():
+    # 배당 때마다 나눈 줄에 주식 종류가 붙어 있으면 우선주 줄은 보통주 합계에 넣지 않아요.
+    rows = [_dps("결산배당(보통주)", "1,000", "900", "-"), _dps("결산배당(우선주)", "1,050", "950", "-")]
+    assert dps_from_report(rows, 2025) == {2025: 1000.0, 2024: 900.0, 2023: 0.0}
+    assert dps_from_report(rows, 2025, "우선") == {2025: 1050.0, 2024: 950.0, 2023: 0.0}
+
+
 def test_preferred_dps_rows_named_jongryu_or_numbered():
     common = _dps("보통주", "600", "600", "600")
     # 동원시스템즈·크라운제과: '종류주', 두산·유화증권: '종류주식', CJ제일제당: '제1종 우선주', 한국금융지주: '1종 종류주식'
@@ -1107,3 +1114,44 @@ def test_preferred_is_the_second_of_two_unlabeled_rows():
     assert dps_from_report(rows, 2019) == {2019: 500.0, 2018: 500.0, 2017: 250.0}
     assert dps_from_report(rows, 2019, "우선") == {2019: 550.0, 2018: 550.0, 2017: 300.0}
     assert dps_from_report(rows * 2, 2019, "우선") == {2019: None, 2018: None, 2017: None}   # 넷이면 몰라요
+
+
+def test_statement_eps_with_unit_error_is_fixed_from_dividend_table():
+    # LG 2016 사업보고서 XBRL: EPS를 100만 배로 적었어요 (6,114 → 6,114,000,000). 배당 공시의 주당순이익은 맞아요.
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    good = assemble(co, L, fin_a, fin_b, divs, ye, price, d)
+    bad_b = replace(fin_b, rows=[{**r, **{f"{p}_amount": str(int(float(r[f"{p}_amount"].replace(",", "")) * 1_000_000))
+                                          for p in ("thstrm", "frmtrm", "bfefrmtrm") if r.get(f"{p}_amount")}}
+                                 if r["account_id"] == "ifrs-full_BasicEarningsLossPerShare" else r for r in fin_b.rows])
+    eps = [y.eps for y in good.inputs.years]
+    eps_row = {**divs[2023][0], "se": "(연결)주당순이익(원)", "stock_knd": "", "thstrm": f"{eps[2]:,.0f}",
+               "frmtrm": f"{eps[1]:,.0f}", "lwfr": f"{eps[0]:,.0f}"}
+    a = assemble(co, L, fin_a, bad_b, {**divs, 2023: divs[2023] + [eps_row]}, ye, price, d)
+    assert [y.eps for y in a.inputs.years] == eps
+    assert any("재무제표에 1,000,000배로 적혀" in n for n in a.notes)
+
+
+def test_year_end_per_that_rounds_to_zero_is_flagged():
+    co, L, fin_a, fin_b, divs, ye, price, d = synthetic_company()
+    huge = replace(fin_b, rows=[{**r, "bfefrmtrm_amount": "9000000000"} if r["account_id"] == "ifrs-full_BasicEarningsLossPerShare"
+                                else r for r in fin_b.rows])
+    a = assemble(co, L, fin_a, huge, divs, ye, price, d)
+    assert a.inputs.years[0].per == 0.0
+    assert "2021년 연말 PER이 0배로 비정상적이에요(단위 오류 가능성). 숫자를 확인해 주세요." in a.flags
+
+def test_preferred_event_rows_are_added_like_the_common_ones():
+    rows = [_dps("중간배당(보통주)", "500", "400", "-"), _dps("결산배당(보통주)", "1,000", "900", "-"),
+            _dps("중간배당(우선주)", "550", "450", "-"), _dps("결산배당(우선주)", "1,050", "950", "-")]
+    assert dps_from_report(rows, 2025) == {2025: 1500.0, 2024: 1300.0, 2023: 0.0}
+    assert dps_from_report(rows, 2025, "우선") == {2025: 1600.0, 2024: 1400.0, 2023: 0.0}
+
+
+def test_common_event_rows_that_start_with_the_class_are_added():
+    rows = [_dps("보통주 중간배당", "500", "-", "-"), _dps("보통주 결산배당", "1,000", "-", "-")]
+    assert dps_from_report(rows, 2025)[2025] == 1500.0
+
+
+def test_preferred_classes_named_with_dividend_are_not_added():
+    # '배당우선전환주식'·'배당우선상환주식'은 배당 때가 아니라 주식 종류 이름이에요 (2015 사업보고서 5건의 모양).
+    rows = [_dps("보통주", "300", "-", "-"), _dps("배당우선전환주식", "350", "-", "-"), _dps("배당우선상환주식", "400", "-", "-")]
+    assert dps_from_report(rows, 2025, "우선")[2025] == 350.0

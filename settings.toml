@@ -107,3 +107,28 @@ none_points = 5
 
 [score.subsidiary]          # 기타: 지분 subsidiary_stake_min% 이상 상장 자회사가 없으면 배점 전부
 points = 5
+
+# ---- 백테스트 (uv run backtest.py) ----
+# 과거 실제 자료로 계산기를 검증해요. 판정 기준은 위 [criteria] 그대로이고, 여기는 투자 규칙과 비교 대상이에요.
+[backtest]
+start = 2018-04-01            # 시작일 (DART 재무 자료가 2015 사업연도부터라 이때부터 5년 치가 모여요)
+end = 2026-11-20              # 끝 날
+second_start = 2020-11-02     # 두 번째 실행 시작일 (환노출 S&P500 ETF가 생긴 뒤 같은 기간끼리 비교)
+monthly = 1300000             # 매달 첫 거래일에 넣는 돈 (원)
+max_holdings = 5              # 최대 보유 종목 수
+cost_rate = 0.0025            # 살 때·팔 때 각각 빼는 비용 비율 (수수료·거래세·체결 차이)
+min_trade = 10000             # 한 종목에 이보다 적은 돈이면 사지 않고 CMA에 둬요 (원)
+cma = [["214980", 2018-01-01], ["357870", 2020-07-07]]   # 남는 돈(CMA) 이자로 쓰는 ETF, 그날부터
+
+[backtest.benchmarks]         # 같은 날 같은 돈을 넣어 계속 들고 있는 비교 대상 ("etf:코드" 또는 "index:지수 이름")
+"나스닥100 (TIGER 미국나스닥100)" = "etf:133690"
+"S&P500 환헤지 (TIGER 미국S&P500선물(H))" = "etf:143850"
+"코스피" = "index:코스피"
+"고배당 ETF (PLUS 고배당주)" = "etf:161510"
+
+[backtest.second_benchmarks]  # 두 번째 실행(second_start부터)에만 더하는 비교 대상
+"S&P500 환노출 (TIGER 미국S&P500)" = "etf:360750"
+
+[backtest.variants]           # 나란히 돌려 볼 기준값 바꾸기 ({}는 [criteria] 그대로)
+"지금 규칙" = {}
+"배당성향 하한 없음" = { payout_min = 0.0 }

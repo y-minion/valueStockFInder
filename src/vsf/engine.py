@@ -197,7 +197,7 @@ def _gate3(v: Cells, c: Criteria) -> None:
         v["B106"] = None
     v["B107"] = b105 * (1 - c.safety_margin) if is_num(b105) else None
     b107 = v["B107"]
-    v["B108"] = price / b105 if _num(b105, price) else None
+    v["B108"] = price / b105 if _num(b105, price) and b105 != 0 else None   # 엑셀은 #DIV/0!, 여기서는 빈칸
     v["C108"] = f"≤ {excel_text(1 - c.safety_margin, '0.00')}배"
     v["B109"] = (max(0.0, 1 - b107 / price)
                  if _num(b107, price) and price > 0 else None)

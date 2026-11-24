@@ -2,9 +2,9 @@ import logging
 from dataclasses import replace
 from datetime import date
 
-from fakes import D, KIA_CORP, FakeDart, FakeKrx, mem_store, noop
+from fakes import D, KIA_CORP, FakeDart, FakeKrx, _listed, mem_store, noop
 from helpers import div_rows, synthetic
-from vsf.collect import FISIS_FAIL_NOTE, FISIS_KEY_NOTE, NO_FIN, collect, collect_one
+from vsf.collect import FISIS_FAIL_NOTE, FISIS_KEY_NOTE, NO_FIN, collect, collect_one, prior_div_years
 from vsf.data.dart import DartError, DartQuotaExceeded
 from vsf.data.fisis import FisisAuthError, FisisError
 from vsf.financial import CapitalRatio
@@ -380,6 +380,15 @@ def test_preferred_without_a_listed_common_is_excluded():
     assert c.excluded["우선주(보통주 없음)"] == [("005935", "삼성전자우")]
 
 
+def test_preferred_of_an_excluded_common_takes_the_common_reason():
+    # 스팩의 우선주는 스팩으로 빠져요. 보통주가 빠지는 회사를 우선주로 다시 분석하지 않아요.
+    krx = FakeKrx.with_listed([_listed("000270", "기아"), _listed("123450", "하나30호스팩"),
+                               _listed("123455", "하나30호스팩우", kind="우선주")])
+    c = collect(FakeDart({"000270": FakeDart.entry()}), krx, mem_store(), D, progress=noop)
+    assert c.excluded["스팩"] == [("123450", "하나30호스팩"), ("123455", "하나30호스팩우")]
+    assert collect_one(FakeDart({}), krx, mem_store(), D, "123455") == "123455은(는) 분석 대상이 아니에요: 스팩"
+
+
 def test_quota_defers_preferred_to_pending():
     dart = FakeDart({"000270": FakeDart.entry(dividends=_pref_divs()), "030000": FakeDart.entry()}, quota_after=1)
     c = collect(dart, FakeKrx.with_preferred(), mem_store(), D, progress=noop)
@@ -405,3 +414,59 @@ def test_company_founding_date_is_kept_for_dividend_years():
     dart = FakeDart({"000270": FakeDart.entry(est_dt="20170302")})
     info, _ = collect_one(dart, FakeKrx.default(), mem_store(), D, "000270")
     assert info.est_dt == "20170302"
+
+
+# ---- 사업연도를 받아 조립하기 (2026-11-24 백테스트 플랜 Task 4) ----
+
+from fakes import SYN_PRICE_DATE, _DEFAULT_DIVS  # noqa: E402
+from vsf.collect import assemble_for_year, context_for  # noqa: E402
+
+
+def _kia_item(krx):
+    return next(x for x in krx.listed(SYN_PRICE_DATE) if x.code == "000270")
+
+
+def test_assemble_for_year_can_skip_quick_fail():
+    divs = {**_DEFAULT_DIVS, 2025: div_rows("-", "6,500", "5,600")}           # 최근 해 배당 0
+    dart = FakeDart({"000270": FakeDart.entry(dividends=divs)})
+    krx = FakeKrx.default()
+    ctx = context_for(dart, krx, SYN_PRICE_DATE, dart.corp_codes())
+    assert assemble_for_year(ctx, _kia_item(krx), 2025)[1].quick_fail is True
+    full = assemble_for_year(ctx, _kia_item(krx), 2025, quick_fail=False)[1]
+    assert full.quick_fail is False and full.inputs.years[-1].eps is not None
+
+
+def test_assemble_for_year_uses_the_given_year_and_prefetched_dividends():
+    dart = FakeDart({"000270": FakeDart.entry()})
+    krx = FakeKrx.default()
+    ctx = context_for(dart, krx, SYN_PRICE_DATE, dart.corp_codes())
+    info, got = assemble_for_year(ctx, _kia_item(krx), 2025, divs=_DEFAULT_DIVS[2025])
+    assert info.code == "000270" and got.latest_year == 2025 and not got.quick_fail
+    assert dart.calls_of("dividends") == 4                 # 2023·2021·2019·2017만 받아요 (2025는 받은 걸 써요)
+
+
+def test_context_for_uses_that_days_prices_and_year_ends():
+    krx = FakeKrx.default()
+    ctx = context_for(FakeDart.default(), krx, SYN_PRICE_DATE, {})
+    assert ctx.today == ctx.price_date == SYN_PRICE_DATE and "000270" in ctx.prices
+    assert set(ctx.year_ends) == {2021, 2022, 2023, 2024, 2025}
+
+def test_prior_dividend_reports_cover_ten_years():
+    # 보고서 하나가 3년 치라 두 해씩 건너뛰어요. 짝수 해 묶음은 2013년이 비어서 2015 보고서도 읽어요.
+    assert prior_div_years(2020) == [2018, 2016, 2015] and prior_div_years(2018) == [2016, 2015]
+    assert prior_div_years(2022) == [2020, 2018, 2016, 2015]
+    assert prior_div_years(2019) == [2017, 2015] and prior_div_years(2025) == [2023, 2021, 2019, 2017]
+    assert prior_div_years(2024) == [2022, 2020, 2018, 2016]
+
+
+def test_filings_list_error_does_not_stop_the_weekly_run():
+    # 바뀐 보고서 확인(공시 목록)이 한 번 실패해도 주간 실행은 계속해요. 다음 주에 같은 날부터 다시 확인해요.
+    dart = FakeDart.default()
+
+    def down(*args, **kwargs):
+        raise DartError("800", "시스템 점검 중")
+    dart.filings = down
+    store = mem_store()
+    store.set_meta("filings_checked", "2026-11-10")
+    c = collect(dart, FakeKrx.default(), store, D, progress=noop)
+    assert c.records and store.get_meta("filings_checked") == "2026-11-10"

@@ -213,3 +213,53 @@ def test_non_finite_value_is_rejected():
     from vsf.data.fisis import _positive
     assert _positive("inf") is None and _positive("nan") is None and _positive("1e999") is None
     assert _positive("1,234.5") == 1234.5
+
+
+# ---- 해마다 값 (2026-11-24 백테스트: 과거 금융회사 ROE·자본) ----
+
+def _annual_client(stat_rows):
+    calls = []
+
+    def handler(request):
+        q = request.url.params
+        if request.url.path.endswith("companySearch.json"):
+            return httpx.Response(200, json=_load(f"company_{q['partDiv']}_{q['lang']}"))
+        calls.append(dict(q))
+        return httpx.Response(200, json={"result": {"err_cd": "000", "err_msg": "정상", "list": stat_rows}})
+    c = FisisClient(KEY, mem_store(), http=httpx.Client(transport=httpx.MockTransport(handler)),
+                    today=lambda: TODAY, min_interval=0, sleep=lambda s: None)
+    return c, calls
+
+
+def test_annual_values_keeps_december_rows_and_caches():
+    rows = [_row("201812", "G", "8.87", "자기자본순이익률(ROE)"), _row("201906", "G", "9.10"),
+            _row("201912", "G", "8.72"), _row("201912", "F", "0.61"), _row("201712", "G", "-0.5")]
+    c, calls = _annual_client(rows)
+    got = c.annual_values("L", names("086790"), "SL010", "G", 2017, 2019)
+    assert got == {2017: -0.5, 2018: 8.87, 2019: 8.72}            # 12월 값만, 적자 해(음수)도 그대로
+    assert calls[0]["term"] == "Y" and (calls[0]["startBaseMm"], calls[0]["endBaseMm"]) == ("201712", "201912")
+    assert c.annual_values("L", names("086790"), "SL010", "G", 2017, 2019) == got and len(calls) == 1
+
+
+def test_annual_values_for_unknown_company_is_empty():
+    c, calls = _annual_client([])
+    assert c.annual_values("L", ("없는회사",), "SL010", "G", 2017, 2019) == {} and calls == []
+
+def test_backtest_client_only_uses_quarters_published_by_then():
+    # 분기 자본비율은 분기 끝 뒤 45일 안에 분기보고서로 처음 나와요. 백테스트는 60일 전까지 끝난 분기만 봐요.
+    seen = []
+
+    def handler(request):
+        q = request.url.params
+        if request.url.path.endswith("companySearch.json"):
+            return httpx.Response(200, json=_load(f"company_{q['partDiv']}_{q['lang']}"))
+        seen.append(dict(q))
+        return httpx.Response(200, json={"result": {"err_cd": "000", "err_msg": "정상",
+                                                    "list": [_row("201812", "D", "210"), _row("201903", "D", "230")]}})
+    store = mem_store()
+    c = FisisClient(KEY, store, http=httpx.Client(transport=httpx.MockTransport(handler)),
+                    today=lambda: date(2019, 4, 1), ratio_lag_days=60, call_day=lambda: TODAY,
+                    min_interval=0, sleep=lambda s: None)
+    got = c._latest(_life_cd(), "SH021", ("D", "A"))
+    assert got.base_month == "2018-12" and seen[-1]["endBaseMm"] == "201901"
+    assert store.count_calls("fisis", TODAY) == 1 and store.count_calls("fisis", date(2019, 4, 1)) == 0

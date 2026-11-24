@@ -3,6 +3,7 @@ import json
 import math
 import tomllib
 from dataclasses import asdict, dataclass, field, fields, replace
+from datetime import date
 from pathlib import Path
 
 from vsf.model import Criteria
@@ -42,7 +43,7 @@ CRITERIA_LABELS: dict[str, str] = {
     "items": "점수 항목",
 }
 
-_SECTIONS = ("criteria", "report", "industry", "paths", "dart", "financial", "score")
+_SECTIONS = ("criteria", "report", "industry", "paths", "dart", "financial", "score", "backtest")
 
 _RATE_KEYS = {
     "required_return", "safety_margin", "payout_min", "payout_max",
@@ -125,6 +126,27 @@ class ScoreSettings:
 
 
 @dataclass(frozen=True)
+class BacktestSettings:
+    """백테스트 (2026-11-24 백테스트 설계 3·5·7장). 기준값은 [criteria] 그대로이고, 여기는 투자 규칙과 비교 대상이에요."""
+    start: date = date(2018, 4, 1)
+    end: date = date(2026, 11, 20)
+    second_start: date = date(2020, 11, 2)
+    monthly: float = 1_300_000.0
+    max_holdings: int = 5
+    cost_rate: float = 0.0025
+    min_trade: float = 10_000.0
+    cma: tuple[tuple[str, date], ...] = (("214980", date(2018, 1, 1)), ("357870", date(2020, 7, 7)))
+    benchmarks: tuple[tuple[str, str], ...] = (
+        ("나스닥100 (TIGER 미국나스닥100)", "etf:133690"),
+        ("S&P500 환헤지 (TIGER 미국S&P500선물(H))", "etf:143850"),
+        ("코스피", "index:코스피"),
+        ("고배당 ETF (PLUS 고배당주)", "etf:161510"))
+    second_benchmarks: tuple[tuple[str, str], ...] = (("S&P500 환노출 (TIGER 미국S&P500)", "etf:360750"),)
+    variants: tuple[tuple[str, tuple[tuple[str, float], ...]], ...] = (
+        ("지금 규칙", ()), ("배당성향 하한 없음", (("payout_min", 0.0),)))
+
+
+@dataclass(frozen=True)
 class Settings:
     criteria: Criteria
     report: ReportSettings
@@ -136,6 +158,7 @@ class Settings:
     exports_dir: Path
     financial: FinancialSettings = FinancialSettings()
     score: ScoreSettings = ScoreSettings()
+    backtest: BacktestSettings = BacktestSettings()
 
 
 @dataclass(frozen=True)
@@ -254,6 +277,97 @@ def _score_settings(raw: dict) -> ScoreSettings:
     return s
 
 
+_BT = "[backtest]"
+_BT_KEYS = {"start", "end", "second_start", "monthly", "max_holdings", "cost_rate", "min_trade", "cma",
+            "benchmarks", "second_benchmarks", "variants"}
+
+
+def _bt_date(key: str, value) -> date:
+    if not isinstance(value, date) or hasattr(value, "hour"):
+        raise _bad(_BT, key, f"날짜여야 해요 (예: 2018-04-01, 지금: {value!r}).")
+    return value
+
+
+def _bt_targets(key: str, table) -> tuple[tuple[str, str], ...]:
+    """비교 대상 표: 이름 = "etf:6자리 코드" 또는 "index:지수 이름"."""
+    if not isinstance(table, dict):
+        raise _bad(_BT, key, "[backtest.%s] 표여야 해요." % key)
+    out = []
+    for name, target in table.items():
+        ok = isinstance(target, str) and (
+            (target.startswith("etf:") and len(target) == 10 and target[4:].isalnum())
+            or (target.startswith("index:") and len(target) > 6))
+        if not ok:
+            raise _bad(_BT, key, f'"{name}"의 값은 "etf:6자리 코드" 또는 "index:지수 이름"이어야 해요 (지금: {target!r}).')
+        out.append((str(name), target))
+    return tuple(out)
+
+
+def _variant_value(where: str, key: str, value) -> float:
+    """[criteria]와 같은 검사예요. 하한(…_min)은 0도 돼요: 그 하한을 없앤 변형이에요."""
+    if _number(where, key, value) == 0 and key.endswith("_min"):
+        return 0.0
+    return _checked(where, key, value)
+
+
+def _backtest_settings(raw: dict, criteria: Criteria) -> BacktestSettings:
+    sec = _section(raw, "backtest")
+    _no_unknown(_BT, sec, _BT_KEYS)
+    kw: dict = {}
+    for key in ("start", "end", "second_start"):
+        if key in sec:
+            kw[key] = _bt_date(key, sec[key])
+    for key in ("monthly", "min_trade", "cost_rate"):
+        if key in sec:
+            kw[key] = _number(_BT, key, sec[key])
+    if "monthly" in kw and kw["monthly"] <= 0:
+        raise _bad(_BT, "monthly", "0보다 커야 해요.")
+    if "min_trade" in kw and kw["min_trade"] < 0:
+        raise _bad(_BT, "min_trade", "0 이상이어야 해요.")
+    if "cost_rate" in kw and not 0 <= kw["cost_rate"] < 0.1:
+        raise _bad(_BT, "cost_rate", f"0 이상 0.1 미만이어야 해요 (지금: {kw['cost_rate']}).")
+    if "max_holdings" in sec:
+        n = sec["max_holdings"]
+        if isinstance(n, bool) or not isinstance(n, int) or n < 1:
+            raise _bad(_BT, "max_holdings", f"1 이상의 정수여야 해요 (지금: {n!r}).")
+        kw["max_holdings"] = n
+    if "cma" in sec:
+        rows = sec["cma"]
+        if not isinstance(rows, list) or not rows or not all(
+                isinstance(r, list) and len(r) == 2 and isinstance(r[0], str) for r in rows):
+            raise _bad(_BT, "cma", '[["코드", 날짜], …] 모양이어야 해요.')
+        cma = tuple((r[0], _bt_date("cma", r[1])) for r in rows)
+        if [d for _, d in cma] != sorted(d for _, d in cma):
+            raise _bad(_BT, "cma", "날짜 순서대로 적어야 해요.")
+        kw["cma"] = cma
+    for key in ("benchmarks", "second_benchmarks"):
+        if key in sec:
+            kw[key] = _bt_targets(key, sec[key])
+    if "variants" in sec:
+        table = sec["variants"]
+        if not isinstance(table, dict) or not table:
+            raise _bad(_BT, "variants", "[backtest.variants] 표여야 해요.")
+        crit_fields = {f.name for f in fields(Criteria)}
+        variants = []
+        for name, body in table.items():
+            if not isinstance(body, dict):
+                raise _bad(_BT, "variants", f'"{name}"은(는) {{ 키 = 값 }} 모양이어야 해요.')
+            where = f"[backtest.variants] {name}"
+            _no_unknown(where, body, crit_fields)
+            values = tuple((k, _variant_value(where, k, v)) for k, v in body.items())
+            merged = replace(criteria, **dict(values))
+            if merged.payout_min >= merged.payout_max:
+                raise _bad(where, "payout_min", "배당성향 하한은 상한(payout_max)보다 작아야 해요.")
+            variants.append((str(name), values))
+        kw["variants"] = tuple(variants)
+    bt = BacktestSettings(**kw)
+    if not bt.start < bt.end:
+        raise _bad(_BT, "end", "끝 날짜(end)는 시작 날짜(start)보다 뒤여야 해요.")
+    if not bt.start <= bt.second_start < bt.end:
+        raise _bad(_BT, "second_start", "두 번째 실행 시작일은 start와 end 사이여야 해요.")
+    return bt
+
+
 def load_settings(path: Path) -> Settings:
     path = Path(path)
     try:
@@ -342,9 +456,10 @@ def load_settings(path: Path) -> Settings:
             fin_kwargs[key] = _checked("[financial]", key, fin_raw[key])
     financial = FinancialSettings(**fin_kwargs)
     score = _score_settings(raw)
+    backtest = _backtest_settings(raw, criteria)
 
     return Settings(
-        criteria=criteria, report=report, industry=industry, financial=financial, score=score,
+        criteria=criteria, report=report, industry=industry, financial=financial, score=score, backtest=backtest,
         calculator_path=p("calculator", "배당주_분석_계산기.xlsx"),
         dart_daily_budget=budget,
         data_dir=p("data_dir", "data"),

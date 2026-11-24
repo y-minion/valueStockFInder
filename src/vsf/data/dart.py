@@ -18,6 +18,10 @@ from vsf.data.store import Store
 BASE = "https://opendart.fss.or.kr/api/"
 CORPCODE_TTL = timedelta(days=7)
 QUOTA_MESSAGE = "오늘 DART 호출 한도에 가까워 멈췄어요. 내일 다시 실행하면 이어서 받아요."
+# 사업연도가 올해보다 이만큼 앞서면 '자료 없음'(013)도 기억해요. 그런 보고서는 이제 새로 올라오지 않아서,
+# 백테스트를 이어 받거나 다시 돌릴 때 같은 질문에 하루 한도를 쓰지 않아요. 작년 것은 늦게 올라올 수 있어 다시 물어요.
+REMEMBER_MISSING_AFTER = 2
+_MISSING = ":missing"
 
 
 class DartError(Exception):
@@ -97,6 +101,13 @@ class DartClient:
         data = self._request(endpoint, **params).json()
         return data if self._check(data.get("status", ""), data.get("message", "")) else None
 
+    def _known_missing(self, key: str) -> bool:
+        return self._store.get_json(key + _MISSING) is not None
+
+    def _note_missing(self, key: str, year: int) -> None:
+        if self._today().year - year >= REMEMBER_MISSING_AFTER:
+            self._store.put_json(key + _MISSING, {"status": "013"})
+
     def _corp_xml(self):
         key = "dart:corpcode"
         raw = self._store.get_bytes(key)
@@ -134,11 +145,16 @@ class DartClient:
         return data
 
     def financials(self, corp_code: str, year: int, report: str = "11011") -> FinRows | None:
-        """재무제표. 받은 보고서는 캐시해요(분기 보고서 포함). 아직 없는 보고서는 다음에 다시 물어요."""
+        """재무제표. 받은 보고서는 캐시해요(분기 보고서 포함). 아직 없는 보고서는 다음에 다시 물어요.
+
+        두 해 넘게 지난 사업연도의 '자료 없음'은 기억해서 다시 묻지 않아요 (REMEMBER_MISSING_AFTER).
+        """
         key = f"dart:{corp_code}:fin:{year}:{report}"
         c = self._store.get_json(key)
         if c is not None:
             return FinRows(c["rows"], c["fs"], c["rcept_no"])  # type: ignore[index]
+        if self._known_missing(key):
+            return None
         for fs in ("CFS", "OFS"):
             data = self._json("fnlttSinglAcntAll.json", corp_code=corp_code,
                               bsns_year=str(year), reprt_code=report, fs_div=fs)
@@ -148,19 +164,23 @@ class DartClient:
             result = FinRows(rows, fs, rows[0].get("rcept_no", ""))  # type: ignore[arg-type]
             self._store.put_json(key, {"rows": rows, "fs": fs, "rcept_no": result.rcept_no})
             return result
+        self._note_missing(key, year)
         return None
 
     def periodic(self, api: str, corp_code: str, year: int, report: str = "11011") -> list[dict] | None:
         """정기보고서 주요정보 하나(예: "stockTotqySttus", "tesstkAcqsDspsSttus", "alotMatter").
 
-        받으면 캐시하고, 자료가 없으면(013) None이고 캐시하지 않아요.
+        받으면 캐시하고, 자료가 없으면(013) None이에요. 두 해 넘게 지난 해의 '자료 없음'만 기억해요.
         """
         key = f"dart:{corp_code}:{api}:{year}:{report}"
         cached = self._store.get_json(key)
         if cached is not None:
             return cached  # type: ignore[return-value]
+        if self._known_missing(key):
+            return None
         data = self._json(f"{api}.json", corp_code=corp_code, bsns_year=str(year), reprt_code=report)
         if data is None:
+            self._note_missing(key, year)
             return None
         rows = data.get("list", [])
         self._store.put_json(key, rows)
@@ -171,9 +191,12 @@ class DartClient:
         cached = self._store.get_json(key)
         if cached is not None:
             return cached  # type: ignore[return-value]
+        if self._known_missing(key):
+            return None
         data = self._json("alotMatter.json", corp_code=corp_code,
                           bsns_year=str(year), reprt_code="11011")
         if data is None:
+            self._note_missing(key, year)
             return None
         rows = data.get("list", [])
         self._store.put_json(key, rows)

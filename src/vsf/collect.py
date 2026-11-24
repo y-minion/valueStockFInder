@@ -202,9 +202,12 @@ def assemble_for_year(ctx: _Context, item: Listed, latest: int, common: str | No
 
 
 def context_for(dart, krx, day: date, corp: dict[str, str], *, include_financial: bool = True,
-                fisis=None) -> _Context:
-    """그날 기준 조립 문맥: today·price_date=day, 그날 시세, 그 전 10년 연말 시세."""
-    return _Context(dart, day, day, krx.daily(day), corp, _year_ends(krx, day)[0], include_financial, fisis)
+                fisis=None, year_ends: dict[int, dict[str, PriceRow]] | None = None) -> _Context:
+    """그날 기준 조립 문맥: today·price_date=day, 그날 시세, 그 전 10년 연말 시세.
+
+    year_ends: 같은 해의 연말 시세를 이미 받았으면 넘겨요 (날마다 다시 읽지 않게)."""
+    ends = year_ends if year_ends is not None else _year_ends(krx, day)[0]
+    return _Context(dart, day, day, krx.daily(day), corp, ends, include_financial, fisis)
 
 
 def _capital(ctx: _Context, info: CompanyInfo, raw: dict, item: Listed) -> tuple[CapitalRatio | None, tuple[str, ...]]:

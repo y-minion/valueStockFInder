@@ -303,7 +303,14 @@ def _bt_targets(key: str, table) -> tuple[tuple[str, str], ...]:
     return tuple(out)
 
 
-def _backtest_settings(raw: dict) -> BacktestSettings:
+def _variant_value(where: str, key: str, value) -> float:
+    """[criteria]와 같은 검사예요. 하한(…_min)은 0도 돼요: 그 하한을 없앤 변형이에요."""
+    if _number(where, key, value) == 0 and key.endswith("_min"):
+        return 0.0
+    return _checked(where, key, value)
+
+
+def _backtest_settings(raw: dict, criteria: Criteria) -> BacktestSettings:
     sec = _section(raw, "backtest")
     _no_unknown(_BT, sec, _BT_KEYS)
     kw: dict = {}
@@ -345,8 +352,13 @@ def _backtest_settings(raw: dict) -> BacktestSettings:
         for name, body in table.items():
             if not isinstance(body, dict):
                 raise _bad(_BT, "variants", f'"{name}"은(는) {{ 키 = 값 }} 모양이어야 해요.')
-            _no_unknown(f"[backtest.variants] {name}", body, crit_fields)
-            variants.append((str(name), tuple((k, _number(_BT, k, v)) for k, v in body.items())))
+            where = f"[backtest.variants] {name}"
+            _no_unknown(where, body, crit_fields)
+            values = tuple((k, _variant_value(where, k, v)) for k, v in body.items())
+            merged = replace(criteria, **dict(values))
+            if merged.payout_min >= merged.payout_max:
+                raise _bad(where, "payout_min", "배당성향 하한은 상한(payout_max)보다 작아야 해요.")
+            variants.append((str(name), values))
         kw["variants"] = tuple(variants)
     bt = BacktestSettings(**kw)
     if not bt.start < bt.end:
@@ -444,7 +456,7 @@ def load_settings(path: Path) -> Settings:
             fin_kwargs[key] = _checked("[financial]", key, fin_raw[key])
     financial = FinancialSettings(**fin_kwargs)
     score = _score_settings(raw)
-    backtest = _backtest_settings(raw)
+    backtest = _backtest_settings(raw, criteria)
 
     return Settings(
         criteria=criteria, report=report, industry=industry, financial=financial, score=score, backtest=backtest,

@@ -268,6 +268,9 @@ cma = [["214980", 2018-01-01], ["357870", 2020-07-07]]
     ("startt = 2019-01-01", "startt"),
     ('[backtest.benchmarks]\n"x" = "stock:1"', "etf:"),
     ('[backtest.variants]\n"x" = { nope = 1 }', "nope"),
+    ('[backtest.variants]\n"x" = { payout_min = 1.5 }', "payout_min"),
+    ('[backtest.variants]\n"x" = { roe_min = -1 }', "roe_min"),
+    ('[backtest.variants]\n"x" = { payout_min = 0.7 }', "payout_min"),     # 상한(0.6)보다 커요
 ])
 def test_backtest_rejects_bad_values(tmp_path, body, word):
     with pytest.raises(ConfigError, match=word):

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import bisect
 import re
 import sys
 import traceback
@@ -25,6 +26,7 @@ from vsf.data.dart import DartQuotaExceeded
 from vsf.data.fisis import FisisClient
 from vsf.data.store import Store
 
+CMA_LOOKBACK = 10      # CMA 대용 ETF 시세가 빈 날, 그 전 종가를 이만큼(거래일) 거슬러 찾아요
 PAUSE = ("오늘 자료 받기 한도에 닿아 여기서 멈췄어요. 받은 자료는 저장했으니, 내일 `uv run backtest.py`를 다시 "
          "실행하면 이어서 받아요.")
 
@@ -42,14 +44,30 @@ def _fisis_for(keys: Keys, store: Store) -> Callable[[date], object | None]:
     return at
 
 
+def _close_before(market: Market, code: str, day: date) -> float | None:
+    """day 전 CMA_LOOKBACK 거래일 안에서 가장 가까운 종가."""
+    days = market.trading_days()
+    i = bisect.bisect_left(days, day)
+    for d in reversed(days[max(0, i - CMA_LOOKBACK):i]):
+        if close := market.etf_close(d, code):
+            return close
+    return None
+
+
 def _cma_growth(market: Market, schedule: tuple[tuple[str, date], ...]) -> Callable[[date, date], float]:
-    """그날 쓰는 CMA 대용 ETF의 종가 비율. 두 날 중 하나라도 시세가 없으면 1.0이에요."""
+    """그날 쓰는 CMA 대용 ETF의 종가 비율. 그날 시세가 없으면 1.0이에요.
+
+    앞 날 시세가 비면 그 전 마지막 종가와 비교해요. 빈 날 사이의 이자를 잃지 않아요.
+    """
     def growth(prev: date, day: date) -> float:
         code = next((c for c, since in reversed(schedule) if since <= day), None)
         if code is None:
             return 1.0
-        a, b = market.etf_close(prev, code), market.etf_close(day, code)
-        return b / a if a and b else 1.0
+        b = market.etf_close(day, code)
+        if not b:
+            return 1.0
+        a = market.etf_close(prev, code) or _close_before(market, code, prev)
+        return b / a if a else 1.0
     return growth
 
 
@@ -105,6 +123,7 @@ def _run(settings: Settings, keys: Keys, store: Store, deps: Deps, no_open: bool
     second_rows = (_rows(settings, market, vintages, second_days, second_starts, bt.benchmarks + bt.second_benchmarks)
                    if second_days else [])
     meta = {"start": bt.start, "end": bt.end, "second_start": bt.second_start,
+            "monthly": bt.monthly, "max_holdings": bt.max_holdings, "cost_rate": bt.cost_rate,
             "vintages": sum(len(v) for v in vintages.values()),
             "substitutes": sum(1 for vs in vintages.values() for v in vs if v.substitute),
             "failures": dict(Counter(_reason(r) for _, _, r in failures))}

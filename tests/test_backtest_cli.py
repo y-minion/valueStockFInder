@@ -4,9 +4,11 @@ from dataclasses import replace
 from datetime import date, timedelta
 from pathlib import Path
 
-from fakes import _BASE, FakeDart, FakeKrx, _listed, corp_of
+import pytest
+from fakes import _BASE, FakeDart, FakeKrx, _listed, corp_of, mem_store
 from helpers import write_settings
-from vsf.backtest.cli import main
+from vsf.backtest.cli import _cma_growth, main
+from vsf.backtest.market import Market
 from vsf.cli import Deps
 
 KEYS = '[dart]\napi_key = "fake-dart-key"\n[krx]\nauth_key = "fake-krx-key"\n'
@@ -103,3 +105,25 @@ def test_unexpected_error_is_logged_without_keys(tmp_path, capsys):
     logs = list((tmp_path / "data" / "logs").glob("backtest-error-*.log"))
     assert len(logs) == 1 and "Traceback" in logs[0].read_text(encoding="utf-8")
     assert "fake-krx-key" not in logs[0].read_text(encoding="utf-8")
+
+
+def test_page_header_follows_the_backtest_settings(tmp_path):
+    path = _settings(tmp_path)
+    text = path.read_text(encoding="utf-8")
+    for key, value in (("monthly", "1000000"), ("max_holdings", "3"), ("cost_rate", "0.001")):
+        text = re.sub(rf"^{key} = \S+", f"{key} = {value}", text, count=1, flags=re.M)
+    path.write_text(text, encoding="utf-8")
+    assert main(["--settings", str(path), "--keys", str(tmp_path / "keys.toml"), "--no-open"],
+                deps=_deps(_dart(), [])) == 0
+    page = PAGE(tmp_path).read_text(encoding="utf-8")
+    assert "매달 첫 거래일에 100만 원" in page and "최대 3개" in page and "각각 0.1%를" in page
+    assert "130만" not in page and "0.25%" not in page
+
+
+def test_cma_growth_keeps_the_return_over_a_day_without_a_close():
+    # CMA 대용 ETF 시세가 하루 비어도, 다음 날 그 전 종가와 비교해서 이자를 잃지 않아요.
+    d1, d2, d3 = date(2026, 3, 2), date(2026, 3, 3), date(2026, 3, 4)
+    rows = {d: {"000270": replace(_BASE[6], date=d)} for d in (d1, d2, d3)}
+    krx = FakeKrx(ITEMS[:1], rows, etf={d1: {"214980": 100.0}, d3: {"214980": 102.0}})
+    growth = _cma_growth(Market(krx, mem_store(), d1, d3, today=TODAY), (("214980", date(2018, 1, 1)),))
+    assert growth(d1, d2) == 1.0 and growth(d2, d3) == pytest.approx(1.02)

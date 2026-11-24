@@ -13,6 +13,7 @@ from pathlib import Path
 
 from vsf.backtest.metrics import cash_share, max_drawdown, unit_values, xirr, yearly_returns
 from vsf.backtest.simulate import FLAG_GATES, HOLDING, SimResult, Trade
+from vsf.config import BacktestSettings
 
 MINUS = "−"
 NOTES = (
@@ -21,8 +22,13 @@ NOTES = (
     "관문 ④(사람의 판단)는 과거로 재현할 수 없어서 빠졌어요. 매수선 이하면 산다고 봤어요.",
     "정정된 사업보고서는 정정본 숫자를 써요. 공시일은 원본 공시일이에요.",
     "소수점 주식을 허용했어요. 실제로는 1주 단위라 비싼 종목은 조금 다를 수 있어요.",
-    "살 때와 팔 때 각각 0.25%를 비용으로 뺐어요. ISA라 세금은 빼지 않았어요.",
 )
+COST_NOTE = "살 때와 팔 때 각각 {cost}를 비용으로 뺐어요. ISA라 세금은 빼지 않았어요."
+
+
+def _percent(rate: float) -> str:
+    """0.0025 → "0.25%", 0.001 → "0.1%"."""
+    return f"{rate * 100:.4f}".rstrip("0").rstrip(".") + "%"
 
 
 @dataclass(frozen=True)
@@ -231,9 +237,13 @@ padding:8px 10px;font-size:12px;color:var(--ink);pointer-events:none;box-shadow:
 def write_backtest_report(main: list[Row], second: list[Row], meta: dict, out_dir: Path, today: date) -> Path:
     """reports/backtest/<오늘>/index.html을 써요."""
     start, end = meta.get("start"), meta.get("end")
+    bt = BacktestSettings()
+    monthly, most = meta.get("monthly", bt.monthly), meta.get("max_holdings", bt.max_holdings)
+    cost = meta.get("cost_rate", bt.cost_rate)
     rules = [r for r in main if r.kind == "규칙"]
-    parts = [f"<h1>계산기 백테스트</h1><p class=sub>{_e(start)} ~ {_e(end)} · 매달 첫 거래일에 130만 원 · 매수선 이하인 종목을 "
-             "싼 순서로 최대 5개 · 보수적 적정가에 닿으면 팔고 다른 싼 종목으로 갈아타요 · 살 게 없으면 CMA</p>"
+    parts = [f"<h1>계산기 백테스트</h1><p class=sub>{_e(start)} ~ {_e(end)} · 매달 첫 거래일에 {_e(money(monthly))} · "
+             f"매수선 이하인 종목을 싼 순서로 최대 {_e(most)}개 · 보수적 적정가에 닿으면 팔고 다른 싼 종목으로 갈아타요 · "
+             "살 게 없으면 CMA</p>"
              f"<p class=sub>만든 날 {today.isoformat()}</p>",
              "<h2>한눈에</h2>", _summary_table(main)]
     if second:
@@ -247,7 +257,8 @@ def write_backtest_report(main: list[Row], second: list[Row], meta: dict, out_di
     parts += ["<h2>자료 안내</h2><ul>",
               f"<li>판정 묶음 {meta.get('vintages', 0):,}개 (그중 금융회사 대체 자료 {meta.get('substitutes', 0):,}개)</li>",
               f"<li>못 만든 묶음: {fail_text}</li>"]
-    parts += [f"<li>{_e(n)}</li>" for n in NOTES] + ["</ul>"]
+    notes = (*NOTES, COST_NOTE.format(cost=_percent(cost)))
+    parts += [f"<li>{_e(n)}</li>" for n in notes] + ["</ul>"]
     page = (f'<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,'
             f'initial-scale=1"><title>계산기 백테스트</title><style>{CSS}</style></head><body><main>{"".join(parts)}</main>'
             "</body></html>")

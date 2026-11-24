@@ -220,7 +220,7 @@ def test_fingerprint_survives_json_round_trip():
 import re  # noqa: E402
 from datetime import date  # noqa: E402
 
-from vsf.config import BacktestSettings  # noqa: E402
+from vsf.config import BacktestSettings, Variant  # noqa: E402
 
 
 def _backtest_settings(tmp_path, body: str | None) -> Path:
@@ -254,7 +254,7 @@ cma = [["214980", 2018-01-01], ["357870", 2020-07-07]]
     assert (s.start, s.end, s.monthly, s.max_holdings) == (date(2019, 1, 2), date(2020, 12, 30), 1_000_000.0, 3)
     assert s.cma == (("214980", date(2018, 1, 1)), ("357870", date(2020, 7, 7)))
     assert s.benchmarks == (("나스닥100", "etf:133690"), ("코스피", "index:코스피"))
-    assert s.variants == (("지금 규칙", ()), ("배당성향 하한 없음", (("payout_min", 0.0),)))
+    assert s.variants == (Variant("지금 규칙"), Variant("배당성향 하한 없음", criteria=(("payout_min", 0.0),)))
     assert s.second_benchmarks == BacktestSettings().second_benchmarks       # 안 적은 표는 기본값
 
 
@@ -271,6 +271,11 @@ cma = [["214980", 2018-01-01], ["357870", 2020-07-07]]
     ('[backtest.variants]\n"x" = { payout_min = 1.5 }', "payout_min"),
     ('[backtest.variants]\n"x" = { roe_min = -1 }', "roe_min"),
     ('[backtest.variants]\n"x" = { payout_min = 0.7 }', "payout_min"),     # 상한(0.6)보다 커요
+    ('[backtest.variants]\n"x" = { normal_eps = "highest" }', "normal_eps"),
+    ('[backtest.variants]\n"x" = { sell_on_gate_fail = 1 }', "sell_on_gate_fail"),
+    ("max_weight = 0", "max_weight"),
+    ("max_weight = 1.5", "max_weight"),
+    ("min_trading_value = -1", "min_trading_value"),
 ])
 def test_backtest_rejects_bad_values(tmp_path, body, word):
     with pytest.raises(ConfigError, match=word):
@@ -279,3 +284,27 @@ def test_backtest_rejects_bad_values(tmp_path, body, word):
 
 def test_repo_settings_backtest_section_is_the_default():
     assert load_settings(ROOT / "settings.toml").backtest == BacktestSettings()
+
+def test_backtest_variant_options_and_portfolio_limits(tmp_path):
+    s = load_settings(_backtest_settings(tmp_path, '''
+[backtest]
+max_weight = 0.25
+min_trading_value = 50000000
+[backtest.variants]
+"지금 규칙" = {}
+"낮은 EPS" = { normal_eps = "lower" }
+"탈락하면 팔기" = { sell_on_gate_fail = true }
+"하한 없음" = { payout_min = 0.0 }
+''')).backtest
+    assert (s.max_weight, s.min_trading_value) == (0.25, 50_000_000.0)
+    assert s.variants == (Variant("지금 규칙"), Variant("낮은 EPS", normal_eps="lower"),
+                          Variant("탈락하면 팔기", sell_on_gate_fail=True),
+                          Variant("하한 없음", criteria=(("payout_min", 0.0),)))
+
+
+def test_default_backtest_has_the_strategy_check_variants_and_limits():
+    bt = BacktestSettings()
+    assert (bt.max_weight, bt.min_trading_value) == (0.2, 100_000_000.0)
+    assert [v.name for v in bt.variants] == ["지금 규칙", "배당성향 하한 없음", "정상 EPS = 5년 평균과 최근 해 중 낮은 값",
+                                             "관문 ①② 탈락하면 팔기"]
+    assert ("코스피 200 배당 포함 (25/50 NTR)", "index:코스피 200 25/50 NTR 지수") in bt.second_benchmarks

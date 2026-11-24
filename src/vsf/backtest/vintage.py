@@ -14,7 +14,7 @@ from vsf.backtest.model import Verdict, Vintage
 from vsf.backtest.past_financial import substitute_inputs
 from vsf.collect import (FIRST_DIV_YEAR, NO_CORP, NO_FIN, PREFERRED, _capital, _Excluded, _Failed, _prepare,
                          _year_ends, assemble_for_year, context_for, preferred_base, prior_div_years)
-from vsf.config import Settings
+from vsf.config import Settings, Variant
 from vsf.data.assemble import Assembled, CompanyInfo, PreferredShare, dividend_history, preferred_kind
 from vsf.data.dart import DartQuotaExceeded
 from vsf.data.krx import Listed
@@ -28,13 +28,24 @@ NO_PAST_ROE = "과거 ROE 자료가 없는 금융회사예요 (대체 자료)"
 PROGRESS_EVERY = 200
 
 
-def _verdict(info: CompanyInfo, asm: Assembled, settings: Settings,
-             overrides: tuple[tuple[str, float], ...]) -> Verdict:
+def _lower_normal_eps(asm: Assembled) -> Assembled:
+    """정상 EPS를 5년 평균과 최근 해 EPS 중 낮은 값으로 (엑셀 B95 '정상 EPS 직접 입력' 칸에 넣는 것과 같아요)."""
+    eps = [y.eps for y in asm.inputs.years if y.eps is not None]
+    latest = asm.inputs.years[-1].eps
+    if not eps or latest is None:
+        return asm
+    lower = min(sum(eps) / len(eps), latest)
+    return replace(asm, inputs=replace(asm.inputs, normal_eps_override=lower))
+
+
+def _verdict(info: CompanyInfo, asm: Assembled, settings: Settings, variant: Variant) -> Verdict:
     """변형 기준값은 업종 기준값([industry.overrides])보다 나중에 덮어써요. 변형 이름대로 모든 업종에 같이 써요."""
-    values = dict(overrides)
+    values = dict(variant.criteria)
     industry = {code: {**rule, **values} for code, rule in settings.industry.overrides.items()}
     s = replace(settings, criteria=replace(settings.criteria, **values),
                 industry=replace(settings.industry, overrides=industry))
+    if variant.normal_eps == "lower":
+        asm = _lower_normal_eps(asm)
     res = evaluate_one(info, asm, s, None)
     b105, b107 = res.cells.get("B105"), res.cells.get("B107")
     return Verdict(gate1=res.summary.gate1, gate2=res.summary.gate2,
@@ -166,8 +177,7 @@ def build_vintages(universe: dict[str, Listed], filings: dict[tuple[str, int], d
                     raise
                 info, asm = _substitute(ctx, dart, item, common, year, max(market.today.year, year + 1) - 1)
                 substitute = True
-            verdicts = {name: _verdict(info, asm, settings, overrides)
-                        for name, overrides in settings.backtest.variants}
+            verdicts = {v.name: _verdict(info, asm, settings, v) for v in settings.backtest.variants}
         except DartQuotaExceeded:
             raise
         except (_Excluded, _Failed) as e:

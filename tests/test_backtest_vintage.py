@@ -7,6 +7,7 @@ from fakes import _BASE, FakeDart, FakeKrx, _listed, corp_of, mem_store
 from helpers import div_rows, settings_with
 from vsf.backtest.market import Market
 from vsf.backtest.vintage import build_vintages
+from vsf.config import BacktestSettings
 from vsf.data.dart import DartError, DartQuotaExceeded, FinRows
 
 FILED = date(2026, 3, 28)                 # 토요일
@@ -39,7 +40,7 @@ def test_vintage_starts_on_first_trading_day_after_filing():
     v = vintages["000270"][0]
     assert (v.year, v.filed, v.valid_from) == (2025, FILED, date(2026, 3, 30)) and failures == []
     assert v.corp_code == corp_of("000270") and v.shares and v.dps == 6800.0 and not v.substitute
-    assert set(v.verdicts) == {"지금 규칙", "배당성향 하한 없음"}
+    assert set(v.verdicts) == {x.name for x in BacktestSettings().variants}
 
 
 def test_report_filed_on_a_trading_day_starts_the_next_trading_day():
@@ -214,3 +215,20 @@ def test_variant_overrides_win_over_industry_overrides():
                                  lambda day: None, progress=lambda s: None)
     v = vintages["000270"][0].verdicts
     assert v["지금 규칙"].gate2 == "탈락" and v["배당성향 하한 없음"].gate2 != "탈락"
+
+LOWER = "정상 EPS = 5년 평균과 최근 해 중 낮은 값"
+
+
+def _low_latest_eps(fin: FinRows) -> FinRows:
+    """A 보고서의 당기 EPS만 1,000원으로 (실적이 꺾인 해)."""
+    rows = [{**r, "thstrm_amount": "1000"} if "EarningsLossPerShare" in r["account_id"] else r for r in fin.rows]
+    return replace(fin, rows=rows)
+
+
+def test_lower_normal_eps_variant_uses_the_lower_of_average_and_latest():
+    # 실적이 꺾인 해에는 5년 평균보다 최근 해 EPS가 낮아요. 이 변형은 낮은 쪽으로 적정가를 계산해요.
+    fin = {2025: _low_latest_eps(_BASE[2]), 2023: _BASE[3]}
+    fell = _build(FakeDart({"000270": FakeDart.entry(fin=fin)}), items=(KIA,))[0]["000270"][0].verdicts
+    assert fell[LOWER].fair < fell["지금 규칙"].fair
+    usual = _build(FakeDart.two_companies(), items=(KIA,))[0]["000270"][0].verdicts
+    assert usual[LOWER].fair == usual["지금 규칙"].fair                  # 최근 해가 평균보다 높으면 같아요

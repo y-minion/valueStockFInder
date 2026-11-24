@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 import pytest
 from vsf.backtest.model import Verdict, Vintage
-from vsf.backtest.simulate import Rules, simulate
+from vsf.backtest.simulate import HOLDING, SOLD_GATES, Rules, simulate
 from vsf.data.store import PriceRow
 
 RULES = Rules(monthly=1_300_000.0, max_holdings=5, cost_rate=0.0025, min_trade=10_000.0)
@@ -30,10 +30,11 @@ def vin(code, fair, *, buy=None, valid_from=EARLY, corp=None, gate1="통과", ga
                    verdicts={V: Verdict(gate1, gate2, fair, buy, "A 이론", uncomputable)})
 
 
-def market(table: dict[date, dict[str, float]], shares: dict[str, float] | None = None):
-    """{날: {코드: 종가}} → stocks(day). 상장주식수는 shares(없으면 100만 주)."""
+def market(table: dict[date, dict[str, float]], shares: dict[str, float] | None = None,
+           values: dict[str, float] | None = None):
+    """{날: {코드: 종가}} → stocks(day). 상장주식수는 shares(없으면 100만 주), 거래대금은 values(없으면 빈칸)."""
     def stocks(day):
-        return {c: PriceRow(day, c, f"종목{c}", "KOSPI", p, (shares or {}).get(c, 1e6))
+        return {c: PriceRow(day, c, f"종목{c}", "KOSPI", p, (shares or {}).get(c, 1e6), (values or {}).get(c))
                 for c, p in table.get(day, {}).items()}
     return stocks
 
@@ -42,9 +43,10 @@ def flat(ds, closes: dict[str, float]) -> dict[date, dict[str, float]]:
     return {d: dict(closes) for d in ds}
 
 
-def run(ds, table, vintages, *, rules=RULES, cma=lambda a, b: 1.0, month_starts=None, listed=None, shares=None):
+def run(ds, table, vintages, *, rules=RULES, cma=lambda a, b: 1.0, month_starts=None, listed=None, shares=None,
+        values=None):
     codes = {c for row in table.values() for c in row}
-    return simulate(ds, market(table, shares), vintages, V, rules, cma,
+    return simulate(ds, market(table, shares, values), vintages, V, rules, cma,
                     listed or (lambda d: codes), set(month_starts or {ds[0]}))
 
 
@@ -251,3 +253,42 @@ def test_blocked_bundle_is_not_bought():
     v = replace(vin("000270", 10_000.0), blocked=True)
     r = run(ds, flat(ds, {"000270": 5_000.0}), {"000270": [v]})
     assert r.trades == [] and r.cash[-1] == RULES.monthly
+
+def test_one_stock_gets_at_most_max_weight_of_the_portfolio():
+    # 살 종목이 하나뿐이어도 전체 평가액의 20%까지만 사고, 나머지는 CMA에 둬요.
+    ds = weekdays(date(2020, 1, 6), 3)
+    r = run(ds, flat(ds, {"A": 5_000.0}), {"A": [vin("A", 10_000.0)]}, rules=replace(RULES, max_weight=0.2))
+    assert trade(r, "A").invested == pytest.approx(0.2 * RULES.monthly)
+    assert r.cash[-1] == pytest.approx(0.8 * RULES.monthly)
+
+
+def test_cash_capped_by_one_stock_goes_to_the_others():
+    # 한 종목이 한도에 닿으면 남는 돈은 자리가 남은 다른 종목에 나눠요.
+    ds = weekdays(date(2020, 1, 6), 1)
+    table = flat(ds, {"A": 5_000.0, "B": 5_000.0, "C": 5_000.0})
+    vs = {c: [vin(c, 10_000.0)] for c in "ABC"}
+    r = run(ds, table, vs, rules=replace(RULES, max_weight=0.5))
+    assert [trade(r, c).invested for c in "ABC"] == [pytest.approx(RULES.monthly / 3)] * 3       # 한도 밖이라 그대로
+    r = run(ds, table, vs, rules=replace(RULES, max_weight=0.3))
+    assert [trade(r, c).invested for c in "ABC"] == [pytest.approx(0.3 * RULES.monthly)] * 3
+    assert r.cash[-1] == pytest.approx(0.1 * RULES.monthly)
+
+
+def test_stocks_trading_too_little_are_not_bought():
+    # 20일 평균 거래대금이 기준보다 적으면 사지 않아요. 종가에 원하는 만큼 살 수 없어요.
+    ds = weekdays(date(2020, 1, 6), 3)
+    rules = replace(RULES, min_trading_value=1e8)
+    args = (ds, flat(ds, {"A": 5_000.0}), {"A": [vin("A", 10_000.0)]})
+    assert run(*args, rules=rules, values={"A": 5e7}).trades == []
+    assert run(*args, rules=rules).trades == []                                  # 거래대금을 모르면 사지 않아요
+    assert trade(run(*args, rules=rules, values={"A": 2e8}), "A").invested == RULES.monthly
+
+
+def test_sell_on_gate_fail_sells_when_a_new_bundle_fails_the_gates():
+    # 이 비교 규칙은 산 뒤 새 사업보고서로 관문 ①②가 탈락이 되면 그날 종가에 팔아요.
+    ds = weekdays(date(2020, 1, 6), 6)
+    bundles = {"A": [vin("A", 10_000.0), vin("A", 10_000.0, valid_from=ds[3], gate2="탈락", year=2019)]}
+    table = flat(ds, {"A": 5_000.0})
+    assert trade(run(ds, table, bundles), "A").reason == HOLDING
+    sold = trade(run(ds, table, bundles, rules=replace(RULES, sell_on_gate_fail=True)), "A")
+    assert (sold.reason, sold.sell_date) == (SOLD_GATES, ds[3])

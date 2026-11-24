@@ -17,7 +17,9 @@ from vsf.config import BacktestSettings
 
 MINUS = "−"
 NOTES = (
-    "비교 지수·ETF는 분배금(배당)이 빠진 가격이에요. 그래서 실제보다 낮게 나와요 (고배당 ETF는 연 4~5% 정도).",
+    "비교 지수·ETF는 분배금(배당)이 빠진 가격이에요. 그래서 실제보다 낮게 나와요 (고배당 ETF는 연 4~5% 정도). "
+    "'배당 포함'이라고 적은 코스피 200 25/50 NTR만 세금을 뗀 배당을 다시 넣은 지수예요 (2020년부터 있어요).",
+    "비교 규칙은 '지금 규칙'에서 한 가지씩만 바꿨어요. 어떤 규칙이 결과를 바꾸는지 따로 볼 수 있어요.",
     "계산기 쪽은 받은 배당을 넣어 계산했어요. 결산일에 들고 있던 주식 수 × 그해 DPS를 사업보고서 공시일에 받는다고 봤어요.",
     "관문 ④(사람의 판단)는 과거로 재현할 수 없어서 빠졌어요. 매수선 이하면 산다고 봤어요.",
     "정정된 사업보고서는 정정본 숫자를 써요. 공시일은 원본 공시일이에요.",
@@ -240,10 +242,13 @@ def write_backtest_report(main: list[Row], second: list[Row], meta: dict, out_di
     bt = BacktestSettings()
     monthly, most = meta.get("monthly", bt.monthly), meta.get("max_holdings", bt.max_holdings)
     cost = meta.get("cost_rate", bt.cost_rate)
+    weight, thin = meta.get("max_weight", bt.max_weight), meta.get("min_trading_value", bt.min_trading_value)
+    limits = ((f" · 한 종목은 전체의 {_e(_percent(weight))}까지" if weight < 1 else "")
+              + (f" · 20일 평균 거래대금 {_e(money(thin))} 미만은 사지 않아요" if thin > 0 else ""))
     rules = [r for r in main if r.kind == "규칙"]
     parts = [f"<h1>계산기 백테스트</h1><p class=sub>{_e(start)} ~ {_e(end)} · 매달 첫 거래일에 {_e(money(monthly))} · "
-             f"매수선 이하인 종목을 싼 순서로 최대 {_e(most)}개 · 보수적 적정가에 닿으면 팔고 다른 싼 종목으로 갈아타요 · "
-             "살 게 없으면 CMA</p>"
+             f"매수선 이하인 종목을 싼 순서로 최대 {_e(most)}개{limits} · 보수적 적정가에 닿으면 팔고 다른 싼 종목으로 "
+             "갈아타요 · 살 게 없으면 CMA</p>"
              f"<p class=sub>만든 날 {today.isoformat()}</p>",
              "<h2>한눈에</h2>", _summary_table(main)]
     if second:

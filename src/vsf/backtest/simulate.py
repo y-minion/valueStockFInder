@@ -1,12 +1,14 @@
 """백테스트 시뮬레이션 (2026-11-24 백테스트 설계 3장).
 
 매 거래일 종가로 이 순서대로 처리해요: CMA 이자 → 입금 → 배당 → 팔기 → 사기 → 평가.
+살 때는 한 종목이 전체 평가액의 max_weight를 넘지 않게 하고, 20일 평균 거래대금이 기준보다 적은 종목은 사지 않아요.
 판정은 회사×사업연도 판정 묶음(Vintage)에서 그날 쓸 수 있는 마지막 묶음만 봐요 (valid_from ≤ 그날).
 자료(DART·KRX)는 부르지 않는 순수 계산이라, 시세와 묶음을 넘겨주면 돼요.
 """
 from __future__ import annotations
 
 from bisect import bisect_right
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import date
@@ -18,11 +20,13 @@ from vsf.data.store import PriceRow
 SOLD_FAIR = "적정가 도달"
 SOLD_UNCOMPUTABLE = "적정가 계산 불가"
 SOLD_DELISTED = "상장폐지"
+SOLD_GATES = "관문 ①② 탈락"
 HOLDING = "보유 중"
 FLAG_NO_FAIR = "적정가를 구하지 못해 들고 있어요"
 FLAG_GATES = "산 뒤 관문 ①② 탈락으로 바뀌었어요"
 FLAG_DROP = "하루에 40% 넘게 떨어졌어요(분할·합병 확인 필요)"
 DROP_RATIO = 0.6
+LIQUIDITY_DAYS = 20       # 거래대금 평균을 내는 거래일 수
 
 
 @dataclass(frozen=True)
@@ -31,6 +35,9 @@ class Rules:
     max_holdings: int
     cost_rate: float
     min_trade: float
+    max_weight: float = 1.0           # 살 때 한 종목이 전체 평가액에서 넘지 않을 비중 (1이면 제한 없음)
+    min_trading_value: float = 0.0    # 20일 평균 거래대금이 이보다 적으면 사지 않아요 (0이면 보지 않음)
+    sell_on_gate_fail: bool = False   # 산 뒤 관문 ①②가 탈락으로 바뀌면 팔아요
 
 
 @dataclass(frozen=True)
@@ -89,6 +96,25 @@ def _basis(v: Vintage, verdict: Verdict, fair: float, buy: float) -> str:
     return text + (" · 금융회사 대체 자료" if v.substitute else "")
 
 
+def _allocate(cash: float, rooms: list[float]) -> list[float]:
+    """cash를 대상마다 똑같이 나누되 대상마다 자리(room)를 넘지 않게. 자리에 닿고 남은 돈은 자리가 남은 대상에 다시 나눠요."""
+    give = [0.0] * len(rooms)
+    left, open_ = cash, [i for i, room in enumerate(rooms) if room > 0]
+    while left > 1e-9 and open_:
+        share = left / len(open_)
+        still = []
+        for i in open_:
+            add = min(share, rooms[i] - give[i])
+            give[i] += add
+            left -= add
+            if rooms[i] - give[i] > 1e-9:
+                still.append(i)
+        if len(still) == len(open_):
+            break
+        open_ = still
+    return give
+
+
 class _Book:
     """코드마다 valid_from 순 묶음. 그날 쓸 수 있는 마지막 묶음을 찾아요."""
 
@@ -124,6 +150,7 @@ class _Sim:
         self.trades: list[Trade] = []
         self.deposits: list[tuple[date, float]] = []
         self.flags: list[str] = []
+        self.recent: deque[dict[str, PriceRow]] = deque(maxlen=LIQUIDITY_DAYS)   # 최근 거래일 시세 (거래대금 평균용)
 
     # ---- 판정 ----
 
@@ -208,6 +235,7 @@ class _Sim:
             self.cash += self.rules.monthly
             self.deposits.append((day, self.rules.monthly))
         prices = self.stocks(day)
+        self.recent.append(prices)
         self._track_splits(day, prices)
         self._dividends(day)
         self._delist(day)
@@ -229,11 +257,14 @@ class _Sim:
             if found is None:
                 continue
             v, verdict = found
-            if verdict.gate1 == "탈락" or verdict.gate2 == "탈락":
+            failed = verdict.gate1 == "탈락" or verdict.gate2 == "탈락"
+            if failed:
                 pos.flag(FLAG_GATES)
             fair, _ = self._levels(code, v, verdict)
             if verdict.uncomputable:
                 self._close(pos, day, row.close, SOLD_UNCOMPUTABLE)
+            elif failed and self.rules.sell_on_gate_fail:
+                self._close(pos, day, row.close, SOLD_GATES)
             elif fair is None:
                 pos.flag(FLAG_NO_FAIR)
             elif row.close >= fair:
@@ -253,7 +284,7 @@ class _Sim:
             if row is None or row.close is None:
                 continue
             found = self._verdict(code, day)
-            if found is None or not found[1].cheap_ok() or found[0].blocked:
+            if found is None or not found[1].cheap_ok() or found[0].blocked or not self._liquid(code):
                 continue
             v, verdict = found
             fair, buy = self._levels(code, v, verdict)
@@ -262,6 +293,13 @@ class _Sim:
             out.append((row.close / fair, code, v, verdict, fair, buy))
         out.sort(key=lambda c: (c[0], c[1]))
         return out
+
+    def _liquid(self, code: str) -> bool:
+        """최근 LIQUIDITY_DAYS 거래일 평균 거래대금이 기준 이상인지. 거래대금이 있는 날만 평균해요 (모르면 사지 않아요)."""
+        if self.rules.min_trading_value <= 0:
+            return True
+        values = [p[code].value for p in self.recent if code in p and p[code].value is not None]
+        return bool(values) and sum(values) / len(values) >= self.rules.min_trading_value
 
     def _buy(self, day: date, prices: dict[str, PriceRow]) -> None:
         if self.cash < self.rules.min_trade:
@@ -285,20 +323,27 @@ class _Sim:
             slots -= 1
         if not targets:
             return
-        each = self.cash / len(targets)
-        if each < self.rules.min_trade:
-            return
-        for code, v, verdict, fair, buy in targets:
+        total = self.value()
+        rooms = []
+        for code, *_ in targets:
+            pos = self.positions.get(code)
+            held = pos.shares * prices[code].close if pos is not None else 0.0
+            rooms.append(max(0.0, self.rules.max_weight * total - held))
+        for (code, v, verdict, fair, buy), amount in zip(targets, _allocate(self.cash, rooms), strict=True):
+            if amount < self.rules.min_trade:
+                continue
             close = prices[code].close
             pos = self.positions.get(code)
             if pos is None:
                 pos = self.positions[code] = _Position(code=code, name=v.name, corp=v.corp_code, first_buy=day,
                                                        basis=_basis(v, verdict, fair, buy))
-            pos.shares += each * (1 - self.rules.cost_rate) / close
-            pos.invested += each
+            pos.shares += amount * (1 - self.rules.cost_rate) / close
+            pos.invested += amount
             pos.last_buy = day
             pos.last_close = close
-        self.cash = 0.0
+            self.cash -= amount
+        if abs(self.cash) < 1e-6:
+            self.cash = 0.0
 
     def value(self) -> float:
         return self.cash + sum(p.shares * (p.last_close or 0.0) for p in self.positions.values())

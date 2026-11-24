@@ -125,6 +125,18 @@ class ScoreSettings:
     items: dict[str, ItemRule] = field(default_factory=_default_items)
 
 
+NORMAL_EPS_RULES = ("average", "lower")   # 정상 EPS: 5년 평균 | 5년 평균과 최근 해 EPS 중 낮은 값
+
+
+@dataclass(frozen=True)
+class Variant:
+    """백테스트에서 '지금 규칙'과 나란히 돌려 볼 규칙 하나 ([backtest.variants])."""
+    name: str
+    criteria: tuple[tuple[str, float], ...] = ()   # [criteria] 바꾸기
+    normal_eps: str = "average"                   # "lower"면 정상 EPS = 5년 평균과 최근 해 EPS 중 낮은 값
+    sell_on_gate_fail: bool = False               # 산 뒤 관문 ①②가 탈락으로 바뀌면 팔기
+
+
 @dataclass(frozen=True)
 class BacktestSettings:
     """백테스트 (2026-11-24 백테스트 설계 3·5·7장). 기준값은 [criteria] 그대로이고, 여기는 투자 규칙과 비교 대상이에요."""
@@ -135,15 +147,22 @@ class BacktestSettings:
     max_holdings: int = 5
     cost_rate: float = 0.0025
     min_trade: float = 10_000.0
+    max_weight: float = 0.2                   # 살 때 한 종목이 전체 평가액에서 넘지 않을 비중
+    min_trading_value: float = 100_000_000.0  # 20일 평균 거래대금이 이보다 적은 종목은 사지 않아요 (원)
     cma: tuple[tuple[str, date], ...] = (("214980", date(2018, 1, 1)), ("357870", date(2020, 7, 7)))
     benchmarks: tuple[tuple[str, str], ...] = (
         ("나스닥100 (TIGER 미국나스닥100)", "etf:133690"),
         ("S&P500 환헤지 (TIGER 미국S&P500선물(H))", "etf:143850"),
         ("코스피", "index:코스피"),
         ("고배당 ETF (PLUS 고배당주)", "etf:161510"))
-    second_benchmarks: tuple[tuple[str, str], ...] = (("S&P500 환노출 (TIGER 미국S&P500)", "etf:360750"),)
-    variants: tuple[tuple[str, tuple[tuple[str, float], ...]], ...] = (
-        ("지금 규칙", ()), ("배당성향 하한 없음", (("payout_min", 0.0),)))
+    second_benchmarks: tuple[tuple[str, str], ...] = (
+        ("S&P500 환노출 (TIGER 미국S&P500)", "etf:360750"),
+        ("코스피 200 배당 포함 (25/50 NTR)", "index:코스피 200 25/50 NTR 지수"))
+    variants: tuple[Variant, ...] = (
+        Variant("지금 규칙"),
+        Variant("배당성향 하한 없음", criteria=(("payout_min", 0.0),)),
+        Variant("정상 EPS = 5년 평균과 최근 해 중 낮은 값", normal_eps="lower"),
+        Variant("관문 ①② 탈락하면 팔기", sell_on_gate_fail=True))
 
 
 @dataclass(frozen=True)
@@ -279,7 +298,8 @@ def _score_settings(raw: dict) -> ScoreSettings:
 
 _BT = "[backtest]"
 _BT_KEYS = {"start", "end", "second_start", "monthly", "max_holdings", "cost_rate", "min_trade", "cma",
-            "benchmarks", "second_benchmarks", "variants"}
+            "benchmarks", "second_benchmarks", "variants", "max_weight", "min_trading_value"}
+_VARIANT_KEYS = {"normal_eps", "sell_on_gate_fail"}
 
 
 def _bt_date(key: str, value) -> date:
@@ -317,9 +337,13 @@ def _backtest_settings(raw: dict, criteria: Criteria) -> BacktestSettings:
     for key in ("start", "end", "second_start"):
         if key in sec:
             kw[key] = _bt_date(key, sec[key])
-    for key in ("monthly", "min_trade", "cost_rate"):
+    for key in ("monthly", "min_trade", "cost_rate", "max_weight", "min_trading_value"):
         if key in sec:
             kw[key] = _number(_BT, key, sec[key])
+    if "max_weight" in kw and not 0 < kw["max_weight"] <= 1:
+        raise _bad(_BT, "max_weight", f"0보다 크고 1 이하여야 해요 (지금: {kw['max_weight']}). 20%는 0.2로 써요.")
+    if "min_trading_value" in kw and kw["min_trading_value"] < 0:
+        raise _bad(_BT, "min_trading_value", "0 이상이어야 해요 (0이면 거래대금을 보지 않아요).")
     if "monthly" in kw and kw["monthly"] <= 0:
         raise _bad(_BT, "monthly", "0보다 커야 해요.")
     if "min_trade" in kw and kw["min_trade"] < 0:
@@ -353,12 +377,19 @@ def _backtest_settings(raw: dict, criteria: Criteria) -> BacktestSettings:
             if not isinstance(body, dict):
                 raise _bad(_BT, "variants", f'"{name}"은(는) {{ 키 = 값 }} 모양이어야 해요.')
             where = f"[backtest.variants] {name}"
-            _no_unknown(where, body, crit_fields)
-            values = tuple((k, _variant_value(where, k, v)) for k, v in body.items())
+            _no_unknown(where, body, crit_fields | _VARIANT_KEYS)
+            values = tuple((k, _variant_value(where, k, v)) for k, v in body.items() if k in crit_fields)
             merged = replace(criteria, **dict(values))
             if merged.payout_min >= merged.payout_max:
                 raise _bad(where, "payout_min", "배당성향 하한은 상한(payout_max)보다 작아야 해요.")
-            variants.append((str(name), values))
+            normal = body.get("normal_eps", "average")
+            if normal not in NORMAL_EPS_RULES:
+                raise _bad(where, "normal_eps", f'"average"(5년 평균) 또는 "lower"(평균과 최근 해 중 낮은 값)여야 해요 '
+                                               f"(지금: {normal!r}).")
+            sell = body.get("sell_on_gate_fail", False)
+            if not isinstance(sell, bool):
+                raise _bad(where, "sell_on_gate_fail", "true 또는 false여야 해요.")
+            variants.append(Variant(str(name), values, normal, sell))
         kw["variants"] = tuple(variants)
     bt = BacktestSettings(**kw)
     if not bt.start < bt.end:

@@ -66,7 +66,9 @@ def test_end_to_end_small_market_writes_report(tmp_path, capsys):
     opened: list = []
     assert _run(tmp_path, _dart(), opened) == 0
     html = PAGE(tmp_path).read_text(encoding="utf-8")
-    for s in ("계산기 백테스트", "지금 규칙", "배당성향 하한 없음", "나스닥100", "코스피", "S&amp;P500 환노출", "2026-04-01부터"):
+    for s in ("계산기 백테스트", "지금 규칙", "배당성향 하한 없음", "나스닥100", "코스피", "S&amp;P500 환노출", "2026-04-01부터",
+              "정상 EPS = 5년 평균과 최근 해 중 낮은 값", "관문 ①② 탈락하면 팔기", "코스피 200 배당 포함 (25/50 NTR)",
+              "배당을 다시 넣은 지수"):
         assert s in html, s
     assert opened == [PAGE(tmp_path)]
     out = capsys.readouterr().out
@@ -110,13 +112,15 @@ def test_unexpected_error_is_logged_without_keys(tmp_path, capsys):
 def test_page_header_follows_the_backtest_settings(tmp_path):
     path = _settings(tmp_path)
     text = path.read_text(encoding="utf-8")
-    for key, value in (("monthly", "1000000"), ("max_holdings", "3"), ("cost_rate", "0.001")):
+    for key, value in (("monthly", "1000000"), ("max_holdings", "3"), ("cost_rate", "0.001"), ("max_weight", "0.3"),
+                       ("min_trading_value", "200000000")):
         text = re.sub(rf"^{key} = \S+", f"{key} = {value}", text, count=1, flags=re.M)
     path.write_text(text, encoding="utf-8")
     assert main(["--settings", str(path), "--keys", str(tmp_path / "keys.toml"), "--no-open"],
                 deps=_deps(_dart(), [])) == 0
     page = PAGE(tmp_path).read_text(encoding="utf-8")
     assert "매달 첫 거래일에 100만 원" in page and "최대 3개" in page and "각각 0.1%를" in page
+    assert "한 종목은 전체의 30%까지" in page and "20일 평균 거래대금 2억 원 미만은 사지 않아요" in page
     assert "130만" not in page and "0.25%" not in page
 
 

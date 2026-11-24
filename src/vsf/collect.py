@@ -95,12 +95,21 @@ def _year_ends(krx, today: date) -> tuple[dict[int, dict[str, PriceRow]], list[i
     return out, missing
 
 
-def _process(ctx: _Context, item: Listed, common: str | None = None) -> tuple[CompanyInfo, Assembled]:
-    """종목 하나. 제외면 _Excluded, 못 받으면 _Failed, 한도·네트워크 오류는 그대로 올라가요.
+@dataclass(frozen=True)
+class _Prepared:
+    """종목 하나의 회사 확인을 마친 값 (사업연도를 고르기 전)."""
+    corp: str
+    base: str
+    price: PriceRow
+    base_price: PriceRow
+    raw: dict
+    info: CompanyInfo
+    kind: str
 
-    common: 우선주면 같은 회사 보통주 코드. 회사 정보·재무는 보통주 회사 것, 주가·배당은 우선주 것이에요.
-    """
-    dart, today, code = ctx.dart, ctx.today, item.code
+
+def _prepare(ctx: _Context, item: Listed, common: str | None) -> _Prepared:
+    """제외·고유번호·주가·회사 정보 확인. 제외면 _Excluded, 못 받으면 _Failed예요."""
+    dart, code = ctx.dart, item.code
     if common is None:
         reason = listing_exclusion(item)
         if reason:
@@ -125,24 +134,22 @@ def _process(ctx: _Context, item: Listed, common: str | None = None) -> tuple[Co
                        induty_code=str(raw.get("induty_code") or ""), acc_mt=str(raw.get("acc_mt") or ""),
                        financial_kind=financial_kind(raw) if ctx.include_financial else None, common_code=common,
                        est_dt=str(raw.get("est_dt") or ""))
-    kind = preferred_kind(item.name) if common else "보통"
+    return _Prepared(corp, base, price, base_price, raw, info, preferred_kind(item.name) if common else "보통")
 
-    latest = today.year - 1
+
+def _assemble_year(ctx: _Context, item: Listed, common: str | None, prep: _Prepared, latest: int,
+                   divs: list[dict] | None, quick_fail: bool) -> tuple[CompanyInfo, Assembled]:
+    """사업연도 latest로 조립해요. divs는 latest년 배당 보고서(없으면 None)예요."""
+    dart, code, corp, info = ctx.dart, item.code, prep.corp, prep.info
     div_reports: dict[int, list[dict]] = {}
-    divs = dart.dividends(corp, latest)
-    if divs is None:
-        divs = dart.dividends(corp, latest - 1)
-        if divs is not None:
-            latest -= 1
     if divs is not None:
         div_reports[latest] = divs
-
-    if quick_fail_check(divs, latest, kind):
-        return info, assemble_quick_fail(info, latest, div_reports, price, ctx.price_date, kind)
+    if quick_fail and quick_fail_check(divs, latest, prep.kind):
+        return info, assemble_quick_fail(info, latest, div_reports, prep.price, ctx.price_date, prep.kind)
     fin_a = dart.financials(corp, latest)
     if fin_a is None:
         raise _Failed(NO_FIN.format(year=latest))
-    if is_holding_like(raw):     # 64992와 큰 분류 649…: 유동자산이 없으면 금융지주, 있으면 일반 회사
+    if is_holding_like(prep.raw):     # 64992와 큰 분류 649…: 유동자산이 없으면 금융지주, 있으면 일반 회사
         if is_financial_holding(fin_a):
             if not ctx.include_financial:
                 raise _Excluded("금융지주")
@@ -153,15 +160,51 @@ def _process(ctx: _Context, item: Listed, common: str | None = None) -> tuple[Co
             rows = dart.dividends(corp, y)
             if rows is not None:
                 div_reports[y] = rows
+    base = prep.base
     year_end = {y: rows[base] for y, rows in ctx.year_ends.items() if base in rows}
     pref = None if common is None else PreferredShare(
-        code, item.name, price, {y: rows[code] for y, rows in ctx.year_ends.items() if code in rows})
-    capital, notes = _capital(ctx, info, raw, item)
-    got = assemble(info, latest, fin_a, fin_b, div_reports, year_end, base_price, ctx.price_date, capital,
+        code, item.name, prep.price, {y: rows[code] for y, rows in ctx.year_ends.items() if code in rows})
+    capital, notes = _capital(ctx, info, prep.raw, item)
+    got = assemble(info, latest, fin_a, fin_b, div_reports, year_end, prep.base_price, ctx.price_date, capital,
                    preferred=pref)
     if notes:
         got = replace(got, notes=got.notes + notes)
     return info, got
+
+
+def _process(ctx: _Context, item: Listed, common: str | None = None) -> tuple[CompanyInfo, Assembled]:
+    """종목 하나. 제외면 _Excluded, 못 받으면 _Failed, 한도·네트워크 오류는 그대로 올라가요.
+
+    common: 우선주면 같은 회사 보통주 코드. 회사 정보·재무는 보통주 회사 것, 주가·배당은 우선주 것이에요.
+    """
+    prep = _prepare(ctx, item, common)
+    latest = ctx.today.year - 1
+    divs = ctx.dart.dividends(prep.corp, latest)
+    if divs is None:
+        divs = ctx.dart.dividends(prep.corp, latest - 1)
+        if divs is not None:
+            latest -= 1
+    return _assemble_year(ctx, item, common, prep, latest, divs, quick_fail=True)
+
+
+def assemble_for_year(ctx: _Context, item: Listed, latest: int, common: str | None = None, *,
+                      divs: list[dict] | None = None, quick_fail: bool = True) -> tuple[CompanyInfo, Assembled]:
+    """사업연도 latest로 종목 하나를 조립해요. _process는 '오늘'로 latest를 고른 뒤 같은 조립을 해요.
+
+    divs: 이미 받은 latest년 배당 보고서 (다시 받지 않게). 없으면 여기서 받아요.
+    quick_fail=False면 최근 해 배당이 0이어도 재무를 받아 끝까지 조립해요 (백테스트: 들고 있던 종목의 적정가).
+    제외면 _Excluded, 못 받으면 _Failed가 그대로 올라가요.
+    """
+    prep = _prepare(ctx, item, common)
+    if divs is None:
+        divs = ctx.dart.dividends(prep.corp, latest)
+    return _assemble_year(ctx, item, common, prep, latest, divs, quick_fail)
+
+
+def context_for(dart, krx, day: date, corp: dict[str, str], *, include_financial: bool = True,
+                fisis=None) -> _Context:
+    """그날 기준 조립 문맥: today·price_date=day, 그날 시세, 그 전 10년 연말 시세."""
+    return _Context(dart, day, day, krx.daily(day), corp, _year_ends(krx, day)[0], include_financial, fisis)
 
 
 def _capital(ctx: _Context, info: CompanyInfo, raw: dict, item: Listed) -> tuple[CapitalRatio | None, tuple[str, ...]]:

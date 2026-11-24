@@ -405,3 +405,39 @@ def test_company_founding_date_is_kept_for_dividend_years():
     dart = FakeDart({"000270": FakeDart.entry(est_dt="20170302")})
     info, _ = collect_one(dart, FakeKrx.default(), mem_store(), D, "000270")
     assert info.est_dt == "20170302"
+
+
+# ---- 사업연도를 받아 조립하기 (2026-11-24 백테스트 플랜 Task 4) ----
+
+from fakes import SYN_PRICE_DATE, _DEFAULT_DIVS  # noqa: E402
+from vsf.collect import assemble_for_year, context_for  # noqa: E402
+
+
+def _kia_item(krx):
+    return next(x for x in krx.listed(SYN_PRICE_DATE) if x.code == "000270")
+
+
+def test_assemble_for_year_can_skip_quick_fail():
+    divs = {**_DEFAULT_DIVS, 2025: div_rows("-", "6,500", "5,600")}           # 최근 해 배당 0
+    dart = FakeDart({"000270": FakeDart.entry(dividends=divs)})
+    krx = FakeKrx.default()
+    ctx = context_for(dart, krx, SYN_PRICE_DATE, dart.corp_codes())
+    assert assemble_for_year(ctx, _kia_item(krx), 2025)[1].quick_fail is True
+    full = assemble_for_year(ctx, _kia_item(krx), 2025, quick_fail=False)[1]
+    assert full.quick_fail is False and full.inputs.years[-1].eps is not None
+
+
+def test_assemble_for_year_uses_the_given_year_and_prefetched_dividends():
+    dart = FakeDart({"000270": FakeDart.entry()})
+    krx = FakeKrx.default()
+    ctx = context_for(dart, krx, SYN_PRICE_DATE, dart.corp_codes())
+    info, got = assemble_for_year(ctx, _kia_item(krx), 2025, divs=_DEFAULT_DIVS[2025])
+    assert info.code == "000270" and got.latest_year == 2025 and not got.quick_fail
+    assert dart.calls_of("dividends") == 4                 # 2023·2021·2019·2017만 받아요 (2025는 받은 걸 써요)
+
+
+def test_context_for_uses_that_days_prices_and_year_ends():
+    krx = FakeKrx.default()
+    ctx = context_for(FakeDart.default(), krx, SYN_PRICE_DATE, {})
+    assert ctx.today == ctx.price_date == SYN_PRICE_DATE and "000270" in ctx.prices
+    assert set(ctx.year_ends) == {2021, 2022, 2023, 2024, 2025}

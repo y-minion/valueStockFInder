@@ -22,6 +22,9 @@ TABLES: dict[str, list[tuple[str, str, tuple[str, ...]]]] = {
     "보험": [("H", "SH021", ("D", "A")), ("I", "SI021", ("D", "A"))],
     "증권": [("F", "SF308", ("E",))],
 }
+# 과거 금융회사 ROE (2026-11-24 백테스트): 종류 → (partDiv, listNo, 계정). 금융지주·은행은 FISIS가 ROE를 줘요.
+ROE_TABLES: dict[str, tuple[str, str, str]] = {"금융지주": ("L", "SL010", "G"), "은행": ("A", "SA017", "A7")}
+LIFE_EQUITY: tuple[str, str, str] = ("H", "SH004", "A2")     # 생명보험 개별 자본총계(원). 손해보험 표는 아직 못 찾았어요
 _AUTH_CODES = {"010", "011", "012", "013"}
 _CLOSED = ("[폐]", "[closed]")
 _KR_DROP = re.compile(r"\(주\)|주식회사|\s+")
@@ -157,6 +160,35 @@ class FisisClient:
         self._store.put_json(key, {"value": found.value, "base_month": found.base_month,
                                    "source": found.source} if found else {})
         return found
+
+    def annual_values(self, part_div: str, names: tuple[str, ...], list_no: str, account: str,
+                      y0: int, y1: int) -> dict[int, float]:
+        """해마다(12월) 한 계정 값. term="Y"로 y0~y1년 12월을 받아요. 회사를 못 찾으면 {}예요.
+
+        ROE는 적자 해에 음수일 수 있어서 0 이하도 그대로 둬요. 받은 값은 저장해 두고 다시 써요.
+        """
+        code = self._match(part_div, names)
+        if code is None:
+            return {}
+        key = f"fisis:annual:{code}:{list_no}:{account}:{y0}:{y1}"
+        cached = self._store.get_json(key)
+        if cached is None:
+            result = self._call("statisticsInfoSearch", {
+                "lang": "kr", "financeCd": code, "listNo": list_no, "term": "Y",
+                "startBaseMm": f"{y0}12", "endBaseMm": f"{y1}12"})
+            cached = {}
+            for r in _rows(result):
+                month = str(r.get("base_month", ""))
+                if r.get("account_cd") != account or len(month) != 6 or not month.endswith("12"):
+                    continue
+                try:
+                    v = float(str(r.get("a")).replace(",", ""))
+                except ValueError:
+                    continue
+                if math.isfinite(v):
+                    cached[month[:4]] = v
+            self._store.put_json(key, cached)
+        return {int(y): float(v) for y, v in cached.items()}  # type: ignore[union-attr]
 
     def capital_ratio(self, kind: str, names: tuple[str, ...]) -> CapitalRatio | None:
         for part_div, list_no, accounts in TABLES.get(kind, []):

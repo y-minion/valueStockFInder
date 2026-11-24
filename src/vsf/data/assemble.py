@@ -568,6 +568,14 @@ def _dps(div_reports: dict[int, list[dict]], latest: int, years: range, out: _Ou
     return {y: values.get(y) for y in years}
 
 
+def dividend_history(div_reports: dict[int, list[dict]], latest: int, kind: str = "보통",
+                     est_dt: str = "") -> tuple[dict[int, float | None], tuple[str, ...], tuple[str, ...]]:
+    """L−9…L DPS와 플래그·메모. assemble와 같은 규칙(설립 전 해 빈칸, 액면가 맞춤)이에요 (백테스트가 같이 써요)."""
+    out = _Out()
+    values = _dps(div_reports, latest, range(latest - 9, latest + 1), out, kind, est_dt)
+    return values, tuple(out.flags), tuple(out.notes)
+
+
 def _rebase(values: dict[int, float | None], r: float, latest: int, cell: Callable[[int], str],
             out: _Out) -> dict[int, float | None]:
     """L년 말 뒤 분할: 주당 값을 r로 나눠 지금 주식 수 기준으로 맞추고, 그 칸 출처 글에 덧붙여요."""
